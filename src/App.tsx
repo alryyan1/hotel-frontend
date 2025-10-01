@@ -1,14 +1,15 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import LoginPage from './pages/LoginPage'
-import MainLayout from './layouts/MainLayout'
-import Dashboard from './pages/Dashboard'
-import Rooms from './pages/Rooms'
-import Floors from './pages/Floors'
-import RoomTypes from './pages/RoomTypes'
-import RoomStatuses from './pages/RoomStatuses'
-import Reservations from './pages/Reservations'
-import Settings from './pages/Settings'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 import './App.css'
+import LoginPage from './pages/LoginPage';
+import Dashboard from './pages/Dashboard';
+import Rooms from './pages/Rooms';
+import Floors from './pages/Floors';
+import RoomTypes from './pages/RoomTypes';
+import RoomStatuses from './pages/RoomStatuses';
+import Reservations from './pages/Reservations';
+import Settings from './pages/Settings';
+import MainLayout from './layouts/MainLayout';
 
 function App() {
   const token = localStorage.getItem('token')

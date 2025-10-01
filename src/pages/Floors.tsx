@@ -111,13 +111,13 @@ export default function Floors() {
   return (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Floors Management</Typography>
+        <Typography variant="h5" fontWeight={700}>إدارة الأدوار</Typography>
         <Button
           variant="contained"
           startIcon={<Add />}
           onClick={() => setOpenDialog(true)}
         >
-          Add Floor
+          إضافة دور
         </Button>
       </Box>
 
@@ -128,11 +128,11 @@ export default function Floors() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Floor Number</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Rooms Count</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>رقم الدور</TableCell>
+              <TableCell>الاسم</TableCell>
+              <TableCell>الوصف</TableCell>
+              <TableCell>عدد الغرف</TableCell>
+              <TableCell>إجراءات</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -145,12 +145,12 @@ export default function Floors() {
                 <TableCell>{floor.description || '-'}</TableCell>
                 <TableCell>{floor.rooms_count || 0}</TableCell>
                 <TableCell>
-                  <Tooltip title="Edit">
+                  <Tooltip title="تعديل">
                     <IconButton onClick={() => handleEdit(floor)}>
                       <Edit />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete">
+                  <Tooltip title="حذف">
                     <IconButton onClick={() => handleDelete(floor.id)} color="error">
                       <Delete />
                     </IconButton>
@@ -163,13 +163,13 @@ export default function Floors() {
       </TableContainer>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingFloor ? 'Edit Floor' : 'Add New Floor'}</DialogTitle>
+        <DialogTitle>{editingFloor ? 'تعديل دور' : 'إضافة دور جديد'}</DialogTitle>
         <form onSubmit={handleSubmit}>
           <DialogContent>
             <TextField
               autoFocus
               margin="dense"
-              label="Floor Number"
+              label="رقم الدور"
               type="number"
               fullWidth
               variant="outlined"
@@ -180,7 +180,7 @@ export default function Floors() {
             />
             <TextField
               margin="dense"
-              label="Floor Name"
+              label="اسم الدور"
               fullWidth
               variant="outlined"
               value={form.name}
@@ -189,7 +189,7 @@ export default function Floors() {
             />
             <TextField
               margin="dense"
-              label="Description"
+              label="الوصف"
               fullWidth
               multiline
               rows={3}
@@ -199,9 +199,9 @@ export default function Floors() {
             />
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button onClick={handleCloseDialog}>إلغاء</Button>
             <Button type="submit" variant="contained" disabled={loading}>
-              {loading ? 'Saving...' : (editingFloor ? 'Update' : 'Create')}
+              {loading ? 'جارٍ الحفظ...' : (editingFloor ? 'تحديث' : 'إنشاء')}
             </Button>
           </DialogActions>
         </form>

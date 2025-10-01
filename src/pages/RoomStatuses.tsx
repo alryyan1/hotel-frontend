@@ -138,13 +138,13 @@ export default function RoomStatuses() {
   return (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Room Statuses Management</Typography>
+        <Typography variant="h5" fontWeight={700}>إدارة حالات الغرف</Typography>
         <Button
           variant="contained"
           startIcon={<Add />}
           onClick={() => setOpenDialog(true)}
         >
-          Add Room Status
+          إضافة حالة غرفة
         </Button>
       </Box>
 
@@ -155,11 +155,11 @@ export default function RoomStatuses() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Code</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Color</TableCell>
-              <TableCell>Rooms Count</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>الرمز</TableCell>
+              <TableCell>الاسم</TableCell>
+              <TableCell>اللون</TableCell>
+              <TableCell>عدد الغرف</TableCell>
+              <TableCell>إجراءات</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -194,12 +194,12 @@ export default function RoomStatuses() {
                 </TableCell>
                 <TableCell>{roomStatus.rooms_count || 0}</TableCell>
                 <TableCell>
-                  <Tooltip title="Edit">
+                  <Tooltip title="تعديل">
                     <IconButton onClick={() => handleEdit(roomStatus)}>
                       <Edit />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete">
+                  <Tooltip title="حذف">
                     <IconButton onClick={() => handleDelete(roomStatus.id)} color="error">
                       <Delete />
                     </IconButton>
@@ -212,7 +212,7 @@ export default function RoomStatuses() {
       </TableContainer>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingRoomStatus ? 'Edit Room Status' : 'Add New Room Status'}</DialogTitle>
+        <DialogTitle>{editingRoomStatus ? 'تعديل حالة غرفة' : 'إضافة حالة غرفة جديدة'}</DialogTitle>
         <form onSubmit={handleSubmit}>
           <DialogContent>
             <Grid container spacing={2}>
@@ -220,19 +220,19 @@ export default function RoomStatuses() {
                 <TextField
                   autoFocus
                   margin="dense"
-                  label="Code"
+                  label="الرمز"
                   fullWidth
                   variant="outlined"
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                   required
-                  helperText="Unique code for the status (e.g., AVAIL, OCCUPIED, MAINT)"
+                  helperText="رمز فريد للحالة (مثل: AVAIL, OCCUPIED, MAINT)"
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   margin="dense"
-                  label="Name"
+                  label="الاسم"
                   fullWidth
                   variant="outlined"
                   value={form.name}
@@ -242,7 +242,7 @@ export default function RoomStatuses() {
               </Grid>
               <Grid item xs={12}>
                 <FormControl fullWidth margin="dense">
-                  <InputLabel>Color</InputLabel>
+                  <InputLabel>اللون</InputLabel>
                   <Select
                     value={form.color}
                     label="Color"
@@ -270,9 +270,9 @@ export default function RoomStatuses() {
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button onClick={handleCloseDialog}>إلغاء</Button>
             <Button type="submit" variant="contained" disabled={loading}>
-              {loading ? 'Saving...' : (editingRoomStatus ? 'Update' : 'Create')}
+              {loading ? 'جارٍ الحفظ...' : (editingRoomStatus ? 'تحديث' : 'إنشاء')}
             </Button>
           </DialogActions>
         </form>

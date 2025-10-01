@@ -36,7 +36,10 @@ export default function RoomTypes() {
     name: '',
     capacity: 1,
     base_price: 0,
-    description: ''
+    description: '',
+    area: '',
+    beds_count: '',
+    amenities: []
   })
 
   useEffect(() => {
@@ -64,7 +67,10 @@ export default function RoomTypes() {
       const submitData = {
         ...form,
         capacity: parseInt(form.capacity),
-        base_price: parseFloat(form.base_price)
+        base_price: parseFloat(form.base_price),
+        area: form.area === '' ? null : parseInt(form.area),
+        beds_count: form.beds_count === '' ? null : parseInt(form.beds_count),
+        amenities: form.amenities
       }
       
       if (editingRoomType) {
@@ -93,7 +99,10 @@ export default function RoomTypes() {
       name: roomType.name,
       capacity: roomType.capacity,
       base_price: roomType.base_price,
-      description: roomType.description || ''
+      description: roomType.description || '',
+      area: roomType.area ?? '',
+      beds_count: roomType.beds_count ?? '',
+      amenities: Array.isArray(roomType.amenities) ? roomType.amenities : []
     })
     setOpenDialog(true)
   }
@@ -115,20 +124,21 @@ export default function RoomTypes() {
 
   const handleCloseDialog = () => {
     setOpenDialog(false)
-    setForm({ code: '', name: '', capacity: 1, base_price: 0, description: '' })
+    setForm({ code: '', name: '', capacity: 1, base_price: 0, description: '', area: '', beds_count: '', amenities: [] })
+    setForm({ code: '', name: '', capacity: 1, base_price: 0, description: '', area: '', beds_count: '', amenities: [] })
     setEditingRoomType(null)
   }
 
   return (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>Room Types Management</Typography>
+        <Typography variant="h5" fontWeight={700}>إدارة أنواع الغرف</Typography>
         <Button
           variant="contained"
           startIcon={<Add />}
           onClick={() => setOpenDialog(true)}
         >
-          Add Room Type
+          إضافة نوع غرفة
         </Button>
       </Box>
 
@@ -139,13 +149,16 @@ export default function RoomTypes() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Code</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Capacity</TableCell>
-              <TableCell>Base Price</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Rooms Count</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>الرمز</TableCell>
+              <TableCell>الاسم</TableCell>
+              <TableCell>السعة</TableCell>
+              <TableCell>السعر الأساسي</TableCell>
+              <TableCell>المساحة (م²)</TableCell>
+              <TableCell>عدد الأسرة</TableCell>
+              <TableCell>المرافق</TableCell>
+              <TableCell>الوصف</TableCell>
+              <TableCell>عدد الغرف</TableCell>
+              <TableCell>إجراءات</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -159,15 +172,18 @@ export default function RoomTypes() {
                   <Chip label={`${roomType.capacity} guests`} color="info" variant="outlined" />
                 </TableCell>
                 <TableCell>${roomType.base_price}</TableCell>
+                <TableCell>{roomType.area ?? '-'}</TableCell>
+                <TableCell>{roomType.beds_count ?? '-'}</TableCell>
+                <TableCell>{Array.isArray(roomType.amenities) && roomType.amenities.length ? roomType.amenities.join(', ') : '-'}</TableCell>
                 <TableCell>{roomType.description || '-'}</TableCell>
                 <TableCell>{roomType.rooms_count || 0}</TableCell>
                 <TableCell>
-                  <Tooltip title="Edit">
+                  <Tooltip title="تعديل">
                     <IconButton onClick={() => handleEdit(roomType)}>
                       <Edit />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete">
+                  <Tooltip title="حذف">
                     <IconButton onClick={() => handleDelete(roomType.id)} color="error">
                       <Delete />
                     </IconButton>
@@ -180,7 +196,7 @@ export default function RoomTypes() {
       </TableContainer>
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{editingRoomType ? 'Edit Room Type' : 'Add New Room Type'}</DialogTitle>
+        <DialogTitle>{editingRoomType ? 'تعديل نوع غرفة' : 'إضافة نوع غرفة جديد'}</DialogTitle>
         <form onSubmit={handleSubmit}>
           <DialogContent>
             <Grid container spacing={2}>
@@ -188,19 +204,19 @@ export default function RoomTypes() {
                 <TextField
                   autoFocus
                   margin="dense"
-                  label="Code"
+                  label="الرمز"
                   fullWidth
                   variant="outlined"
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                   required
-                  helperText="Unique code for the room type (e.g., STD, DEL, SUITE)"
+                  helperText="رمز فريد لنوع الغرفة (مثل: STD, DEL, SUITE)"
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   margin="dense"
-                  label="Name"
+                  label="الاسم"
                   fullWidth
                   variant="outlined"
                   value={form.name}
@@ -211,7 +227,7 @@ export default function RoomTypes() {
               <Grid item xs={12} md={6}>
                 <TextField
                   margin="dense"
-                  label="Capacity"
+                  label="السعة"
                   type="number"
                   fullWidth
                   variant="outlined"
@@ -224,7 +240,7 @@ export default function RoomTypes() {
               <Grid item xs={12} md={6}>
                 <TextField
                   margin="dense"
-                  label="Base Price"
+                  label="السعر الأساسي"
                   type="number"
                   fullWidth
                   variant="outlined"
@@ -232,15 +248,48 @@ export default function RoomTypes() {
                   onChange={(e) => setForm({ ...form, base_price: e.target.value })}
                   required
                   inputProps={{ min: 0, step: 0.01 }}
-                  InputProps={{
-                    startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
-                  }}
+                  InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>﷼</Typography> }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  margin="dense"
+                  label="المساحة (م²)"
+                  type="number"
+                  fullWidth
+                  variant="outlined"
+                  value={form.area}
+                  onChange={(e) => setForm({ ...form, area: e.target.value })}
+                  inputProps={{ min: 0 }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  margin="dense"
+                  label="عدد الأسرة"
+                  type="number"
+                  fullWidth
+                  variant="outlined"
+                  value={form.beds_count}
+                  onChange={(e) => setForm({ ...form, beds_count: e.target.value })}
+                  inputProps={{ min: 1, max: 10 }}
                 />
               </Grid>
               <Grid item xs={12}>
                 <TextField
                   margin="dense"
-                  label="Description"
+                  label="المرافق (افصل بينها بفاصلة)"
+                  fullWidth
+                  variant="outlined"
+                  value={Array.isArray(form.amenities) ? form.amenities.join(', ') : ''}
+                  onChange={(e) => setForm({ ...form, amenities: e.target.value.split(',').map(a => a.trim()).filter(Boolean) })}
+                  helperText="مثال: تكييف، ثلاجة، واي فاي، شرفة"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  margin="dense"
+                  label="الوصف"
                   fullWidth
                   multiline
                   rows={3}
@@ -252,9 +301,9 @@ export default function RoomTypes() {
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button onClick={handleCloseDialog}>إلغاء</Button>
             <Button type="submit" variant="contained" disabled={loading}>
-              {loading ? 'Saving...' : (editingRoomType ? 'Update' : 'Create')}
+              {loading ? 'جارٍ الحفظ...' : (editingRoomType ? 'تحديث' : 'إنشاء')}
             </Button>
           </DialogActions>
         </form>

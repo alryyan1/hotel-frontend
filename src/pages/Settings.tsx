@@ -69,50 +69,50 @@ export default function Settings() {
 
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Hotel Settings</Typography>
+      <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>إعدادات الفندق</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
       <Box component="form" onSubmit={handleSubmit}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
-            <TextField label="Official Name" value={form.official_name} onChange={e=>updateField('official_name', e.target.value)} required fullWidth />
+            <TextField label="الاسم الرسمي" value={form.official_name} onChange={e=>updateField('official_name', e.target.value)} required fullWidth />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField label="Trade Name" value={form.trade_name} onChange={e=>updateField('trade_name', e.target.value)} fullWidth />
+            <TextField label="الاسم التجاري" value={form.trade_name} onChange={e=>updateField('trade_name', e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12}>
-            <TextField label="Address" value={form.address_line} onChange={e=>updateField('address_line', e.target.value)} fullWidth />
+            <TextField label="العنوان" value={form.address_line} onChange={e=>updateField('address_line', e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="City" value={form.city} onChange={e=>updateField('city', e.target.value)} fullWidth />
+            <TextField label="المدينة" value={form.city} onChange={e=>updateField('city', e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="Postal Code" value={form.postal_code} onChange={e=>updateField('postal_code', e.target.value)} fullWidth />
+            <TextField label="الرمز البريدي" value={form.postal_code} onChange={e=>updateField('postal_code', e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="Country" value={form.country} onChange={e=>updateField('country', e.target.value)} fullWidth />
+            <TextField label="الدولة" value={form.country} onChange={e=>updateField('country', e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="Phone" value={form.phone} onChange={e=>updateField('phone', e.target.value)} fullWidth />
+            <TextField label="الهاتف" value={form.phone} onChange={e=>updateField('phone', e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="Email" type="email" value={form.email} onChange={e=>updateField('email', e.target.value)} fullWidth />
+            <TextField label="البريد الإلكتروني" type="email" value={form.email} onChange={e=>updateField('email', e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={4}>
-            <TextField label="Website" value={form.website} onChange={e=>updateField('website', e.target.value)} fullWidth />
+            <TextField label="الموقع الإلكتروني" value={form.website} onChange={e=>updateField('website', e.target.value)} fullWidth />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField label="Check-in Time" type="time" value={form.check_in_time} onChange={e=>updateField('check_in_time', e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+            <TextField label="وقت تسجيل الدخول" type="time" value={form.check_in_time} onChange={e=>updateField('check_in_time', e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField label="Check-out Time" type="time" value={form.check_out_time} onChange={e=>updateField('check_out_time', e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+            <TextField label="وقت تسجيل الخروج" type="time" value={form.check_out_time} onChange={e=>updateField('check_out_time', e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
           </Grid>
           <Grid item xs={12}>
-            <TextField label="Cancellation Policy" value={form.cancellation_policy} onChange={e=>updateField('cancellation_policy', e.target.value)} fullWidth multiline minRows={3} />
+            <TextField label="سياسة الإلغاء" value={form.cancellation_policy} onChange={e=>updateField('cancellation_policy', e.target.value)} fullWidth multiline minRows={3} />
           </Grid>
           <Grid item xs={12} md={6}>
             <Button component="label" variant="outlined">
-              Upload Logo
+              رفع الشعار
               <input hidden type="file" accept="image/*" onChange={e=>{ const f=e.target.files?.[0]; setLogoFile(f||null); if(f){setLogoPreview(URL.createObjectURL(f))}}} />
             </Button>
           </Grid>
@@ -120,7 +120,7 @@ export default function Settings() {
             {logoPreview && <Avatar src={logoPreview} variant="rounded" sx={{ width: 64, height: 64 }} />}
           </Grid>
           <Grid item xs={12}>
-            <Button type="submit" variant="contained" disabled={loading}>{loading ? 'Saving...' : 'Save Settings'}</Button>
+            <Button type="submit" variant="contained" disabled={loading}>{loading ? 'جارٍ الحفظ...' : 'حفظ الإعدادات'}</Button>
           </Grid>
         </Grid>
       </Box>
