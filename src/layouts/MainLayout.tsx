@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import type React from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, Settings, LogOut, PanelRight } from 'lucide-react'
 
 const drawerWidth = 240
 
-const navItems: Array<{ to: string; label: string; icon?: React.ReactNode }> = [
-  { to: '/', label: 'لوحة التحكم' },
-  { to: '/rooms', label: 'الغرف' },
-  { to: '/floors', label: 'الأدوار' },
-  { to: '/room-types', label: 'أنواع الغرف' },
-  { to: '/room-statuses', label: 'حالات الغرف' },
-  { to: '/reservations', label: 'الحجوزات' },
-  { to: '/settings', label: 'الإعدادات' },
+const navItems: Array<{ to: string; label: string; icon: React.ReactNode }> = [
+  { to: '/', label: 'لوحة التحكم', icon: <Home className="size-5" /> },
+  { to: '/rooms', label: 'الغرف', icon: <BedDouble className="size-5" /> },
+  { to: '/floors', label: 'الأدوار', icon: <Building2 className="size-5" /> },
+  { to: '/room-types', label: 'أنواع الغرف', icon: <Tags className="size-5" /> },
+  { to: '/room-statuses', label: 'حالات الغرف', icon: <ListChecks className="size-5" /> },
+  { to: '/reservations', label: 'الحجوزات', icon: <CalendarCheck2 className="size-5" /> },
+  { to: '/settings', label: 'الإعدادات', icon: <Settings className="size-5" /> },
 ]
 
 export default function MainLayout() {
@@ -30,30 +33,15 @@ export default function MainLayout() {
       {/* Top bar */}
       <header className="fixed top-0 inset-x-0 z-40 border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="flex items-center gap-2 px-4 h-14">
-          <button
-            className="rtl:ml-2 ltr:mr-2 inline-flex h-9 w-9 items-center justify-center rounded-md border bg-white hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-800"
-            onClick={() => setOpen(!open)}
-            aria-label="Toggle sidebar"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
+          <Button variant="outline" size="sm" className="rtl:ml-2 ltr:mr-2 h-9 w-9 p-0" onClick={() => setOpen(!open)} aria-label="Toggle sidebar">
+            <PanelRight className="size-4" />
+          </Button>
           <div className="font-extrabold text-lg">لوحة إدارة الفندق</div>
           <div className="ms-auto flex items-center gap-2">
-            <button
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded-md border px-3.5 h-9 text-sm bg-white hover:bg-neutral-50"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="size-4" />
               <span className="hidden sm:inline">تسجيل الخروج</span>
-            </button>
+            </Button>
           </div>
         </div>
       </header>
@@ -62,26 +50,39 @@ export default function MainLayout() {
       <aside
         className="fixed top-14 bottom-0 right-0 z-30 border-s bg-white"
         style={{ width: open ? drawerWidth : 72 }}
+        aria-label="الشريط الجانبي"
       >
-        <nav className="h-full overflow-y-auto py-3">
-          <ul className="px-2 space-y-1">
-            {navItems.map((item) => (
-              <li key={item.to}>
-                <NavLink
-                  to={item.to}
-                  className={({ isActive }) => [
-                    'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
-                    isActive ? 'bg-neutral-100 text-neutral-900' : 'hover:bg-neutral-100 text-neutral-700',
-                  ].join(' ')}
-                >
-                  {/* Placeholder circle icon */}
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-neutral-100 text-neutral-500">•</span>
-                  <span className={open ? 'whitespace-nowrap' : 'sr-only'}>{item.label}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <TooltipProvider>
+          <nav className="h-full overflow-y-auto py-3" role="navigation">
+            <ul className="px-2 space-y-1">
+              {navItems.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }: { isActive: boolean }) => [
+                      'group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring',
+                      isActive ? 'bg-neutral-100 text-neutral-900' : 'hover:bg-neutral-100 text-neutral-700',
+                    ].join(' ')}
+                  >
+                    <Tooltip delayDuration={200}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-neutral-100 text-neutral-700">
+                          {item.icon}
+                        </span>
+                      </TooltipTrigger>
+                      {!open && (
+                        <TooltipContent side="left" className="px-2 py-1 text-xs">
+                          {item.label}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                    <span className={open ? 'whitespace-nowrap' : 'sr-only'}>{item.label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </TooltipProvider>
       </aside>
 
       {/* Main content */}
