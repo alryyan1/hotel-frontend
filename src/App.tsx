@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 
 import './App.css'
 import LoginPage from './pages/LoginPage';
@@ -8,11 +9,32 @@ import Floors from './pages/Floors';
 import RoomTypes from './pages/RoomTypes';
 import RoomStatuses from './pages/RoomStatuses';
 import Reservations from './pages/Reservations';
+import ReservationsList from './pages/ReservationsList';
+import Customers from './pages/Customers';
+import Users from './pages/Users';
 import Settings from './pages/Settings';
 import MainLayout from './layouts/MainLayout';
+import { Toaster } from './components/ui/sonner';
 
 function App() {
-  const token = localStorage.getItem('token')
+  const [token, setToken] = useState(localStorage.getItem('token'))
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setToken(localStorage.getItem('token'))
+    }
+
+    // Listen for storage changes from other tabs
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also listen for custom events for same-tab changes
+    window.addEventListener('auth-change', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('auth-change', handleStorageChange)
+    }
+  }, [])
 
   return (
     <BrowserRouter>
@@ -25,10 +47,14 @@ function App() {
           <Route path="room-types" element={<RoomTypes />} />
           <Route path="room-statuses" element={<RoomStatuses />} />
           <Route path="reservations" element={<Reservations />} />
+          <Route path="reservations-list" element={<ReservationsList />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="users" element={<Users />} />
           <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<Navigate to={token ? '/' : '/login'} replace />} />
       </Routes>
+      <Toaster />
     </BrowserRouter>
   )
 }

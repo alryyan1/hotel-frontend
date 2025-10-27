@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { PageHeader } from '@/components/ui/page-header'
+import { Plus } from 'lucide-react'
 
 export default function Floors() {
   const [floors, setFloors] = useState<any[]>([])
@@ -94,11 +96,18 @@ export default function Floors() {
   }
 
   return (
-    <div className="p-3 space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">إدارة الأدوار</h2>
-        <Button onClick={() => setOpenDialog(true)}>إضافة دور</Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="إدارة الأدوار"
+        description="إضافة وتعديل وحذف أدوار الفندق"
+        icon="🏢"
+        action={
+          <Button onClick={() => setOpenDialog(true)} className="shadow-md">
+            <Plus className="size-4 mr-2" />
+            إضافة دور
+          </Button>
+        }
+      />
 
       {error && (
         <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
@@ -107,64 +116,115 @@ export default function Floors() {
         <Alert><AlertDescription className="text-green-700">{success}</AlertDescription></Alert>
       )}
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="overflow-x-auto">
+      <Card className="border-border/40 shadow-lg">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground font-medium">
+              <span className="text-foreground font-bold">{floors.length}</span> دور
+            </div>
+          </div>
+          <div className="overflow-x-auto rounded-lg border border-border/40">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>رقم الدور</TableHead>
-                  <TableHead>الاسم</TableHead>
-                  <TableHead>الوصف</TableHead>
-                  <TableHead>عدد الغرف</TableHead>
-                  <TableHead>إجراءات</TableHead>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="font-bold min-w-[120px]">رقم الدور</TableHead>
+                  <TableHead className="font-bold hidden sm:table-cell">الاسم</TableHead>
+                  <TableHead className="font-bold hidden md:table-cell">الوصف</TableHead>
+                  <TableHead className="font-bold min-w-[100px]">عدد الغرف</TableHead>
+                  <TableHead className="font-bold text-center min-w-[150px]">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {floors.map((floor: any) => (
-                  <TableRow key={floor.id}>
-                    <TableCell>
-                      <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700">{floor.number}</span>
-                    </TableCell>
-                    <TableCell>{floor.name || '-'}</TableCell>
-                    <TableCell>{floor.description || '-'}</TableCell>
-                    <TableCell>{floor.rooms_count || 0}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit(floor)}>تعديل</Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleDelete(floor.id)}>حذف</Button>
-                      </div>
+                {floors.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-12">
+                      <div className="text-5xl mb-3 opacity-50">🏢</div>
+                      <p className="text-muted-foreground">لا توجد أدوار. ابدأ بإضافة دور جديد.</p>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  floors.map((floor: any) => (
+                    <TableRow key={floor.id} className="hover:bg-muted/20 transition-colors">
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center rounded-lg border border-primary/20 px-3 py-1.5 text-sm font-bold bg-primary/10 text-primary shadow-sm w-fit">
+                            {floor.number}
+                          </span>
+                          <span className="text-xs text-muted-foreground sm:hidden">
+                            {floor.name || 'بدون اسم'} • {floor.rooms_count || 0} غرفة
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium hidden sm:table-cell">{floor.name || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground hidden md:table-cell">{floor.description || '-'}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
+                          {floor.rooms_count || 0} غرفة
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(floor)} className="hover:bg-primary/10 h-8 px-2 text-xs">
+                            تعديل
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(floor.id)} className="h-8 px-2 text-xs">
+                            حذف
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
 
+      {/* Create/Edit Dialog - Mobile Responsive */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md mx-4 sm:mx-0">
           <DialogHeader>
-            <DialogTitle>{editingFloor ? 'تعديل دور' : 'إضافة دور جديد'}</DialogTitle>
-            <DialogDescription>{editingFloor ? 'تحديث بيانات الدور' : 'إنشاء دور جديد'}</DialogDescription>
+            <DialogTitle className="text-lg sm:text-xl">{editingFloor ? 'تعديل دور' : 'إضافة دور جديد'}</DialogTitle>
+            <DialogDescription className="text-sm">{editingFloor ? 'تحديث بيانات الدور' : 'إنشاء دور جديد'}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label>رقم الدور</Label>
-              <Input type="number" value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} required />
+              <Label className="text-sm font-medium">رقم الدور</Label>
+              <Input 
+                type="number" 
+                value={form.number} 
+                onChange={(e) => setForm({ ...form, number: e.target.value })} 
+                required 
+                className="h-11"
+                placeholder="مثل: 1, 2, 3"
+              />
             </div>
             <div>
-              <Label>اسم الدور</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Label className="text-sm font-medium">اسم الدور (اختياري)</Label>
+              <Input 
+                value={form.name} 
+                onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                className="h-11"
+                placeholder="مثل: الطابق الأرضي، الطابق الأول"
+              />
             </div>
             <div>
-              <Label>الوصف</Label>
-              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <Label className="text-sm font-medium">الوصف (اختياري)</Label>
+              <Input 
+                value={form.description} 
+                onChange={(e) => setForm({ ...form, description: e.target.value })} 
+                className="h-11"
+                placeholder="وصف مختصر للدور"
+              />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>إلغاء</Button>
-              <Button type="submit" disabled={loading}>{loading ? 'جارٍ الحفظ...' : (editingFloor ? 'تحديث' : 'إنشاء')}</Button>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseDialog} className="w-full sm:w-auto h-11">
+                إلغاء
+              </Button>
+              <Button type="submit" disabled={loading} className="w-full sm:w-auto h-11">
+                {loading ? 'جارٍ الحفظ...' : (editingFloor ? 'تحديث' : 'إنشاء')}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

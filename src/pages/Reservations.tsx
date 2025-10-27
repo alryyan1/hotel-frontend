@@ -4,9 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { PageHeader } from '@/components/ui/page-header'
+import { Search, Calendar, Users, Plus } from 'lucide-react'
+import CreateReservationDialog from '@/components/dialogs/CreateReservationDialog'
+import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
 
 export default function Reservations() {
   const [checkIn, setCheckIn] = useState<string>('')
@@ -25,7 +28,6 @@ export default function Reservations() {
   const [customerForm, setCustomerForm] = useState({ name: '', phone: '', national_id: '', address: '', date_of_birth: '', gender: '' })
   const [form, setForm] = useState({
     customer_id: '',
-    code: '',
     notes: ''
   })
 
@@ -97,12 +99,11 @@ export default function Reservations() {
     try {
       setLoading(true)
       setError('')
-      if (!form.customer_id || !form.code || selectedRooms.length === 0) {
-        setError('عميل، كود الحجز، وغرفة واحدة على الأقل مطلوبة')
+      if (!form.customer_id || selectedRooms.length === 0) {
+        setError('العميل وغرفة واحدة على الأقل مطلوبة')
         return
       }
       const payload = {
-        code: form.code,
         customer_id: form.customer_id,
         check_in_date: checkIn,
         check_out_date: checkOut,
@@ -114,7 +115,7 @@ export default function Reservations() {
       setSuccess('تم إنشاء الحجز بنجاح')
       setOpenCreate(false)
       setSelectedRooms([])
-      setForm({ customer_id: '', code: '', notes: '' })
+      setForm({ customer_id: '', notes: '' })
     } catch (err: any) {
       setError(err?.response?.data?.message || 'فشل إنشاء الحجز')
     } finally {
@@ -140,31 +141,68 @@ export default function Reservations() {
   }
 
   return (
-    <div className="p-3 space-y-4">
-      <Card>
+    <div className="space-y-6">
+      <PageHeader
+        title="إدارة الحجوزات"
+        description="ابحث عن التوفر وأنشئ حجوزات بسهولة"
+        icon="🗓️"
+      />
+
+      {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
+      {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
+
+      <Card className="border-border/40 shadow-lg">
         <CardContent className="pt-6">
-          <h3 className="font-bold mb-3">البحث عن توفر الغرف</h3>
-          <div className="grid grid-cols-12 gap-3">
+          <div className="flex items-center gap-2 mb-4">
+            <Search className="size-5 text-primary" />
+            <h3 className="font-bold text-lg">البحث عن توفر الغرف</h3>
+          </div>
+          <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 md:col-span-3">
-              <Label>تاريخ الوصول</Label>
-              <Input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+              <Label className="flex items-center gap-2 mb-2">
+                <Calendar className="size-4" />
+                تاريخ الوصول
+              </Label>
+              <Input 
+                type="date" 
+                value={checkIn} 
+                onChange={(e) => setCheckIn(e.target.value)}
+                className="h-11"
+              />
             </div>
             <div className="col-span-12 md:col-span-3">
-              <Label>تاريخ المغادرة</Label>
-              <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+              <Label className="flex items-center gap-2 mb-2">
+                <Calendar className="size-4" />
+                تاريخ المغادرة
+              </Label>
+              <Input 
+                type="date" 
+                value={checkOut} 
+                onChange={(e) => setCheckOut(e.target.value)}
+                className="h-11"
+              />
             </div>
             <div className="col-span-12 md:col-span-2">
-              <Label>عدد الضيوف</Label>
-              <Input type="number" min={1} value={guestCount} onChange={(e) => setGuestCount(parseInt(e.target.value) || 1)} />
+              <Label className="flex items-center gap-2 mb-2">
+                <Users className="size-4" />
+                عدد الضيوف
+              </Label>
+              <Input 
+                type="number" 
+                min={1} 
+                value={guestCount} 
+                onChange={(e) => setGuestCount(parseInt(e.target.value) || 1)}
+                className="h-11"
+              />
             </div>
             <div className="col-span-12 md:col-span-3">
-              <Label>نوع الغرفة</Label>
+              <Label className="mb-2 block">نوع الغرفة</Label>
               <Select value={roomTypeId} onValueChange={(v: string) => setRoomTypeId(v)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="الكل" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value=" ">الكل</SelectItem>
+                  <SelectItem value="all">الكل</SelectItem>
                   {roomTypes.map((t: any) => (
                     <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
                   ))}
@@ -172,31 +210,66 @@ export default function Reservations() {
               </Select>
             </div>
             <div className="col-span-12 md:col-span-1 flex items-end">
-              <Button className="w-full" onClick={searchAvailability} disabled={loading}>بحث</Button>
+              <Button 
+                className="w-full h-11 shadow-md" 
+                onClick={searchAvailability} 
+                disabled={loading}
+              >
+                {loading ? 'جارٍ البحث...' : 'بحث'}
+              </Button>
             </div>
           </div>
-          {error && <Alert className="mt-3" variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-          {success && <Alert className="mt-3"><AlertDescription className="text-green-700">{success}</AlertDescription></Alert>}
         </CardContent>
       </Card>
 
       {availableRooms?.length > 0 && (
-        <Card>
+        <Card className="border-border/40 shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="font-bold">الغرف المتاحة</div>
-              <Button variant="outline" onClick={openCreateDialog} disabled={selectedRooms.length === 0}>إنشاء حجز</Button>
+            <div className="flex items-center justify-between mb-6">
+              <div className="font-bold text-lg">الغرف المتاحة ({availableRooms.length})</div>
+              <Button 
+                onClick={openCreateDialog} 
+                disabled={selectedRooms.length === 0}
+                className="shadow-md"
+              >
+                <Plus className="size-4 mr-2" />
+                إنشاء حجز ({selectedRooms.length})
+              </Button>
             </div>
-            <div className="grid grid-cols-12 gap-3">
+            <div className="grid grid-cols-12 gap-4">
               {availableRooms.map((room: any) => (
-                <div key={room.id} className="col-span-12 md:col-span-4">
-                  <div onClick={() => toggleRoom(room)} className={`cursor-pointer rounded-lg border p-3 ${selectedRooms.find(r=>r.id===room.id) ? 'border-blue-600' : ''}`}>
-                    <div className="font-semibold text-sm">غرفة {room.number}</div>
-                    <div className="text-xs text-neutral-500">الدور {room.floor?.number} • {room.type?.name}</div>
-                    <div className="mt-2 flex gap-1 flex-wrap text-xs">
-                      <span className="rounded-full border px-2 py-0.5">{room.type?.capacity} ضيوف</span>
-                      {room.type?.area && <span className="rounded-full border px-2 py-0.5">{room.type.area} م²</span>}
-                      {Array.isArray(room.type?.amenities) && room.type.amenities.slice(0,3).map((a:string,i:number)=>(<span key={i} className="rounded-full border px-2 py-0.5">{a}</span>))}
+                <div key={room.id} className="col-span-12 sm:col-span-6 lg:col-span-4">
+                  <div 
+                    onClick={() => toggleRoom(room)} 
+                    className={`cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
+                      selectedRooms.find(r=>r.id===room.id) 
+                        ? 'border-primary bg-primary/5 shadow-md shadow-primary/20' 
+                        : 'border-border/40 hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-bold text-base">غرفة {room.number}</div>
+                      {selectedRooms.find(r=>r.id===room.id) && (
+                        <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">✓</div>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mb-3">
+                      الدور {room.floor?.number} • {room.type?.name}
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap text-xs">
+                      <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
+                        {room.type?.capacity} ضيوف
+                      </span>
+                      {room.type?.area && (
+                        <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
+                          {room.type.area} م²
+                        </span>
+                      )}
+                      {Array.isArray(room.type?.amenities) && room.type.amenities.slice(0,2).map((a:string,i:number)=>(
+                        <span key={i} className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
+                          {a}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -206,99 +279,26 @@ export default function Reservations() {
         </Card>
       )}
 
-      <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>إنشاء حجز</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-12 gap-3 mt-1">
-            <div className="col-span-12">
-              <Label>العميل</Label>
-              <Select value={form.customer_id} onValueChange={(v: string) => setForm({ ...form, customer_id: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر العميل" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((c:any)=>(
-                    <SelectItem key={c.id} value={String(c.id)}>{c.name} — {c.phone || c.email}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-12">
-              <Button variant="outline" onClick={() => setOpenCustomer(true)}>عميل جديد</Button>
-            </div>
-            <div className="col-span-12">
-              <Label>كود الحجز</Label>
-              <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="مثال: RES-2025-0001" />
-            </div>
-            <div className="col-span-12">
-              <Label>ملاحظات</Label>
-              <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </div>
-            <div className="col-span-12">
-              <div className="text-sm font-semibold">الغرف المختارة</div>
-              <div className="flex gap-2 flex-wrap mt-1">
-                {selectedRooms.map((r:any)=>(
-                  <span key={r.id} className="rounded-full border px-2 py-0.5 text-xs">غرفة {r.number}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenCreate(false)}>إلغاء</Button>
-            <Button onClick={createReservation} disabled={loading}>حفظ</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateReservationDialog
+        open={openCreate}
+        onOpenChange={setOpenCreate}
+        customers={customers}
+        selectedRooms={selectedRooms}
+        form={form}
+        onFormChange={setForm}
+        onCreateReservation={createReservation}
+        onOpenCustomerDialog={() => setOpenCustomer(true)}
+        loading={loading}
+      />
 
-      <Dialog open={openCustomer} onOpenChange={setOpenCustomer}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>عميل جديد</DialogTitle>
-            <DialogDescription>إضافة عميل إلى قاعدة البيانات</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-12 gap-3 mt-1">
-            <div className="col-span-12">
-              <Label>الاسم</Label>
-              <Input value={customerForm.name} onChange={(e)=>setCustomerForm({ ...customerForm, name: e.target.value })} />
-            </div>
-            <div className="col-span-12 md:col-span-6">
-              <Label>الهاتف</Label>
-              <Input value={customerForm.phone} onChange={(e)=>setCustomerForm({ ...customerForm, phone: e.target.value })} />
-            </div>
-            <div className="col-span-12 md:col-span-6">
-              <Label>الرقم الوطني</Label>
-              <Input value={customerForm.national_id} onChange={(e)=>setCustomerForm({ ...customerForm, national_id: e.target.value })} />
-            </div>
-            <div className="col-span-12">
-              <Label>العنوان</Label>
-              <Input value={customerForm.address} onChange={(e)=>setCustomerForm({ ...customerForm, address: e.target.value })} />
-            </div>
-            <div className="col-span-12 md:col-span-6">
-              <Label>تاريخ الميلاد</Label>
-              <Input type="date" value={customerForm.date_of_birth} onChange={(e)=>setCustomerForm({ ...customerForm, date_of_birth: e.target.value })} />
-            </div>
-            <div className="col-span-12 md:col-span-6">
-              <Label>النوع</Label>
-              <Select value={customerForm.gender} onValueChange={(v: string) => setCustomerForm({ ...customerForm, gender: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="غير محدد" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value=" ">غير محدد</SelectItem>
-                  <SelectItem value="male">ذكر</SelectItem>
-                  <SelectItem value="female">أنثى</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={()=>setOpenCustomer(false)}>إلغاء</Button>
-            <Button onClick={createCustomer} disabled={loading}>حفظ</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateCustomerDialog
+        open={openCustomer}
+        onOpenChange={setOpenCustomer}
+        customerForm={customerForm}
+        onCustomerFormChange={setCustomerForm}
+        onCreateCustomer={createCustomer}
+        loading={loading}
+      />
     </div>
   )
 }

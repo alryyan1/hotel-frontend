@@ -1,36 +1,24 @@
 import { useState, useEffect } from 'react'
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Alert,
-  Chip,
-  Tooltip,
-  Grid
-} from '@mui/material'
-import { Add, Edit, Delete } from '@mui/icons-material'
+import { Plus, Edit, Trash2 } from 'lucide-react'
 import apiClient from '../api/axios'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
 
 export default function RoomTypes() {
-  const [roomTypes, setRoomTypes] = useState([])
+  const [roomTypes, setRoomTypes] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
-  const [editingRoomType, setEditingRoomType] = useState(null)
+  const [editingRoomType, setEditingRoomType] = useState<any>(null)
   const [form, setForm] = useState({
     code: '',
     name: '',
@@ -39,7 +27,7 @@ export default function RoomTypes() {
     description: '',
     area: '',
     beds_count: '',
-    amenities: []
+    amenities: [] as string[]
   })
 
   useEffect(() => {
@@ -52,13 +40,13 @@ export default function RoomTypes() {
       const { data } = await apiClient.get('/room-types')
       setRoomTypes(data)
     } catch (err) {
-      setError('Failed to fetch room types')
+      setError('فشل في تحميل أنواع الغرف')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       setLoading(true)
@@ -66,33 +54,33 @@ export default function RoomTypes() {
       
       const submitData = {
         ...form,
-        capacity: parseInt(form.capacity),
-        base_price: parseFloat(form.base_price),
-        area: form.area === '' ? null : parseInt(form.area),
-        beds_count: form.beds_count === '' ? null : parseInt(form.beds_count),
+        capacity: parseInt(String(form.capacity)),
+        base_price: parseFloat(String(form.base_price)),
+        area: form.area === '' ? null : parseInt(String(form.area)),
+        beds_count: form.beds_count === '' ? null : parseInt(String(form.beds_count)),
         amenities: form.amenities
       }
       
       if (editingRoomType) {
         await apiClient.put(`/room-types/${editingRoomType.id}`, submitData)
-        setSuccess('Room type updated successfully')
+        setSuccess('تم تحديث نوع الغرفة بنجاح')
       } else {
         await apiClient.post('/room-types', submitData)
-        setSuccess('Room type created successfully')
+        setSuccess('تم إنشاء نوع الغرفة بنجاح')
       }
       
       setOpenDialog(false)
-      setForm({ code: '', name: '', capacity: 1, base_price: 0, description: '' })
+      setForm({ code: '', name: '', capacity: 1, base_price: 0, description: '', area: '', beds_count: '', amenities: [] })
       setEditingRoomType(null)
       fetchRoomTypes()
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Operation failed')
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'فشلت العملية')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleEdit = (roomType) => {
+  const handleEdit = (roomType: any) => {
     setEditingRoomType(roomType)
     setForm({
       code: roomType.code,
@@ -107,16 +95,16 @@ export default function RoomTypes() {
     setOpenDialog(true)
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this room type?')) return
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف نوع الغرفة هذا؟')) return
     
     try {
       setLoading(true)
       await apiClient.delete(`/room-types/${id}`)
-      setSuccess('Room type deleted successfully')
+      setSuccess('تم حذف نوع الغرفة بنجاح')
       fetchRoomTypes()
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Delete failed')
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'فشل الحذف')
     } finally {
       setLoading(false)
     }
@@ -125,192 +113,223 @@ export default function RoomTypes() {
   const handleCloseDialog = () => {
     setOpenDialog(false)
     setForm({ code: '', name: '', capacity: 1, base_price: 0, description: '', area: '', beds_count: '', amenities: [] })
-    setForm({ code: '', name: '', capacity: 1, base_price: 0, description: '', area: '', beds_count: '', amenities: [] })
     setEditingRoomType(null)
   }
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>إدارة أنواع الغرف</Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setOpenDialog(true)}
-        >
-          إضافة نوع غرفة
-        </Button>
-      </Box>
+    <div className="space-y-6">
+      <PageHeader
+        title="إدارة أنواع الغرف"
+        description="إضافة وتعديل أنواع الغرف والمرافق"
+        icon="🏷️"
+        action={
+          <Button onClick={() => setOpenDialog(true)} className="shadow-md">
+            <Plus className="size-4 mr-2" />
+            إضافة نوع غرفة
+          </Button>
+        }
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
+      {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
 
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>الرمز</TableCell>
-              <TableCell>الاسم</TableCell>
-              <TableCell>السعة</TableCell>
-              <TableCell>السعر الأساسي</TableCell>
-              <TableCell>المساحة (م²)</TableCell>
-              <TableCell>عدد الأسرة</TableCell>
-              <TableCell>المرافق</TableCell>
-              <TableCell>الوصف</TableCell>
-              <TableCell>عدد الغرف</TableCell>
-              <TableCell>إجراءات</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {roomTypes.map((roomType) => (
-              <TableRow key={roomType.id}>
-                <TableCell>
-                  <Chip label={roomType.code} color="secondary" variant="outlined" />
-                </TableCell>
-                <TableCell>{roomType.name}</TableCell>
-                <TableCell>
-                  <Chip label={`${roomType.capacity} guests`} color="info" variant="outlined" />
-                </TableCell>
-                <TableCell>${roomType.base_price}</TableCell>
-                <TableCell>{roomType.area ?? '-'}</TableCell>
-                <TableCell>{roomType.beds_count ?? '-'}</TableCell>
-                <TableCell>{Array.isArray(roomType.amenities) && roomType.amenities.length ? roomType.amenities.join(', ') : '-'}</TableCell>
-                <TableCell>{roomType.description || '-'}</TableCell>
-                <TableCell>{roomType.rooms_count || 0}</TableCell>
-                <TableCell>
-                  <Tooltip title="تعديل">
-                    <IconButton onClick={() => handleEdit(roomType)}>
-                      <Edit />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="حذف">
-                    <IconButton onClick={() => handleDelete(roomType.id)} color="error">
-                      <Delete />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <Card className="border-border/40 shadow-lg">
+        <CardContent className="pt-4 sm:pt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground font-medium">
+              الإجمالي: <span className="text-foreground font-bold">{roomTypes.length}</span> نوع
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto rounded-lg border border-border/40">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="font-bold min-w-[100px]">الرمز</TableHead>
+                  <TableHead className="font-bold min-w-[120px]">الاسم</TableHead>
+                  <TableHead className="font-bold hidden sm:table-cell">السعة</TableHead>
+                  <TableHead className="font-bold hidden md:table-cell">السعر</TableHead>
+                  <TableHead className="font-bold hidden lg:table-cell">المساحة</TableHead>
+                  <TableHead className="font-bold hidden lg:table-cell">الأسرة</TableHead>
+                  <TableHead className="font-bold hidden xl:table-cell">المرافق</TableHead>
+                  <TableHead className="font-bold min-w-[80px]">عدد الغرف</TableHead>
+                  <TableHead className="font-bold text-center min-w-[120px]">إجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {roomTypes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-12">
+                      <div className="text-5xl mb-3 opacity-50">🏷️</div>
+                      <p className="text-muted-foreground">لا توجد أنواع غرف. ابدأ بإضافة نوع جديد.</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  roomTypes.map((roomType: any) => (
+                    <TableRow key={roomType.id} className="hover:bg-muted/20 transition-colors">
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge variant="secondary" className="font-bold w-fit">{roomType.code}</Badge>
+                          <span className="text-xs text-muted-foreground sm:hidden">
+                            {roomType.name} • ${roomType.base_price}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex flex-col">
+                          <span>{roomType.name}</span>
+                          <span className="text-xs text-muted-foreground sm:hidden">
+                            {roomType.capacity} ضيوف • {roomType.rooms_count || 0} غرفة
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <Badge variant="outline">{roomType.capacity} ضيوف</Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold hidden md:table-cell">${roomType.base_price}</TableCell>
+                      <TableCell className="text-muted-foreground hidden lg:table-cell">{roomType.area ?? '-'} م²</TableCell>
+                      <TableCell className="text-muted-foreground hidden lg:table-cell">{roomType.beds_count ?? '-'}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-xs truncate hidden xl:table-cell">
+                        {Array.isArray(roomType.amenities) && roomType.amenities.length 
+                          ? roomType.amenities.join(', ') 
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
+                          {roomType.rooms_count || 0}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(roomType)} className="hover:bg-primary/10 h-8 px-2">
+                            <Edit className="size-3" />
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(roomType.id)} className="h-8 px-2">
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{editingRoomType ? 'تعديل نوع غرفة' : 'إضافة نوع غرفة جديد'}</DialogTitle>
-        <form onSubmit={handleSubmit}>
-          <DialogContent>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  autoFocus
-                  margin="dense"
-                  label="الرمز"
-                  fullWidth
-                  variant="outlined"
-                  value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  required
-                  helperText="رمز فريد لنوع الغرفة (مثل: STD, DEL, SUITE)"
+      {/* Create/Edit Dialog - Mobile Responsive */}
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">{editingRoomType ? 'تعديل نوع غرفة' : 'إضافة نوع غرفة جديد'}</DialogTitle>
+            <DialogDescription className="text-sm">{editingRoomType ? 'تحديث بيانات نوع الغرفة' : 'إنشاء نوع غرفة جديد'}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">الرمز *</Label>
+                <Input 
+                  value={form.code} 
+                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} 
+                  placeholder="STD, DEL, SUITE" 
+                  required 
+                  className="h-11"
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  margin="dense"
-                  label="الاسم"
-                  fullWidth
-                  variant="outlined"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
+              </div>
+              <div>
+                <Label className="text-sm font-medium">الاسم *</Label>
+                <Input 
+                  value={form.name} 
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                  required 
+                  className="h-11"
+                  placeholder="مثل: غرفة عادية، جناح"
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  margin="dense"
-                  label="السعة"
-                  type="number"
-                  fullWidth
-                  variant="outlined"
-                  value={form.capacity}
-                  onChange={(e) => setForm({ ...form, capacity: e.target.value })}
-                  required
-                  inputProps={{ min: 1, max: 10 }}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">السعة (عدد الضيوف) *</Label>
+                <Input 
+                  type="number" 
+                  min={1} 
+                  max={10}
+                  value={form.capacity} 
+                  onChange={(e) => setForm({ ...form, capacity: parseInt(e.target.value) || 1 })} 
+                  required 
+                  className="h-11"
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  margin="dense"
-                  label="السعر الأساسي"
-                  type="number"
-                  fullWidth
-                  variant="outlined"
-                  value={form.base_price}
-                  onChange={(e) => setForm({ ...form, base_price: e.target.value })}
-                  required
-                  inputProps={{ min: 0, step: 0.01 }}
-                  InputProps={{ startAdornment: <Typography sx={{ mr: 1 }}>﷼</Typography> }}
+              </div>
+              <div>
+                <Label className="text-sm font-medium">السعر الأساسي *</Label>
+                <Input 
+                  type="number" 
+                  min={0} 
+                  step={0.01}
+                  value={form.base_price} 
+                  onChange={(e) => setForm({ ...form, base_price: parseFloat(e.target.value) || 0 })} 
+                  required 
+                  className="h-11"
+                  placeholder="0.00"
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  margin="dense"
-                  label="المساحة (م²)"
-                  type="number"
-                  fullWidth
-                  variant="outlined"
-                  value={form.area}
-                  onChange={(e) => setForm({ ...form, area: e.target.value })}
-                  inputProps={{ min: 0 }}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">المساحة (م²)</Label>
+                <Input 
+                  type="number" 
+                  min={0}
+                  value={form.area} 
+                  onChange={(e) => setForm({ ...form, area: e.target.value })} 
+                  className="h-11"
+                  placeholder="مثل: 25"
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  margin="dense"
-                  label="عدد الأسرة"
-                  type="number"
-                  fullWidth
-                  variant="outlined"
-                  value={form.beds_count}
-                  onChange={(e) => setForm({ ...form, beds_count: e.target.value })}
-                  inputProps={{ min: 1, max: 10 }}
+              </div>
+              <div>
+                <Label className="text-sm font-medium">عدد الأسرة</Label>
+                <Input 
+                  type="number" 
+                  min={1} 
+                  max={10}
+                  value={form.beds_count} 
+                  onChange={(e) => setForm({ ...form, beds_count: e.target.value })} 
+                  className="h-11"
+                  placeholder="مثل: 2"
                 />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  margin="dense"
-                  label="المرافق (افصل بينها بفاصلة)"
-                  fullWidth
-                  variant="outlined"
-                  value={Array.isArray(form.amenities) ? form.amenities.join(', ') : ''}
-                  onChange={(e) => setForm({ ...form, amenities: e.target.value.split(',').map(a => a.trim()).filter(Boolean) })}
-                  helperText="مثال: تكييف، ثلاجة، واي فاي، شرفة"
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  margin="dense"
-                  label="الوصف"
-                  fullWidth
-                  multiline
-                  rows={3}
-                  variant="outlined"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>إلغاء</Button>
-            <Button type="submit" variant="contained" disabled={loading}>
-              {loading ? 'جارٍ الحفظ...' : (editingRoomType ? 'تحديث' : 'إنشاء')}
-            </Button>
-          </DialogActions>
-        </form>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">المرافق (افصل بينها بفاصلة)</Label>
+              <Input 
+                value={Array.isArray(form.amenities) ? form.amenities.join(', ') : ''} 
+                onChange={(e) => setForm({ ...form, amenities: e.target.value.split(',').map(a => a.trim()).filter(Boolean) })} 
+                placeholder="تكييف، ثلاجة، واي فاي، شرفة"
+                className="h-11"
+              />
+            </div>
+            <div>
+              <Label className="text-sm font-medium">الوصف</Label>
+              <Textarea 
+                value={form.description} 
+                onChange={(e) => setForm({ ...form, description: e.target.value })} 
+                rows={3}
+                className="resize-none"
+                placeholder="وصف مختصر لنوع الغرفة"
+              />
+            </div>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseDialog} className="w-full sm:w-auto h-11">
+                إلغاء
+              </Button>
+              <Button type="submit" disabled={loading} className="w-full sm:w-auto h-11">
+                {loading ? 'جارٍ الحفظ...' : (editingRoomType ? 'تحديث' : 'إنشاء')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
       </Dialog>
-    </Paper>
+    </div>
   )
 }
-
-
-

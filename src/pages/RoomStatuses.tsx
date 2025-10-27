@@ -1,62 +1,43 @@
 import { useState, useEffect } from 'react'
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Alert,
-  Chip,
-  Tooltip,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem
-} from '@mui/material'
-import { Add, Edit, Delete } from '@mui/icons-material'
+import { Plus, Edit, Trash2 } from 'lucide-react'
 import apiClient from '../api/axios'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const colorOptions = [
-  { value: '#f44336', label: 'Red' },
-  { value: '#e91e63', label: 'Pink' },
-  { value: '#9c27b0', label: 'Purple' },
-  { value: '#673ab7', label: 'Deep Purple' },
-  { value: '#3f51b5', label: 'Indigo' },
-  { value: '#2196f3', label: 'Blue' },
-  { value: '#03a9f4', label: 'Light Blue' },
-  { value: '#00bcd4', label: 'Cyan' },
-  { value: '#009688', label: 'Teal' },
-  { value: '#4caf50', label: 'Green' },
-  { value: '#8bc34a', label: 'Light Green' },
-  { value: '#cddc39', label: 'Lime' },
-  { value: '#ffeb3b', label: 'Yellow' },
-  { value: '#ffc107', label: 'Amber' },
-  { value: '#ff9800', label: 'Orange' },
-  { value: '#ff5722', label: 'Deep Orange' },
-  { value: '#795548', label: 'Brown' },
-  { value: '#607d8b', label: 'Blue Grey' },
-  { value: '#9e9e9e', label: 'Grey' }
+  { value: '#f44336', label: 'أحمر' },
+  { value: '#e91e63', label: 'وردي' },
+  { value: '#9c27b0', label: 'بنفسجي' },
+  { value: '#3f51b5', label: 'نيلي' },
+  { value: '#2196f3', label: 'أزرق' },
+  { value: '#03a9f4', label: 'أزرق فاتح' },
+  { value: '#00bcd4', label: 'سماوي' },
+  { value: '#009688', label: 'تركواز' },
+  { value: '#4caf50', label: 'أخضر' },
+  { value: '#8bc34a', label: 'أخضر فاتح' },
+  { value: '#ffeb3b', label: 'أصفر' },
+  { value: '#ffc107', label: 'كهرماني' },
+  { value: '#ff9800', label: 'برتقالي' },
+  { value: '#ff5722', label: 'برتقالي داكن' },
+  { value: '#795548', label: 'بني' },
+  { value: '#607d8b', label: 'رمادي مزرق' },
 ]
 
 export default function RoomStatuses() {
-  const [roomStatuses, setRoomStatuses] = useState([])
+  const [roomStatuses, setRoomStatuses] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
-  const [editingRoomStatus, setEditingRoomStatus] = useState(null)
+  const [editingRoomStatus, setEditingRoomStatus] = useState<any>(null)
   const [form, setForm] = useState({
     code: '',
     name: '',
@@ -73,13 +54,13 @@ export default function RoomStatuses() {
       const { data } = await apiClient.get('/room-statuses')
       setRoomStatuses(data)
     } catch (err) {
-      setError('Failed to fetch room statuses')
+      setError('فشل في تحميل حالات الغرف')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       setLoading(true)
@@ -87,24 +68,24 @@ export default function RoomStatuses() {
       
       if (editingRoomStatus) {
         await apiClient.put(`/room-statuses/${editingRoomStatus.id}`, form)
-        setSuccess('Room status updated successfully')
+        setSuccess('تم تحديث حالة الغرفة بنجاح')
       } else {
         await apiClient.post('/room-statuses', form)
-        setSuccess('Room status created successfully')
+        setSuccess('تم إنشاء حالة الغرفة بنجاح')
       }
       
       setOpenDialog(false)
       setForm({ code: '', name: '', color: '#2196f3' })
       setEditingRoomStatus(null)
       fetchRoomStatuses()
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Operation failed')
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'فشلت العملية')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleEdit = (roomStatus) => {
+  const handleEdit = (roomStatus: any) => {
     setEditingRoomStatus(roomStatus)
     setForm({
       code: roomStatus.code,
@@ -114,16 +95,16 @@ export default function RoomStatuses() {
     setOpenDialog(true)
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this room status?')) return
+  const handleDelete = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف حالة الغرفة هذه؟')) return
     
     try {
       setLoading(true)
       await apiClient.delete(`/room-statuses/${id}`)
-      setSuccess('Room status deleted successfully')
+      setSuccess('تم حذف حالة الغرفة بنجاح')
       fetchRoomStatuses()
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Delete failed')
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'فشل الحذف')
     } finally {
       setLoading(false)
     }
@@ -136,150 +117,152 @@ export default function RoomStatuses() {
   }
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight={700}>إدارة حالات الغرف</Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => setOpenDialog(true)}
-        >
-          إضافة حالة غرفة
-        </Button>
-      </Box>
+    <div className="space-y-6">
+      <PageHeader
+        title="إدارة حالات الغرف"
+        description="ضبط الحالات والألوان لتمييز حالة كل غرفة"
+        icon="✅"
+        action={
+          <Button onClick={() => setOpenDialog(true)} className="shadow-md">
+            <Plus className="size-4 mr-2" />
+            إضافة حالة غرفة
+          </Button>
+        }
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+      {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
+      {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
 
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>الرمز</TableCell>
-              <TableCell>الاسم</TableCell>
-              <TableCell>اللون</TableCell>
-              <TableCell>عدد الغرف</TableCell>
-              <TableCell>إجراءات</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {roomStatuses.map((roomStatus) => (
-              <TableRow key={roomStatus.id}>
-                <TableCell>
-                  <Chip 
-                    label={roomStatus.code} 
-                    sx={{ 
-                      backgroundColor: roomStatus.color || '#2196f3',
-                      color: 'white',
-                      fontWeight: 'bold'
-                    }} 
-                  />
-                </TableCell>
-                <TableCell>{roomStatus.name}</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box
-                      sx={{
-                        width: 20,
-                        height: 20,
-                        backgroundColor: roomStatus.color || '#2196f3',
-                        borderRadius: 1,
-                        border: '1px solid #ccc'
-                      }}
-                    />
-                    <Typography variant="body2">
-                      {colorOptions.find(c => c.value === roomStatus.color)?.label || 'Custom'}
-                    </Typography>
-                  </Box>
-                </TableCell>
-                <TableCell>{roomStatus.rooms_count || 0}</TableCell>
-                <TableCell>
-                  <Tooltip title="تعديل">
-                    <IconButton onClick={() => handleEdit(roomStatus)}>
-                      <Edit />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="حذف">
-                    <IconButton onClick={() => handleDelete(roomStatus.id)} color="error">
-                      <Delete />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingRoomStatus ? 'تعديل حالة غرفة' : 'إضافة حالة غرفة جديدة'}</DialogTitle>
-        <form onSubmit={handleSubmit}>
-          <DialogContent>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  autoFocus
-                  margin="dense"
-                  label="الرمز"
-                  fullWidth
-                  variant="outlined"
-                  value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                  required
-                  helperText="رمز فريد للحالة (مثل: AVAIL, OCCUPIED, MAINT)"
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  margin="dense"
-                  label="الاسم"
-                  fullWidth
-                  variant="outlined"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth margin="dense">
-                  <InputLabel>اللون</InputLabel>
-                  <Select
-                    value={form.color}
-                    label="Color"
-                    onChange={(e) => setForm({ ...form, color: e.target.value })}
-                  >
-                    {colorOptions.map((color) => (
-                      <MenuItem key={color.value} value={color.value}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box
-                            sx={{
-                              width: 20,
-                              height: 20,
-                              backgroundColor: color.value,
-                              borderRadius: 1,
-                              border: '1px solid #ccc'
-                            }}
+      <Card className="border-border/40 shadow-lg">
+        <CardContent className="pt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground font-medium">
+              الإجمالي: <span className="text-foreground font-bold">{roomStatuses.length}</span> حالة
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto rounded-lg border border-border/40">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="font-bold">الرمز</TableHead>
+                  <TableHead className="font-bold">الاسم</TableHead>
+                  <TableHead className="font-bold">اللون</TableHead>
+                  <TableHead className="font-bold">عدد الغرف</TableHead>
+                  <TableHead className="font-bold text-center">إجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {roomStatuses.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-12">
+                      <div className="text-5xl mb-3 opacity-50">✅</div>
+                      <p className="text-muted-foreground">لا توجد حالات غرف. ابدأ بإضافة حالة جديدة.</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  roomStatuses.map((roomStatus: any) => (
+                    <TableRow key={roomStatus.id} className="hover:bg-muted/20 transition-colors">
+                      <TableCell>
+                        <Badge 
+                          className="text-white font-bold shadow-sm"
+                          style={{ backgroundColor: roomStatus.color || '#2196f3' }}
+                        >
+                          {roomStatus.code}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{roomStatus.name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-6 h-6 rounded-md border-2 border-border shadow-sm"
+                            style={{ backgroundColor: roomStatus.color || '#2196f3' }}
                           />
-                          {color.label}
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>إلغاء</Button>
-            <Button type="submit" variant="contained" disabled={loading}>
-              {loading ? 'جارٍ الحفظ...' : (editingRoomStatus ? 'تحديث' : 'إنشاء')}
-            </Button>
-          </DialogActions>
-        </form>
+                          <span className="text-sm text-muted-foreground">
+                            {colorOptions.find(c => c.value === roomStatus.color)?.label || 'مخصص'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
+                          {roomStatus.rooms_count || 0}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2 justify-center">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(roomStatus)} className="hover:bg-primary/10">
+                            <Edit className="size-3" />
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(roomStatus.id)}>
+                            <Trash2 className="size-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingRoomStatus ? 'تعديل حالة غرفة' : 'إضافة حالة غرفة جديدة'}</DialogTitle>
+            <DialogDescription>{editingRoomStatus ? 'تحديث بيانات حالة الغرفة' : 'إنشاء حالة غرفة جديدة'}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>الرمز *</Label>
+                <Input 
+                  value={form.code} 
+                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} 
+                  placeholder="AVAIL, OCCUPIED" 
+                  required 
+                />
+              </div>
+              <div>
+                <Label>الاسم *</Label>
+                <Input 
+                  value={form.name} 
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                  required 
+                />
+              </div>
+            </div>
+            <div>
+              <Label>اللون</Label>
+              <Select value={form.color} onValueChange={(v: string) => setForm({ ...form, color: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {colorOptions.map((color) => (
+                    <SelectItem key={color.value} value={color.value}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded border"
+                          style={{ backgroundColor: color.value }}
+                        />
+                        {color.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleCloseDialog}>إلغاء</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? 'جارٍ الحفظ...' : (editingRoomStatus ? 'تحديث' : 'إنشاء')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
       </Dialog>
-    </Paper>
+    </div>
   )
 }
-
-
-

@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { PageHeader } from '@/components/ui/page-header'
+import { Loader2, Grid3x3, List, Search, Filter } from 'lucide-react'
 
 export default function Rooms() {
   const [rooms, setRooms] = useState<any[]>([])
@@ -33,6 +35,7 @@ export default function Rooms() {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(9)
   const [savingStatus, setSavingStatus] = useState(false)
+  const [dataLoaded, setDataLoaded] = useState(false)
   const [form, setForm] = useState<any>({
     number: '',
     floor_id: '',
@@ -43,8 +46,44 @@ export default function Rooms() {
   })
 
   useEffect(() => {
+    if (dataLoaded) return // Prevent duplicate calls
+    
+    let isMounted = true
+    
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const [roomsRes, floorsRes, roomTypesRes, roomStatusesRes] = await Promise.all([
+          apiClient.get('/rooms'),
+          apiClient.get('/floors'),
+          apiClient.get('/room-types'),
+          apiClient.get('/room-statuses')
+        ])
+        
+        if (isMounted) {
+          setRooms(roomsRes.data)
+          setFloors(floorsRes.data)
+          setRoomTypes(roomTypesRes.data)
+          setRoomStatuses(roomStatusesRes.data)
+          setDataLoaded(true)
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError('فشل في تحميل البيانات')
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+    
     fetchData()
-  }, [])
+    
+    return () => {
+      isMounted = false
+    }
+  }, [dataLoaded])
 
   useEffect(() => {
     filterRooms()
@@ -59,6 +98,7 @@ export default function Rooms() {
   const fetchData = async () => {
     try {
       setLoading(true)
+      setDataLoaded(false) // Reset flag for manual refresh
       const [roomsRes, floorsRes, roomTypesRes, roomStatusesRes] = await Promise.all([
         apiClient.get('/rooms'),
         apiClient.get('/floors'),
@@ -69,6 +109,7 @@ export default function Rooms() {
       setFloors(floorsRes.data)
       setRoomTypes(roomTypesRes.data)
       setRoomStatuses(roomStatusesRes.data)
+      setDataLoaded(true)
     } catch (err) {
       setError('فشل في تحميل البيانات')
     } finally {
@@ -170,45 +211,48 @@ export default function Rooms() {
   const getStatusName = (status: any) => status?.name || 'غير محدد'
 
   const RoomCard = ({ room }: { room: any }) => (
-    <Card className="relative">
-      <span className="absolute -top-2 right-4 inline-block h-4 w-4 rounded-full border-2 border-white" style={{ backgroundColor: getStatusColor(room.status) }} />
-      <CardHeader>
+    <Card className="relative border-border/40 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 overflow-hidden group">
+      <div className="absolute top-0 inset-x-0 h-1" style={{ backgroundColor: getStatusColor(room.status) }} />
+      <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-neutral-800 font-bold">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-bold text-lg shadow-sm group-hover:shadow-md transition-shadow">
             {room.number}
           </div>
           <div className="flex-1">
-            <CardTitle>غرفة {room.number}</CardTitle>
-            <CardDescription>الدور {room.floor?.number} - {room.floor?.name || 'بدون اسم'}</CardDescription>
+            <CardTitle className="text-lg">غرفة {room.number}</CardTitle>
+            <CardDescription className="text-xs">الدور {room.floor?.number} {room.floor?.name ? `• ${room.floor.name}` : ''}</CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <div>
-          <div className="font-semibold text-sm">{room.type?.name}</div>
-          <div className="text-xs text-neutral-600">
-                {room.type?.code} • {room.type?.capacity} ضيوف • ${room.type?.base_price}
+      <CardContent className="space-y-3 pb-3">
+        <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+          <div className="font-semibold text-sm mb-1">{room.type?.name}</div>
+          <div className="text-xs text-muted-foreground flex flex-wrap gap-1">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background/80">{room.type?.code}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background/80">{room.type?.capacity} ضيوف</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background/80">${room.type?.base_price}</span>
           </div>
-          {(room.type?.area || room.type?.beds_count || room.type?.amenities?.length) && (
-            <div className="text-xs text-neutral-500 mt-1">
-                  {room.type?.area ? `${room.type.area} م²` : ''}
-                  {room.type?.area && room.type?.beds_count ? ' • ' : ''}
-                  {room.type?.beds_count ? `${room.type.beds_count} سرير` : ''}
-                  {(room.type?.area || room.type?.beds_count) && room.type?.amenities?.length ? ' • ' : ''}
-                  {room.type?.amenities?.length ? room.type.amenities.join(', ') : ''}
+          {(room.type?.area || room.type?.beds_count) && (
+            <div className="text-xs text-muted-foreground mt-2 flex gap-2">
+              {room.type?.area && <span>📐 {room.type.area} م²</span>}
+              {room.type?.beds_count && <span>🛏️ {room.type.beds_count} سرير</span>}
             </div>
           )}
         </div>
-        <div className="text-sm">{room.beds} سرير</div>
-        <Badge style={{ backgroundColor: getStatusColor(room.status) }} className="text-white">
-          {getStatusName(room.status)}
-        </Badge>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">{room.beds} سرير</span>
+          <Badge style={{ backgroundColor: getStatusColor(room.status) }} className="text-white shadow-sm">
+            {getStatusName(room.status)}
+          </Badge>
+        </div>
         {room.notes && (
-          <div className="text-xs italic text-neutral-500">"{room.notes}"</div>
+          <div className="text-xs italic text-muted-foreground p-2 rounded bg-muted/20 border-l-2 border-primary/30">
+            "{room.notes}"
+          </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="ghost" size="sm" onClick={() => handleView(room)}>عرض</Button>
+      <CardFooter className="flex justify-between pt-3 border-t border-border/40">
+        <Button variant="ghost" size="sm" onClick={() => handleView(room)} className="hover:bg-primary/10">عرض</Button>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => handleEdit(room)}>تعديل</Button>
           <Button variant="destructive" size="sm" onClick={() => handleDelete(room.id)}>حذف</Button>
@@ -247,17 +291,13 @@ export default function Rooms() {
   }
 
   return (
-    <div className="p-3 space-y-4">
-      {/* Header */}
-      <div className="rounded-xl border bg-gradient-to-br from-blue-600 to-blue-800 text-white p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold mb-1">إدارة الغرف</h1>
-            <p className="opacity-90">إدارة وتنظيم غرف الفندق بسهولة</p>
-          </div>
-          <div className="text-6xl opacity-70">🏨</div>
-        </div>
-      </div>
+    <div className="space-y-6">
+      {/* Modern Header */}
+      <PageHeader
+        title="إدارة الغرف"
+        description="إدارة وتنظيم غرف الفندق بسهولة"
+        icon="🏨"
+      />
 
       {/* Alerts */}
       {error && (
@@ -271,22 +311,29 @@ export default function Rooms() {
           </Alert>
       )}
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-12 gap-3 items-end">
-            <div className="col-span-12 md:col-span-4">
-              <Label>البحث</Label>
-              <Input
-              placeholder="البحث عن غرفة..."
+      {/* Modern Filters Card - Mobile Responsive */}
+      <Card className="border-border/40 shadow-lg">
+        <CardContent className="pt-4 sm:pt-6">
+          {/* Search Bar - Full width on mobile */}
+          <div className="mb-4 sm:mb-6">
+            <Label className="flex items-center gap-2 mb-2 text-sm font-medium">
+              <Search className="size-4" />
+              البحث
+            </Label>
+            <Input
+              placeholder="ابحث عن غرفة..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="col-span-6 md:col-span-2">
-              <Label>الدور</Label>
+              className="h-11 w-full"
+            />
+          </div>
+
+          {/* Filters Grid - Responsive */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div>
+              <Label className="text-sm font-medium">الدور</Label>
               <Select value={filterFloor} onValueChange={setFilterFloor}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="جميع الأدوار" />
                 </SelectTrigger>
                 <SelectContent>
@@ -297,10 +344,10 @@ export default function Rooms() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="col-span-6 md:col-span-2">
-              <Label>النوع</Label>
+            <div>
+              <Label className="text-sm font-medium">النوع</Label>
               <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="جميع الأنواع" />
                 </SelectTrigger>
                 <SelectContent>
@@ -311,10 +358,10 @@ export default function Rooms() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="col-span-6 md:col-span-2">
-              <Label>الحالة</Label>
+            <div>
+              <Label className="text-sm font-medium">الحالة</Label>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="جميع الحالات" />
                 </SelectTrigger>
                 <SelectContent>
@@ -325,140 +372,217 @@ export default function Rooms() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="col-span-6 md:col-span-2 flex gap-2">
-              <Button variant="outline" onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}>
-                {viewMode === 'grid' ? 'قائمة' : 'شبكة'}
-              </Button>
-              <Button variant="outline" onClick={clearFilters}>مسح</Button>
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-medium">العرض</Label>
+              <div className="flex gap-2">
+                <Button 
+                  variant={viewMode === 'grid' ? 'default' : 'outline'} 
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  className="flex-1 h-9"
+                >
+                  <Grid3x3 className="size-4" />
+                </Button>
+                <Button 
+                  variant={viewMode === 'list' ? 'default' : 'outline'} 
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="flex-1 h-9"
+                >
+                  <List className="size-4" />
+                </Button>
+              </div>
             </div>
           </div>
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-neutral-600">
-            إجمالي الغرف: {rooms.length} | المعروضة: {filteredRooms.length}
+
+          {/* Action Bar - Mobile Responsive */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 sm:mt-6 pt-4 border-t border-border/40">
+            <div className="text-sm text-muted-foreground font-medium">
+              <span className="text-foreground font-bold">{filteredRooms.length}</span> من أصل <span className="text-foreground font-bold">{rooms.length}</span> غرفة
             </div>
-            <Button onClick={() => setOpenDialog(true)}>إضافة غرفة جديدة</Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={clearFilters} className="h-9 w-full sm:w-auto">
+                <Filter className="size-4 mr-2" />
+                مسح المرشحات
+              </Button>
+              <Button onClick={() => setOpenDialog(true)} className="h-9 w-full sm:w-auto shadow-md">
+                إضافة غرفة جديدة
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Content */}
       {loading ? (
-        <div className="grid grid-cols-12 gap-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="col-span-12 sm:col-span-6 md:col-span-4">
-              <div className="h-64 rounded-lg border bg-white animate-pulse" />
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <Card key={index} className="h-72 animate-pulse bg-muted/20">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-12 w-12 rounded-full bg-muted/50" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-muted/50 rounded w-3/4" />
+                    <div className="h-3 bg-muted/30 rounded w-1/2" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 bg-muted/40 rounded" />
+                  <div className="h-3 bg-muted/30 rounded w-5/6" />
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : (
         <>
           {viewMode === 'grid' ? (
-            <div className="grid grid-cols-12 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {displayedRooms.map((room: any) => (
-                <div key={room.id} className="col-span-12 sm:col-span-6 md:col-span-4">
-                  <RoomCard room={room} />
-                </div>
+                <RoomCard key={room.id} room={room} />
               ))}
             </div>
           ) : (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>الغرفة</TableHead>
-                    <TableHead>الدور</TableHead>
-                    <TableHead>النوع</TableHead>
-                    <TableHead>الأسرة</TableHead>
-                    <TableHead>الحالة</TableHead>
-                    <TableHead>إجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayedRooms.map((room: any) => (
-                    <TableRow key={room.id}>
-                      <TableCell className="font-semibold">غرفة {room.number}</TableCell>
-                      <TableCell>الدور {room.floor?.number}</TableCell>
-                      <TableCell>{room.type?.name}</TableCell>
-                      <TableCell>{room.beds}</TableCell>
-                      <TableCell>
-                        <Badge style={{ backgroundColor: getStatusColor(room.status) }} className="text-white">
-                          {getStatusName(room.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleView(room)}>عرض</Button>
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(room)}>تعديل</Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(room.id)}>حذف</Button>
-                        </div>
-                      </TableCell>
+            <Card className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[120px]">الغرفة</TableHead>
+                      <TableHead className="hidden sm:table-cell">الدور</TableHead>
+                      <TableHead className="hidden md:table-cell">النوع</TableHead>
+                      <TableHead className="hidden lg:table-cell">الأسرة</TableHead>
+                      <TableHead className="min-w-[100px]">الحالة</TableHead>
+                      <TableHead className="min-w-[150px]">إجراءات</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedRooms.map((room: any) => (
+                      <TableRow key={room.id}>
+                        <TableCell className="font-semibold">
+                          <div className="flex flex-col">
+                            <span>غرفة {room.number}</span>
+                            <span className="text-xs text-muted-foreground sm:hidden">
+                              الدور {room.floor?.number} • {room.type?.name}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">الدور {room.floor?.number}</TableCell>
+                        <TableCell className="hidden md:table-cell">{room.type?.name}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{room.beds}</TableCell>
+                        <TableCell>
+                          <Badge style={{ backgroundColor: getStatusColor(room.status) }} className="text-white text-xs">
+                            {getStatusName(room.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleView(room)} className="h-8 px-2 text-xs">
+                              عرض
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(room)} className="h-8 px-2 text-xs">
+                              تعديل
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleDelete(room.id)} className="h-8 px-2 text-xs">
+                              حذف
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </Card>
           )}
 
           {filteredRooms.length === 0 && !loading && (
-            <Card className="p-10 text-center">
-              <div className="text-7xl mb-2">🏨</div>
-              <h3 className="text-neutral-600 mb-2">لا توجد غرف متاحة</h3>
-              <p className="text-sm text-neutral-500 mb-4">
+            <Card className="p-12 text-center border-border/40 shadow-lg">
+              <div className="text-8xl mb-4 opacity-50">🏨</div>
+              <h3 className="text-xl font-bold text-foreground mb-2">لا توجد غرف متاحة</h3>
+              <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
                 {searchTerm || filterFloor || filterType || filterStatus 
-                  ? 'لم يتم العثور على غرف تطابق معايير البحث'
-                  : 'ابدأ بإضافة غرف جديدة للفندق'}
+                  ? 'لم يتم العثور على غرف تطابق معايير البحث. جرب تعديل المرشحات.'
+                  : 'ابدأ بإضافة غرف جديدة للفندق لتظهر هنا.'}
               </p>
               {!(searchTerm || filterFloor || filterType || filterStatus) && (
-                <Button onClick={() => setOpenDialog(true)}>إضافة غرفة جديدة</Button>
+                <Button onClick={() => setOpenDialog(true)} size="lg" className="shadow-md">
+                  إضافة غرفة جديدة
+                </Button>
               )}
             </Card>
           )}
 
           {filteredRooms.length > 0 && (
-            <div className="flex justify-end gap-2 items-center">
-              <span className="text-sm">الصفحة: {page + 1}</span>
-              <Select value={String(rowsPerPage)} onValueChange={(v: string) => { setRowsPerPage(parseInt(v)); setPage(0); }}>
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                    {[6, 9, 12, 24].map((n) => (
-                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                    ))}
-                </SelectContent>
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 p-4 bg-muted/30 rounded-lg">
+              <div className="text-sm text-muted-foreground">
+                الصفحة {page + 1} من {Math.ceil(filteredRooms.length / rowsPerPage)}
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">عرض:</span>
+                  <Select value={String(rowsPerPage)} onValueChange={(v: string) => { setRowsPerPage(parseInt(v)); setPage(0); }}>
+                    <SelectTrigger className="w-16 h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[6, 9, 12, 24].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(p - 1, 0))}>السابق</Button>
-                <Button variant="outline" size="sm" disabled={(page + 1) * rowsPerPage >= filteredRooms.length} onClick={() => setPage((p) => p + 1)}>التالي</Button>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(p - 1, 0))} className="h-9 px-3">
+                    السابق
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={(page + 1) * rowsPerPage >= filteredRooms.length} onClick={() => setPage((p) => p + 1)} className="h-9 px-3">
+                    التالي
+                  </Button>
+                </div>
               </div>
             </div>
           )}
         </>
       )}
 
-      {/* Create/Edit Dialog */}
+      {/* Create/Edit Dialog - Mobile Responsive */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
           <DialogHeader>
-            <DialogTitle>{editingRoom ? 'تعديل غرفة' : 'إضافة غرفة جديدة'}</DialogTitle>
-            <DialogDescription>{editingRoom ? 'تحديث بيانات الغرفة' : 'إنشاء غرفة جديدة في الفندق'}</DialogDescription>
+            <DialogTitle className="text-lg sm:text-xl">{editingRoom ? 'تعديل غرفة' : 'إضافة غرفة جديدة'}</DialogTitle>
+            <DialogDescription className="text-sm">{editingRoom ? 'تحديث بيانات الغرفة' : 'إنشاء غرفة جديدة في الفندق'}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>رقم الغرفة</Label>
-                <Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} placeholder="مثل: 101, 201" required />
+                <Label className="text-sm font-medium">رقم الغرفة</Label>
+                <Input 
+                  value={form.number} 
+                  onChange={(e) => setForm({ ...form, number: e.target.value })} 
+                  placeholder="مثل: 101, 201" 
+                  required 
+                  className="h-11"
+                />
               </div>
               <div>
-                <Label>عدد الأسرة</Label>
-                <Input type="number" min={1} max={10} value={form.beds} onChange={(e) => setForm({ ...form, beds: e.target.value })} required />
+                <Label className="text-sm font-medium">عدد الأسرة</Label>
+                <Input 
+                  type="number" 
+                  min={1} 
+                  max={10} 
+                  value={form.beds} 
+                  onChange={(e) => setForm({ ...form, beds: e.target.value })} 
+                  required 
+                  className="h-11"
+                />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>الدور</Label>
+                <Label className="text-sm font-medium">الدور</Label>
                 <Select value={form.floor_id} onValueChange={(v: string) => setForm({ ...form, floor_id: v })} required>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="اختر الدور" />
                   </SelectTrigger>
                   <SelectContent>
@@ -466,12 +590,12 @@ export default function Rooms() {
                       <SelectItem key={floor.id} value={String(floor.id)}>الدور {floor.number} {floor.name ? `- ${floor.name}` : ''}</SelectItem>
                     ))}
                   </SelectContent>
-                        </Select>
+                </Select>
               </div>
               <div>
-                <Label>نوع الغرفة</Label>
+                <Label className="text-sm font-medium">نوع الغرفة</Label>
                 <Select value={form.room_type_id} onValueChange={(v: string) => setForm({ ...form, room_type_id: v })} required>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="اختر النوع" />
                   </SelectTrigger>
                   <SelectContent>
@@ -479,14 +603,14 @@ export default function Rooms() {
                       <SelectItem key={type.id} value={String(type.id)}>{type.name} ({type.code})</SelectItem>
                     ))}
                   </SelectContent>
-                        </Select>
+                </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>حالة الغرفة</Label>
+                <Label className="text-sm font-medium">حالة الغرفة</Label>
                 <Select value={form.room_status_id} onValueChange={(v: string) => setForm({ ...form, room_status_id: v })} required>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="اختر الحالة" />
                   </SelectTrigger>
                   <SelectContent>
@@ -494,41 +618,53 @@ export default function Rooms() {
                       <SelectItem key={status.id} value={String(status.id)}>{status.name} ({status.code})</SelectItem>
                     ))}
                   </SelectContent>
-                        </Select>
+                </Select>
               </div>
-              <div>
-                <Label>ملاحظات</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="أضف ملاحظات..." rows={3} />
+              <div className="sm:col-span-2">
+                <Label className="text-sm font-medium">ملاحظات</Label>
+                <Textarea 
+                  value={form.notes} 
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })} 
+                  placeholder="أضف ملاحظات..." 
+                  rows={3} 
+                  className="resize-none"
+                />
               </div>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>إلغاء</Button>
-              <Button type="submit" disabled={loading}>{loading ? 'جارٍ الحفظ...' : (editingRoom ? 'تحديث' : 'إنشاء')}</Button>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseDialog} className="w-full sm:w-auto h-11">
+                إلغاء
+              </Button>
+              <Button type="submit" disabled={loading} className="w-full sm:w-auto h-11">
+                {loading ? 'جارٍ الحفظ...' : (editingRoom ? 'تحديث' : 'إنشاء')}
+              </Button>
             </DialogFooter>
           </form>
-          </DialogContent>
+        </DialogContent>
       </Dialog>
 
-      {/* Details Dialog */}
+      {/* Details Dialog - Mobile Responsive */}
       <Dialog open={openDetailsDialog} onOpenChange={setOpenDetailsDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md mx-4 sm:mx-0">
           <DialogHeader>
-        <DialogTitle>تفاصيل الغرفة</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">تفاصيل الغرفة</DialogTitle>
           </DialogHeader>
           {selectedRoom && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 flex items-center justify-center rounded-full bg-neutral-100 font-semibold">{selectedRoom.number}</div>
+                <div className="h-12 w-12 flex items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-lg">
+                  {selectedRoom.number}
+                </div>
                 <div>
-                  <div className="font-bold">غرفة {selectedRoom.number}</div>
-                  <div className="text-sm text-neutral-500">الدور {selectedRoom.floor?.number} • {selectedRoom.type?.name}</div>
+                  <div className="font-bold text-lg">غرفة {selectedRoom.number}</div>
+                  <div className="text-sm text-muted-foreground">الدور {selectedRoom.floor?.number} • {selectedRoom.type?.name}</div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
-                  <Label>حالة الغرفة</Label>
+                  <Label className="text-sm font-medium">حالة الغرفة</Label>
                   <Select value={String(selectedRoom.room_status_id)} onValueChange={(v: string) => setSelectedRoom({ ...selectedRoom, room_status_id: v })}>
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -536,25 +672,36 @@ export default function Rooms() {
                         <SelectItem key={status.id} value={String(status.id)}>{status.name}</SelectItem>
                       ))}
                     </SelectContent>
-                    </Select>
+                  </Select>
                 </div>
                 <div>
-                  <Label>ملاحظات</Label>
-                  <Input value={selectedRoom.notes || ''} onChange={(e) => setSelectedRoom({ ...selectedRoom, notes: e.target.value })} />
+                  <Label className="text-sm font-medium">ملاحظات</Label>
+                  <Textarea 
+                    value={selectedRoom.notes || ''} 
+                    onChange={(e) => setSelectedRoom({ ...selectedRoom, notes: e.target.value })} 
+                    placeholder="أضف ملاحظات..."
+                    rows={3}
+                    className="resize-none"
+                  />
                 </div>
-              </div>
-              <div>
-                <div className="text-sm font-semibold mb-1">معلومات</div>
-                <div className="flex gap-2">
-                  <Badge variant="outline">الأسرة: {selectedRoom.beds}</Badge>
-                  <Badge variant="outline">النوع: {selectedRoom.type?.code}</Badge>
+                <div>
+                  <div className="text-sm font-semibold mb-2">معلومات إضافية</div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="text-xs">الأسرة: {selectedRoom.beds}</Badge>
+                    <Badge variant="outline" className="text-xs">النوع: {selectedRoom.type?.code}</Badge>
+                    <Badge variant="outline" className="text-xs">السعر: ${selectedRoom.type?.base_price}</Badge>
+                  </div>
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setOpenDetailsDialog(false); setSelectedRoom(null); }}>إغلاق</Button>
-            <Button onClick={handleChangeStatus} disabled={savingStatus}>{savingStatus ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}</Button>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
+            <Button variant="outline" onClick={() => { setOpenDetailsDialog(false); setSelectedRoom(null); }} className="w-full sm:w-auto h-11">
+              إغلاق
+            </Button>
+            <Button onClick={handleChangeStatus} disabled={savingStatus} className="w-full sm:w-auto h-11">
+              {savingStatus ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
