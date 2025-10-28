@@ -9,13 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageHeader } from '@/components/ui/page-header'
-import { Search, Plus, Edit, Trash2, Users as UsersIcon, Mail, Calendar, Shield, UserCheck } from 'lucide-react'
+import { Search, Plus, Edit, Trash2, Users as UsersIcon, Calendar, Shield } from 'lucide-react'
+import dayjs from 'dayjs'
 
 interface User {
   id: number
   name: string
-  email: string
-  email_verified_at?: string
+  username: string
   created_at: string
   updated_at: string
 }
@@ -29,7 +29,7 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [userForm, setUserForm] = useState({
     name: '',
-    email: '',
+    username: '',
     password: '',
     password_confirmation: ''
   })
@@ -57,7 +57,7 @@ export default function Users() {
       setLoading(true)
       setError('')
       
-      if (!userForm.name || !userForm.email || !userForm.password) {
+      if (!userForm.name || !userForm.username || !userForm.password) {
         setError('جميع الحقول مطلوبة')
         return
       }
@@ -71,7 +71,7 @@ export default function Users() {
       const { data } = await apiClient.post('/users', payload)
       setUsers(prev => [data, ...prev])
       setOpenCreate(false)
-      setUserForm({ name: '', email: '', password: '', password_confirmation: '' })
+      setUserForm({ name: '', username: '', password: '', password_confirmation: '' })
       setSuccess('تم إنشاء المستخدم بنجاح')
     } catch (err: any) {
       setError(err?.response?.data?.message || 'فشل إنشاء المستخدم')
@@ -87,8 +87,8 @@ export default function Users() {
       setLoading(true)
       setError('')
       
-      if (!userForm.name || !userForm.email) {
-        setError('الاسم والبريد الإلكتروني مطلوبان')
+      if (!userForm.name || !userForm.username) {
+        setError('الاسم واسم المستخدم مطلوبان')
         return
       }
       
@@ -99,7 +99,7 @@ export default function Users() {
       
       const payload: any = {
         name: userForm.name,
-        email: userForm.email
+        username: userForm.username
       }
       
       if (userForm.password) {
@@ -111,7 +111,7 @@ export default function Users() {
       setUsers(prev => prev.map(u => u.id === selectedUser.id ? data : u))
       setOpenEdit(false)
       setSelectedUser(null)
-      setUserForm({ name: '', email: '', password: '', password_confirmation: '' })
+      setUserForm({ name: '', username: '', password: '', password_confirmation: '' })
       setSuccess('تم تحديث المستخدم بنجاح')
     } catch (err: any) {
       setError(err?.response?.data?.message || 'فشل تحديث المستخدم')
@@ -139,7 +139,7 @@ export default function Users() {
     setSelectedUser(user)
     setUserForm({
       name: user.name,
-      email: user.email,
+      username: user.username,
       password: '',
       password_confirmation: ''
     })
@@ -148,15 +148,11 @@ export default function Users() {
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    user.username.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ar-SA')
-  }
-
-  const isEmailVerified = (user: User) => {
-    return user.email_verified_at !== null
+    return dayjs(dateString).format('DD/MM/YYYY')
   }
 
   return (
@@ -197,7 +193,7 @@ export default function Users() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground size-4" />
               <Input
-                placeholder="البحث بالاسم أو البريد الإلكتروني..."
+                placeholder="البحث بالاسم أو اسم المستخدم..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -210,8 +206,7 @@ export default function Users() {
               <TableHeader>
                 <TableRow>
                   <TableHead>الاسم</TableHead>
-                  <TableHead>البريد الإلكتروني</TableHead>
-                  <TableHead>حالة التحقق</TableHead>
+                  <TableHead>اسم المستخدم</TableHead>
                   <TableHead>تاريخ الإنشاء</TableHead>
                   <TableHead className="text-center">الإجراءات</TableHead>
                 </TableRow>
@@ -222,21 +217,9 @@ export default function Users() {
                     <TableCell className="font-medium">{user.name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Mail className="size-3 text-muted-foreground" />
-                        {user.email}
+                        <UsersIcon className="size-3 text-muted-foreground" />
+                        {user.username}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={isEmailVerified(user) ? 'default' : 'secondary'}>
-                        {isEmailVerified(user) ? (
-                          <div className="flex items-center gap-1">
-                            <UserCheck className="size-3" />
-                            محقق
-                          </div>
-                        ) : (
-                          'غير محقق'
-                        )}
-                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -298,12 +281,11 @@ export default function Users() {
               />
             </div>
             <div className="col-span-12">
-              <Label>البريد الإلكتروني</Label>
+              <Label>اسم المستخدم</Label>
               <Input 
-                type="email"
-                value={userForm.email} 
-                onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} 
-                placeholder="أدخل البريد الإلكتروني"
+                value={userForm.username} 
+                onChange={(e) => setUserForm({ ...userForm, username: e.target.value })} 
+                placeholder="أدخل اسم المستخدم"
               />
             </div>
             <div className="col-span-12">
@@ -353,12 +335,11 @@ export default function Users() {
               />
             </div>
             <div className="col-span-12">
-              <Label>البريد الإلكتروني</Label>
+              <Label>اسم المستخدم</Label>
               <Input 
-                type="email"
-                value={userForm.email} 
-                onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} 
-                placeholder="أدخل البريد الإلكتروني"
+                value={userForm.username} 
+                onChange={(e) => setUserForm({ ...userForm, username: e.target.value })} 
+                placeholder="أدخل اسم المستخدم"
               />
             </div>
             <div className="col-span-12">

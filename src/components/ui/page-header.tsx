@@ -19,7 +19,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border/40 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground p-6 shadow-lg shadow-primary/20 mb-6",
+        "rounded-2xl border border-border/40 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground p-2 shadow-lg shadow-primary/20 mb-2",
         className
       )}
       {...props}

@@ -31,10 +31,10 @@ interface Reservation {
   rooms: Array<{
     id: number
     number: string
-    floor: {
+    floor?: {
       number: number
     }
-    type: {
+    type?: {
       name: string
       capacity: number
     }
@@ -84,8 +84,17 @@ export default function ReservationsList() {
       
       switch (actionType) {
         case 'confirm':
-          await apiClient.post(`/reservations/${selectedReservation.id}/confirm`)
+          const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/confirm`)
           toast.success('تم تأكيد الحجز بنجاح')
+          
+          // Handle SMS result
+          if (data.sms_result) {
+            if (data.sms_result.success) {
+              toast.success('تم إرسال رسالة تأكيد الحجز بنجاح', { duration: 4000 })
+            } else {
+              toast.error(`فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`, { duration: 5000 })
+            }
+          }
           break
         case 'checkin':
           await apiClient.post(`/reservations/${selectedReservation.id}/check-in`)
@@ -252,12 +261,7 @@ export default function ReservationsList() {
       />
 
       <Card className="border-border/40 shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="size-5 text-primary" />
-            الفلاتر والبحث
-          </CardTitle>
-        </CardHeader>
+    
         <CardContent>
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 md:col-span-8">
@@ -410,7 +414,7 @@ export default function ReservationsList() {
                       <div>
                         <p className="font-medium">غرفة {room.number}</p>
                         <p className="text-sm text-muted-foreground">
-                          الدور {room.floor.number} • {room.type.name} • {room.type.capacity} ضيوف
+                          {room.floor ? `الدور ${room.floor.number}` : 'الدور غير محدد'} • {room.type?.name || 'نوع غير محدد'} • {room.type?.capacity || 0} ضيوف
                         </p>
                       </div>
                     </div>

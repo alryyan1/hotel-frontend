@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 export default function Settings() {
   const [form, setForm] = useState({
     official_name: '', trade_name: '', address_line: '', city: '', postal_code: '', country: '',
-    phone: '', email: '', website: '', check_in_time: '', check_out_time: '', cancellation_policy: ''
+    phone: '', email: '', website: '', cancellation_policy: ''
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState('')
@@ -35,8 +35,6 @@ export default function Settings() {
             phone: data.phone || '',
             email: data.email || '',
             website: data.website || '',
-            check_in_time: data.check_in_time || '',
-            check_out_time: data.check_out_time || '',
             cancellation_policy: data.cancellation_policy || '',
           })
           if (data.logo_path) {
@@ -167,25 +165,6 @@ export default function Settings() {
                 <Input 
                   value={form.website} 
                   onChange={(e) => updateField('website', e.target.value)} 
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>وقت تسجيل الدخول</Label>
-                <Input 
-                  type="time"
-                  value={form.check_in_time} 
-                  onChange={(e) => updateField('check_in_time', e.target.value)} 
-                />
-              </div>
-              <div>
-                <Label>وقت تسجيل الخروج</Label>
-                <Input 
-                  type="time"
-                  value={form.check_out_time} 
-                  onChange={(e) => updateField('check_out_time', e.target.value)} 
                 />
               </div>
             </div>

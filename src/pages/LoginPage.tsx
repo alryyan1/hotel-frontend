@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,14 +9,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import apiClient from '../api/axios'
 
 interface LoginFormData {
-  email: string
+  username: string
   password: string
 }
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState<LoginFormData>({
-    email: 'admin@example.com',
+    username: 'admin',
     password: 'password'
   })
   const [showPassword, setShowPassword] = useState(false)
@@ -34,8 +34,8 @@ export default function LoginPage() {
     e.preventDefault()
     
     // Validation
-    if (!formData.email || !formData.password) {
-      setError('الرجاء إدخال البريد الإلكتروني وكلمة المرور')
+    if (!formData.username || !formData.password) {
+      setError('الرجاء إدخال اسم المستخدم وكلمة المرور')
       return
     }
 
@@ -44,7 +44,7 @@ export default function LoginPage() {
 
     try {
       const { data } = await apiClient.post('/login', {
-        email: formData.email,
+        username: formData.username,
         password: formData.password,
         device_name: 'web'
       })
@@ -140,22 +140,22 @@ export default function LoginPage() {
                     </Alert>
                   )}
 
-                  {/* Email Field */}
+                  {/* Username Field */}
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium">
-                      البريد الإلكتروني
+                    <Label htmlFor="username" className="text-sm font-medium">
+                      اسم المستخدم
                     </Label>
                     <div className="relative group">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={handleInputChange('email')}
+                        id="username"
+                        type="text"
+                        value={formData.username}
+                        onChange={handleInputChange('username')}
                         required
-                        autoComplete="email"
+                        autoComplete="username"
                         className="pl-10 h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                        placeholder="admin@example.com"
+                        placeholder="admin"
                         disabled={loading}
                       />
                     </div>

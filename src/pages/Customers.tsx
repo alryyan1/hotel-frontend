@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageHeader } from '@/components/ui/page-header'
 import { Search, Plus, Edit, Trash2, Users, Phone, MapPin, Calendar, User } from 'lucide-react'
 import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
+import dayjs from 'dayjs'
 
 interface Customer {
   id: number
@@ -131,7 +132,7 @@ export default function Customers() {
   )
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ar-SA')
+    return dayjs(dateString).format('DD/MM/YYYY')
   }
 
   const getGenderLabel = (gender?: string) => {

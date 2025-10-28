@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PageHeader } from '@/components/ui/page-header'
-import { Plus } from 'lucide-react'
+import { Plus, Edit, Trash2, Building } from 'lucide-react'
 
 export default function Floors() {
   const [floors, setFloors] = useState<any[]>([])
@@ -96,42 +96,113 @@ export default function Floors() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إدارة الأدوار"
         description="إضافة وتعديل وحذف أدوار الفندق"
         icon="🏢"
         action={
-          <Button onClick={() => setOpenDialog(true)} className="shadow-md">
-            <Plus className="size-4 mr-2" />
+          <Button 
+            onClick={() => setOpenDialog(true)} 
+            className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm font-medium shadow-md"
+          >
+            <Plus className="size-4 sm:size-4 mr-2" />
             إضافة دور
           </Button>
         }
       />
 
       {error && (
-        <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>
+        <Alert variant="destructive" className="mx-0">
+          <AlertDescription className="text-sm font-medium">{error}</AlertDescription>
+        </Alert>
       )}
       {success && (
-        <Alert><AlertDescription className="text-green-700">{success}</AlertDescription></Alert>
+        <Alert className="mx-0 border-green-200 bg-green-50">
+          <AlertDescription className="text-sm font-medium text-green-700">{success}</AlertDescription>
+        </Alert>
       )}
 
       <Card className="border-border/40 shadow-lg">
-        <CardContent className="pt-4 sm:pt-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground font-medium">
               <span className="text-foreground font-bold">{floors.length}</span> دور
             </div>
           </div>
-          <div className="overflow-x-auto rounded-lg border border-border/40">
+
+          {/* Mobile-first card layout */}
+          <div className="block lg:hidden space-y-3">
+            {floors.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-3 opacity-50">🏢</div>
+                <p className="text-muted-foreground">لا توجد أدوار. ابدأ بإضافة دور جديد.</p>
+              </div>
+            ) : (
+              floors.map((floor: any) => (
+                <Card key={floor.id} className="border-border/40 hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary">
+                          <Building className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-lg font-bold">الدور {floor.number}</span>
+                            <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
+                              {floor.rooms_count || 0} غرفة
+                            </span>
+                          </div>
+                          {floor.name && (
+                            <p className="text-sm font-medium text-foreground">{floor.name}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {floor.description && (
+                      <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
+                        {floor.description}
+                      </p>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEdit(floor)} 
+                        className="flex-1 h-9 text-sm"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        تعديل
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => handleDelete(floor.id)} 
+                        className="flex-1 h-9 text-sm"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        حذف
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* Desktop table layout */}
+          <div className="hidden lg:block overflow-x-auto rounded-lg border border-border/40">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="font-bold min-w-[120px]">رقم الدور</TableHead>
-                  <TableHead className="font-bold hidden sm:table-cell">الاسم</TableHead>
-                  <TableHead className="font-bold hidden md:table-cell">الوصف</TableHead>
-                  <TableHead className="font-bold min-w-[100px]">عدد الغرف</TableHead>
-                  <TableHead className="font-bold text-center min-w-[150px]">إجراءات</TableHead>
+                  <TableHead className="font-bold">رقم الدور</TableHead>
+                  <TableHead className="font-bold">الاسم</TableHead>
+                  <TableHead className="font-bold">الوصف</TableHead>
+                  <TableHead className="font-bold">عدد الغرف</TableHead>
+                  <TableHead className="font-bold text-center">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -146,28 +217,25 @@ export default function Floors() {
                   floors.map((floor: any) => (
                     <TableRow key={floor.id} className="hover:bg-muted/20 transition-colors">
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <span className="inline-flex items-center rounded-lg border border-primary/20 px-3 py-1.5 text-sm font-bold bg-primary/10 text-primary shadow-sm w-fit">
-                            {floor.number}
-                          </span>
-                          <span className="text-xs text-muted-foreground sm:hidden">
-                            {floor.name || 'بدون اسم'} • {floor.rooms_count || 0} غرفة
-                          </span>
-                        </div>
+                        <span className="inline-flex items-center rounded-lg border border-primary/20 px-3 py-1.5 text-sm font-bold bg-primary/10 text-primary shadow-sm">
+                          {floor.number}
+                        </span>
                       </TableCell>
-                      <TableCell className="font-medium hidden sm:table-cell">{floor.name || '-'}</TableCell>
-                      <TableCell className="text-muted-foreground hidden md:table-cell">{floor.description || '-'}</TableCell>
+                      <TableCell className="font-medium">{floor.name || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground">{floor.description || '-'}</TableCell>
                       <TableCell>
                         <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
                           {floor.rooms_count || 0} غرفة
                         </span>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1 justify-center">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(floor)} className="hover:bg-primary/10 h-8 px-2 text-xs">
+                        <div className="flex gap-2 justify-center">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(floor)} className="hover:bg-primary/10">
+                            <Edit className="w-4 h-4 mr-2" />
                             تعديل
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(floor.id)} className="h-8 px-2 text-xs">
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(floor.id)}>
+                            <Trash2 className="w-4 h-4 mr-2" />
                             حذف
                           </Button>
                         </div>
@@ -181,48 +249,62 @@ export default function Floors() {
         </CardContent>
       </Card>
 
-      {/* Create/Edit Dialog - Mobile Responsive */}
+      {/* Create/Edit Dialog - Mobile First */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="max-w-md mx-4 sm:mx-0">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl">{editingFloor ? 'تعديل دور' : 'إضافة دور جديد'}</DialogTitle>
-            <DialogDescription className="text-sm">{editingFloor ? 'تحديث بيانات الدور' : 'إنشاء دور جديد'}</DialogDescription>
+        <DialogContent className="w-[95vw] max-w-md mx-auto sm:w-full sm:max-w-lg">
+          <DialogHeader className="text-center sm:text-right">
+            <DialogTitle className="text-xl font-bold">{editingFloor ? 'تعديل دور' : 'إضافة دور جديد'}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {editingFloor ? 'تحديث بيانات الدور' : 'إنشاء دور جديد'}
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Label className="text-sm font-medium">رقم الدور</Label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">رقم الدور *</Label>
               <Input 
                 type="number" 
                 value={form.number} 
                 onChange={(e) => setForm({ ...form, number: e.target.value })} 
                 required 
-                className="h-11"
+                className="h-12 text-base"
                 placeholder="مثل: 1, 2, 3"
+                autoComplete="off"
               />
             </div>
-            <div>
-              <Label className="text-sm font-medium">اسم الدور (اختياري)</Label>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">اسم الدور</Label>
               <Input 
                 value={form.name} 
                 onChange={(e) => setForm({ ...form, name: e.target.value })} 
-                className="h-11"
+                className="h-12 text-base"
                 placeholder="مثل: الطابق الأرضي، الطابق الأول"
+                autoComplete="off"
               />
             </div>
-            <div>
-              <Label className="text-sm font-medium">الوصف (اختياري)</Label>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">الوصف</Label>
               <Input 
                 value={form.description} 
                 onChange={(e) => setForm({ ...form, description: e.target.value })} 
-                className="h-11"
+                className="h-12 text-base"
                 placeholder="وصف مختصر للدور"
+                autoComplete="off"
               />
             </div>
-            <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={handleCloseDialog} className="w-full sm:w-auto h-11">
+            <DialogFooter className="flex flex-col gap-3 pt-6 sm:flex-row sm:gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleCloseDialog} 
+                className="w-full h-12 text-base font-medium order-2 sm:order-1 sm:w-auto"
+              >
                 إلغاء
               </Button>
-              <Button type="submit" disabled={loading} className="w-full sm:w-auto h-11">
+              <Button 
+                type="submit" 
+                disabled={loading} 
+                className="w-full h-12 text-base font-medium order-1 sm:order-2 sm:w-auto"
+              >
                 {loading ? 'جارٍ الحفظ...' : (editingFloor ? 'تحديث' : 'إنشاء')}
               </Button>
             </DialogFooter>

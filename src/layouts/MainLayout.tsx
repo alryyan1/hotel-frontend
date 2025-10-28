@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft } from 'lucide-react'
 
-const drawerWidth = 260
+const drawerWidth = 220
 
 const navItems: Array<{ to: string; label: string; icon: React.ReactNode }> = [
   { to: '/', label: 'لوحة التحكم', icon: <Home className="size-5" /> },
@@ -114,7 +114,7 @@ export default function MainLayout() {
                   <NavLink
                     to={item.to}
                     className={({ isActive }: { isActive: boolean }) => [
-                      'group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all duration-200',
+                      'group flex items-center gap-3 rounded-xl px-1 py-1 text-sm font-medium transition-all duration-200',
                       'hover:shadow-md hover:scale-[1.02] active:scale-[0.98]',
                       isActive
                         ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/20'
@@ -155,10 +155,10 @@ export default function MainLayout() {
 
       {/* Main content - Modern with padding and max-width */}
       <main
-        className="flex-1 pt-16 min-h-screen transition-all duration-300"
-        style={{ marginRight: window.innerWidth >= 768 ? (open ? drawerWidth : 72) : 0 }}
+        className="flex-1 pt-10 min-h-screen transition-all duration-300"
+        style={{ marginRight: window.innerWidth >= 768 ? (open ? 50 : 72) : 0 }}
       >
-        <div className="container max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+        <div className="container max-w-7xl ">
           <Outlet />
         </div>
       </main>

@@ -21,6 +21,7 @@ export default function Reservations() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [smsStatus, setSmsStatus] = useState<{success: boolean, message: string} | null>(null)
   const [openCreate, setOpenCreate] = useState(false)
   const [selectedRooms, setSelectedRooms] = useState<any[]>([])
   const [customers, setCustomers] = useState<any[]>([])
@@ -70,7 +71,13 @@ export default function Reservations() {
       if (roomTypeId && roomTypeId !== 'all') params.room_type_id = roomTypeId
       if (guestCount) params.guest_count = guestCount
       const { data } = await apiClient.get('/availability', { params })
-      setAvailableRooms(data?.data || data)
+      const rooms = data?.data || data
+      setAvailableRooms(rooms)
+      
+      // Show message if no rooms are available
+      if (!rooms || rooms.length === 0) {
+        setError('لا توجد غرف متاحة للتواريخ المحددة')
+      }
     } catch (e) {
       console.error('Availability search failed', e)
       setError('فشل في جلب التوفر')
@@ -99,6 +106,7 @@ export default function Reservations() {
     try {
       setLoading(true)
       setError('')
+      setSmsStatus(null)
       if (!form.customer_id || selectedRooms.length === 0) {
         setError('العميل وغرفة واحدة على الأقل مطلوبة')
         return
@@ -111,7 +119,23 @@ export default function Reservations() {
         notes: form.notes || '',
         rooms: selectedRooms.map((r) => ({ id: r.id }))
       }
-      await apiClient.post('/reservations', payload)
+      const { data } = await apiClient.post('/reservations', payload)
+      
+      // Handle SMS result
+      if (data.sms_result) {
+        if (data.sms_result.success) {
+          setSmsStatus({
+            success: true,
+            message: 'تم إرسال رسالة تأكيد الحجز بنجاح'
+          })
+        } else {
+          setSmsStatus({
+            success: false,
+            message: `فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`
+          })
+        }
+      }
+      
       setSuccess('تم إنشاء الحجز بنجاح')
       setOpenCreate(false)
       setSelectedRooms([])
@@ -150,6 +174,13 @@ export default function Reservations() {
 
       {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
       {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
+      {smsStatus && (
+        <Alert className={`shadow-md ${smsStatus.success ? 'border-blue-200 bg-blue-50' : 'border-orange-200 bg-orange-50'}`}>
+          <AlertDescription className={`font-medium ${smsStatus.success ? 'text-blue-700' : 'text-orange-700'}`}>
+            📱 {smsStatus.message}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card className="border-border/40 shadow-lg">
         <CardContent className="pt-6">
@@ -222,59 +253,75 @@ export default function Reservations() {
         </CardContent>
       </Card>
 
-      {availableRooms?.length > 0 && (
+      {/* Show results section when search has been performed */}
+      {(availableRooms?.length > 0 || (availableRooms?.length === 0 && !loading && checkIn && checkOut)) && (
         <Card className="border-border/40 shadow-lg">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="font-bold text-lg">الغرف المتاحة ({availableRooms.length})</div>
-              <Button 
-                onClick={openCreateDialog} 
-                disabled={selectedRooms.length === 0}
-                className="shadow-md"
-              >
-                <Plus className="size-4 mr-2" />
-                إنشاء حجز ({selectedRooms.length})
-              </Button>
-            </div>
-            <div className="grid grid-cols-12 gap-4">
-              {availableRooms.map((room: any) => (
-                <div key={room.id} className="col-span-12 sm:col-span-6 lg:col-span-4">
-                  <div 
-                    onClick={() => toggleRoom(room)} 
-                    className={`cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
-                      selectedRooms.find(r=>r.id===room.id) 
-                        ? 'border-primary bg-primary/5 shadow-md shadow-primary/20' 
-                        : 'border-border/40 hover:border-primary/40'
-                    }`}
+            {availableRooms?.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="font-bold text-lg">الغرف المتاحة ({availableRooms.length})</div>
+                  <Button 
+                    onClick={openCreateDialog} 
+                    disabled={selectedRooms.length === 0}
+                    className="shadow-md"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-bold text-base">غرفة {room.number}</div>
-                      {selectedRooms.find(r=>r.id===room.id) && (
-                        <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">✓</div>
-                      )}
-                    </div>
-                    <div className="text-xs text-muted-foreground mb-3">
-                      الدور {room.floor?.number} • {room.type?.name}
-                    </div>
-                    <div className="flex gap-1.5 flex-wrap text-xs">
-                      <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
-                        {room.type?.capacity} ضيوف
-                      </span>
-                      {room.type?.area && (
-                        <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
-                          {room.type.area} م²
-                        </span>
-                      )}
-                      {Array.isArray(room.type?.amenities) && room.type.amenities.slice(0,2).map((a:string,i:number)=>(
-                        <span key={i} className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
-                          {a}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                    <Plus className="size-4 mr-2" />
+                    إنشاء حجز ({selectedRooms.length})
+                  </Button>
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-12 gap-4">
+                  {availableRooms.map((room: any) => (
+                    <div key={room.id} className="col-span-12 sm:col-span-6 lg:col-span-4">
+                      <div 
+                        onClick={() => toggleRoom(room)} 
+                        className={`cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
+                          selectedRooms.find(r=>r.id===room.id) 
+                            ? 'border-primary bg-primary/5 shadow-md shadow-primary/20' 
+                            : 'border-border/40 hover:border-primary/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="font-bold text-base">غرفة {room.number}</div>
+                          {selectedRooms.find(r=>r.id===room.id) && (
+                            <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">✓</div>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-3">
+                          الدور {room.floor?.number} • {room.type?.name}
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap text-xs">
+                          <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
+                            {room.type?.capacity} ضيوف
+                          </span>
+                          {room.type?.area && (
+                            <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
+                              {room.type.area} م²
+                            </span>
+                          )}
+                          {Array.isArray(room.type?.amenities) && room.type.amenities.slice(0,2).map((a:string,i:number)=>(
+                            <span key={i} className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
+                              {a}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-3 opacity-50">🏨</div>
+                <p className="text-muted-foreground text-lg font-medium">لا توجد غرف متاحة</p>
+                <p className="text-muted-foreground text-sm mt-2">
+                  للتواريخ المحددة ({checkIn} - {checkOut})
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  جرب تواريخ أخرى أو نوع غرفة مختلف
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

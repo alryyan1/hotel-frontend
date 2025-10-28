@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2 } from 'lucide-react'
+import { Plus, Edit, Trash2, CheckCircle } from 'lucide-react'
 import apiClient from '../api/axios'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -117,31 +117,112 @@ export default function RoomStatuses() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       <PageHeader
         title="إدارة حالات الغرف"
         description="ضبط الحالات والألوان لتمييز حالة كل غرفة"
         icon="✅"
         action={
-          <Button onClick={() => setOpenDialog(true)} className="shadow-md">
-            <Plus className="size-4 mr-2" />
+          <Button 
+            onClick={() => setOpenDialog(true)} 
+            className="w-full sm:w-auto h-11 sm:h-10 text-base sm:text-sm font-medium shadow-md"
+          >
+            <Plus className="size-4 sm:size-4 mr-2" />
             إضافة حالة غرفة
           </Button>
         }
       />
 
-      {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
-      {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
+      {error && (
+        <Alert variant="destructive" className="mx-0">
+          <AlertDescription className="text-sm font-medium">{error}</AlertDescription>
+        </Alert>
+      )}
+      {success && (
+        <Alert className="mx-0 border-green-200 bg-green-50">
+          <AlertDescription className="text-sm font-medium text-green-700">{success}</AlertDescription>
+        </Alert>
+      )}
 
       <Card className="border-border/40 shadow-lg">
-        <CardContent className="pt-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="text-sm text-muted-foreground font-medium">
               الإجمالي: <span className="text-foreground font-bold">{roomStatuses.length}</span> حالة
             </div>
           </div>
-          
-          <div className="overflow-x-auto rounded-lg border border-border/40">
+
+          {/* Mobile-first card layout */}
+          <div className="block lg:hidden space-y-3">
+            {roomStatuses.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-3 opacity-50">✅</div>
+                <p className="text-muted-foreground">لا توجد حالات غرف. ابدأ بإضافة حالة جديدة.</p>
+              </div>
+            ) : (
+              roomStatuses.map((roomStatus: any) => (
+                <Card key={roomStatus.id} className="border-border/40 hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary">
+                          <CheckCircle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge 
+                              className="text-white font-bold shadow-sm text-sm"
+                              style={{ backgroundColor: roomStatus.color || '#2196f3' }}
+                            >
+                              {roomStatus.code}
+                            </Badge>
+                            <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
+                              {roomStatus.rooms_count || 0} غرفة
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-foreground">{roomStatus.name}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 mb-3">
+                      <div
+                        className="w-6 h-6 rounded-md border-2 border-border shadow-sm"
+                        style={{ backgroundColor: roomStatus.color || '#2196f3' }}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {colorOptions.find(c => c.value === roomStatus.color)?.label || 'مخصص'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleEdit(roomStatus)} 
+                        className="flex-1 h-9 text-sm"
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        تعديل
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => handleDelete(roomStatus.id)} 
+                        className="flex-1 h-9 text-sm"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        حذف
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {/* Desktop table layout */}
+          <div className="hidden lg:block overflow-x-auto rounded-lg border border-border/40">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -191,10 +272,12 @@ export default function RoomStatuses() {
                       <TableCell>
                         <div className="flex gap-2 justify-center">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(roomStatus)} className="hover:bg-primary/10">
-                            <Edit className="size-3" />
+                            <Edit className="w-4 h-4 mr-2" />
+                            تعديل
                           </Button>
                           <Button variant="destructive" size="sm" onClick={() => handleDelete(roomStatus.id)}>
-                            <Trash2 className="size-3" />
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            حذف
                           </Button>
                         </div>
                       </TableCell>
@@ -207,36 +290,43 @@ export default function RoomStatuses() {
         </CardContent>
       </Card>
 
+      {/* Create/Edit Dialog - Mobile First */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingRoomStatus ? 'تعديل حالة غرفة' : 'إضافة حالة غرفة جديدة'}</DialogTitle>
-            <DialogDescription>{editingRoomStatus ? 'تحديث بيانات حالة الغرفة' : 'إنشاء حالة غرفة جديدة'}</DialogDescription>
+        <DialogContent className="w-[95vw] max-w-md mx-auto sm:w-full sm:max-w-lg">
+          <DialogHeader className="text-center sm:text-right">
+            <DialogTitle className="text-xl font-bold">{editingRoomStatus ? 'تعديل حالة غرفة' : 'إضافة حالة غرفة جديدة'}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {editingRoomStatus ? 'تحديث بيانات حالة الغرفة' : 'إنشاء حالة غرفة جديدة'}
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>الرمز *</Label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-foreground">الرمز *</Label>
                 <Input 
                   value={form.code} 
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} 
                   placeholder="AVAIL, OCCUPIED" 
                   required 
+                  className="h-12 text-base"
+                  autoComplete="off"
                 />
               </div>
-              <div>
-                <Label>الاسم *</Label>
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-foreground">الاسم *</Label>
                 <Input 
                   value={form.name} 
                   onChange={(e) => setForm({ ...form, name: e.target.value })} 
                   required 
+                  className="h-12 text-base"
+                  autoComplete="off"
                 />
               </div>
             </div>
-            <div>
-              <Label>اللون</Label>
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold text-foreground">اللون</Label>
               <Select value={form.color} onValueChange={(v: string) => setForm({ ...form, color: v })}>
-                <SelectTrigger>
+                <SelectTrigger className="h-12 text-base">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,9 +344,20 @@ export default function RoomStatuses() {
                 </SelectContent>
               </Select>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCloseDialog}>إلغاء</Button>
-              <Button type="submit" disabled={loading}>
+            <DialogFooter className="flex flex-col gap-3 pt-6 sm:flex-row sm:gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={handleCloseDialog} 
+                className="w-full h-12 text-base font-medium order-2 sm:order-1 sm:w-auto"
+              >
+                إلغاء
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={loading} 
+                className="w-full h-12 text-base font-medium order-1 sm:order-2 sm:w-auto"
+              >
                 {loading ? 'جارٍ الحفظ...' : (editingRoomStatus ? 'تحديث' : 'إنشاء')}
               </Button>
             </DialogFooter>
