@@ -53,9 +53,9 @@ export default function MainLayout() {
   const currentPage = navItems.find(item => item.to === location.pathname)?.label || 'لوحة التحكم'
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <div className=" min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Top bar - Modern glassmorphism */}
-      <header className="fixed top-0 inset-x-0 z-40 border-b border-border/40 bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 shadow-sm">
+      <header className="w-full top-0 inset-x-0 z-40 border-b border-border/40 bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 shadow-sm">
         <div className="flex items-center gap-3 px-4 h-16">
           <Button 
             variant="ghost" 
@@ -77,7 +77,7 @@ export default function MainLayout() {
               🏨
             </div>
             <div>
-              <div className="font-bold text-base leading-none">لوحة إدارة الفندق</div>
+              <div className="font-bold text-base leading-none">نظام إدارة الفنادق</div>
               <div className="text-xs text-muted-foreground hidden sm:block">{currentPage}</div>
             </div>
           </div>
@@ -99,8 +99,9 @@ export default function MainLayout() {
       )}
 
       {/* Sidebar - Modern with smooth animations */}
-      <aside
-        className={`fixed top-16 bottom-0 right-0 z-30 border-s border-border/40 bg-card/95 backdrop-blur-xl shadow-xl transition-all duration-300 ease-in-out ${
+      <div className=' flex gap-1'>
+          <aside
+        className={` border-s border-border/40 bg-card/95 backdrop-blur-xl shadow-xl transition-all duration-300 ease-in-out ${
           mobileOpen ? 'translate-x-0' : window.innerWidth < 768 && !open ? 'translate-x-full' : ''
         }`}
         style={{ width: open || mobileOpen ? drawerWidth : 72 }}
@@ -155,13 +156,14 @@ export default function MainLayout() {
 
       {/* Main content - Modern with padding and max-width */}
       <main
-        className="flex-1 pt-10 min-h-screen transition-all duration-300"
-        style={{ marginRight: window.innerWidth >= 768 ? (open ? 50 : 72) : 0 }}
+        className="flex-1  transition-all duration-300" 
       >
-        <div className="container max-w-7xl ">
+        <div className="container max-w-7xl p-3 ">
           <Outlet />
         </div>
       </main>
+      </div>
+    
     </div>
   )
 }

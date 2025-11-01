@@ -198,10 +198,10 @@ export default function Floors() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="font-bold">رقم الدور</TableHead>
-                  <TableHead className="font-bold">الاسم</TableHead>
-                  <TableHead className="font-bold">الوصف</TableHead>
-                  <TableHead className="font-bold">عدد الغرف</TableHead>
+                  <TableHead className="font-bold text-center">رقم الدور</TableHead>
+                  <TableHead className="font-bold text-center">الاسم</TableHead>
+                  <TableHead className="font-bold text-center">الوصف</TableHead>
+                  <TableHead className="font-bold text-center ">عدد الغرف</TableHead>
                   <TableHead className="font-bold text-center">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
@@ -216,19 +216,19 @@ export default function Floors() {
                 ) : (
                   floors.map((floor: any) => (
                     <TableRow key={floor.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell>
+                      <TableCell className="text-center">
                         <span className="inline-flex items-center rounded-lg border border-primary/20 px-3 py-1.5 text-sm font-bold bg-primary/10 text-primary shadow-sm">
                           {floor.number}
                         </span>
                       </TableCell>
-                      <TableCell className="font-medium">{floor.name || '-'}</TableCell>
-                      <TableCell className="text-muted-foreground">{floor.description || '-'}</TableCell>
-                      <TableCell>
-                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
+                      <TableCell className="font-medium text-center">{floor.name || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground text-center">{floor.description || '-'}</TableCell>
+                      <TableCell className="text-center">
+                        <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-center">
                           {floor.rooms_count || 0} غرفة
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div className="flex gap-2 justify-center">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(floor)} className="hover:bg-primary/10">
                             <Edit className="w-4 h-4 mr-2" />

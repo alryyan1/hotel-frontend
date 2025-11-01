@@ -145,15 +145,15 @@ export default function RoomTypes() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="font-bold min-w-[100px]">الرمز</TableHead>
-                  <TableHead className="font-bold min-w-[120px]">الاسم</TableHead>
-                  <TableHead className="font-bold hidden sm:table-cell">السعة</TableHead>
-                  <TableHead className="font-bold hidden md:table-cell">السعر</TableHead>
-                  <TableHead className="font-bold hidden lg:table-cell">المساحة</TableHead>
-                  <TableHead className="font-bold hidden lg:table-cell">الأسرة</TableHead>
-                  <TableHead className="font-bold hidden xl:table-cell">المرافق</TableHead>
-                  <TableHead className="font-bold min-w-[80px]">عدد الغرف</TableHead>
-                  <TableHead className="font-bold text-center min-w-[120px]">إجراءات</TableHead>
+                  <TableHead className="text-center font-bold">الرمز</TableHead>
+                  <TableHead className="text-center font-bold">الاسم</TableHead>
+                  <TableHead className="text-center   font-bold hidden sm:table-cell">السعة</TableHead>
+                  <TableHead className="text-center   font-bold hidden md:table-cell">السعر</TableHead>
+                  <TableHead className="text-center   font-bold hidden lg:table-cell">المساحة</TableHead>
+                  <TableHead className="text-center   font-bold hidden lg:table-cell">الأسرة</TableHead>
+                  <TableHead className="text-center   font-bold hidden xl:table-cell">المرافق</TableHead>
+                  <TableHead className="text-center   font-bold min-w-[80px]">عدد الغرف</TableHead>
+                  <TableHead className="text-center   font-bold ">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -167,7 +167,7 @@ export default function RoomTypes() {
                 ) : (
                   roomTypes.map((roomType: any) => (
                     <TableRow key={roomType.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div className="flex flex-col gap-1">
                           <Badge variant="secondary" className="font-bold w-fit">{roomType.code}</Badge>
                           <span className="text-xs text-muted-foreground sm:hidden">
@@ -175,7 +175,7 @@ export default function RoomTypes() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium text-center">
                         <div className="flex flex-col">
                           <span>{roomType.name}</span>
                           <span className="text-xs text-muted-foreground sm:hidden">
@@ -183,23 +183,23 @@ export default function RoomTypes() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell">
+                      <TableCell className="hidden sm:table-cell text-center">
                         <Badge variant="outline">{roomType.capacity} ضيوف</Badge>
                       </TableCell>
-                      <TableCell className="font-semibold hidden md:table-cell">${roomType.base_price}</TableCell>
-                      <TableCell className="text-muted-foreground hidden lg:table-cell">{roomType.area ?? '-'} م²</TableCell>
-                      <TableCell className="text-muted-foreground hidden lg:table-cell">{roomType.beds_count ?? '-'}</TableCell>
+                      <TableCell className="font-semibold hidden md:table-cell text-center">${roomType.base_price}</TableCell>
+                      <TableCell className="text-muted-foreground hidden lg:table-cell text-center">{roomType.area ?? '-'} م²</TableCell>
+                      <TableCell className="text-muted-foreground hidden lg:table-cell text-center">{roomType.beds_count ?? '-'}</TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-xs truncate hidden xl:table-cell">
                         {Array.isArray(roomType.amenities) && roomType.amenities.length 
                           ? roomType.amenities.join(', ') 
                           : '-'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
                           {roomType.rooms_count || 0}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div className="flex flex-wrap gap-1 justify-center">
                           <Button variant="outline" size="sm" onClick={() => handleEdit(roomType)} className="hover:bg-primary/10 h-8 px-2">
                             <Edit className="size-3" />
