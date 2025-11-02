@@ -306,21 +306,21 @@ export default function ReservationsList() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>رقم الحجز</TableHead>
-                    <TableHead>العميل</TableHead>
-                    <TableHead>الغرف</TableHead>
-                    <TableHead>تاريخ الوصول</TableHead>
-                    <TableHead>تاريخ المغادرة</TableHead>
-                    <TableHead>عدد الضيوف</TableHead>
-                    <TableHead>الحالة</TableHead>
-                    <TableHead>الإجراءات</TableHead>
+                    <TableHead className='text-center'>رقم الحجز</TableHead>
+                    <TableHead className='text-center'>العميل</TableHead>
+                    <TableHead className='text-center'>الغرف</TableHead>
+                    <TableHead className='text-center'>تاريخ الوصول</TableHead>
+                    <TableHead className='text-center'>تاريخ المغادرة</TableHead>
+                    <TableHead className='text-center'>عدد الضيوف</TableHead>
+                    <TableHead className='text-center'>الحالة</TableHead>
+                    <TableHead className='text-center'>الإجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredReservations.map((reservation) => (
                     <TableRow key={reservation.id}>
-                      <TableCell className="font-medium">#{reservation.id}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium text-center">#{reservation.id}</TableCell>
+                      <TableCell className="text-center">
                         <div>
                           <div className="font-medium">{reservation.customer.name}</div>
                           <div className="text-sm text-muted-foreground">
@@ -328,7 +328,7 @@ export default function ReservationsList() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div className="flex flex-wrap gap-1">
                           {reservation.rooms.map((room) => (
                             <Badge key={room.id} variant="outline" className="text-xs">
@@ -337,21 +337,21 @@ export default function ReservationsList() {
                           ))}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div>
                           <div className="font-medium">{formatDate(reservation.check_in_date)}</div>
                           <div className="text-xs text-muted-foreground">{getRelativeDate(reservation.check_in_date)}</div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">
                         <div>
                           <div className="font-medium">{formatDate(reservation.check_out_date)}</div>
                           <div className="text-xs text-muted-foreground">{getRelativeDate(reservation.check_out_date)}</div>
                         </div>
                       </TableCell>
-                      <TableCell>{reservation.guest_count}</TableCell>
-                      <TableCell>{getStatusBadge(reservation.status)}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-center">{reservation.guest_count}</TableCell>
+                      <TableCell className="text-center">{getStatusBadge(reservation.status)}</TableCell>
+                      <TableCell className="text-center">
                         <div className="flex items-center gap-2">
                           <Button
                             size="sm"

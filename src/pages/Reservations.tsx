@@ -140,6 +140,11 @@ export default function Reservations() {
       setOpenCreate(false)
       setSelectedRooms([])
       setForm({ customer_id: '', notes: '' })
+      
+      // Refresh available rooms after successful reservation
+      if (checkIn && checkOut) {
+        await searchAvailability()
+      }
     } catch (err: any) {
       setError(err?.response?.data?.message || 'فشل إنشاء الحجز')
     } finally {
@@ -183,14 +188,14 @@ export default function Reservations() {
       )}
 
       <Card className="border-border/40 shadow-lg">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-2 mb-4">
+        <CardContent className="pt-1">
+          <div className="flex items-center gap-2 mb-1">
             <Search className="size-5 text-primary" />
             <h3 className="font-bold text-lg">البحث عن توفر الغرف</h3>
           </div>
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-12 md:col-span-3">
-              <Label className="flex items-center gap-2 mb-2">
+              <Label className="flex items-center gap-2 mb-1">
                 <Calendar className="size-4" />
                 تاريخ الوصول
               </Label>
@@ -202,7 +207,7 @@ export default function Reservations() {
               />
             </div>
             <div className="col-span-12 md:col-span-3">
-              <Label className="flex items-center gap-2 mb-2">
+              <Label className="flex items-center gap-2 mb-1">
                 <Calendar className="size-4" />
                 تاريخ المغادرة
               </Label>
@@ -214,7 +219,7 @@ export default function Reservations() {
               />
             </div>
             <div className="col-span-12 md:col-span-2">
-              <Label className="flex items-center gap-2 mb-2">
+              <Label className="flex items-center gap-2 mb-1">
                 <Users className="size-4" />
                 عدد الضيوف
               </Label>
@@ -227,7 +232,7 @@ export default function Reservations() {
               />
             </div>
             <div className="col-span-12 md:col-span-3">
-              <Label className="mb-2 block">نوع الغرفة</Label>
+              <Label className="mb-1 block">نوع الغرفة</Label>
               <Select value={roomTypeId} onValueChange={(v: string) => setRoomTypeId(v)}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="الكل" />
@@ -255,8 +260,8 @@ export default function Reservations() {
 
       {/* Show results section when search has been performed */}
       {(availableRooms?.length > 0 || (availableRooms?.length === 0 && !loading && checkIn && checkOut)) && (
-        <Card className="border-border/40 shadow-lg">
-          <CardContent className="pt-6">
+        <Card className="border-border/40 shadow-lg p-0!">
+          <CardContent className="pt-1">
             {availableRooms?.length > 0 ? (
               <>
                 <div className="flex items-center justify-between mb-6">
@@ -281,14 +286,19 @@ export default function Reservations() {
                             : 'border-border/40 hover:border-primary/40'
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="font-bold text-base">غرفة {room.number}</div>
-                          {selectedRooms.find(r=>r.id===room.id) && (
-                            <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs">✓</div>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground mb-3">
-                          الدور {room.floor?.number} • {room.type?.name}
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-bold text-lg shadow-sm hover:shadow-md transition-shadow relative">
+                            {room.number}
+                            {selectedRooms.find(r=>r.id===room.id) && (
+                              <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs border-2 border-background">✓</div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-bold text-base">غرفة {room.number}</div>
+                            <div className="text-xs text-muted-foreground">
+                              الدور {room.floor?.number} • {room.type?.name}
+                            </div>
+                          </div>
                         </div>
                         <div className="flex gap-1.5 flex-wrap text-xs">
                           <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">

@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageHeader } from '@/components/ui/page-header'
-import { Search, Plus, Edit, Trash2, Users, Phone, MapPin, Calendar, User } from 'lucide-react'
+import { Search, Plus, Edit, Trash2, Users, Phone, MapPin, Calendar, User, FileText } from 'lucide-react'
 import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
 import dayjs from 'dayjs'
+import { useNavigate } from 'react-router-dom'
 
 interface Customer {
   id: number
@@ -27,6 +28,7 @@ interface Customer {
 }
 
 export default function Customers() {
+  const navigate = useNavigate()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -233,6 +235,15 @@ export default function Customers() {
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/customers/${customer.id}/ledger`)}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        >
+                          <FileText className="size-3 mr-1" />
+                          كشف حساب
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"

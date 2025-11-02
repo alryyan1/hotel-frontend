@@ -11,6 +11,7 @@ import RoomStatuses from './pages/RoomStatuses';
 import Reservations from './pages/Reservations';
 import ReservationsList from './pages/ReservationsList';
 import Customers from './pages/Customers';
+import CustomerLedger from './pages/CustomerLedger';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import MainLayout from './layouts/MainLayout';
@@ -49,6 +50,7 @@ function App() {
           <Route path="reservations" element={<Reservations />} />
           <Route path="reservations-list" element={<ReservationsList />} />
           <Route path="customers" element={<Customers />} />
+          <Route path="customers/:id/ledger" element={<CustomerLedger />} />
           <Route path="users" element={<Users />} />
           <Route path="settings" element={<Settings />} />
         </Route>

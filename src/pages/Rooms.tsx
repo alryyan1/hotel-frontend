@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Grid3x3, List, Search, Filter } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import CreateRoomDialog from '@/components/dialogs/CreateRoomDialog'
 import RoomDetailsDialog from '@/components/dialogs/RoomDetailsDialog'
 
@@ -24,6 +25,7 @@ export default function Rooms() {
   const [success, setSuccess] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false)
+  const [openFiltersDialog, setOpenFiltersDialog] = useState(false)
   const [editingRoom, setEditingRoom] = useState<any>(null)
   const [selectedRoom, setSelectedRoom] = useState<any>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -34,6 +36,7 @@ export default function Rooms() {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(9)
   const [dataLoaded, setDataLoaded] = useState(false)
+  const [highlightedRoomId, setHighlightedRoomId] = useState<number | null>(null)
   const hasFetchedRef = useRef(false) // Use ref to prevent double calls in StrictMode
 
   useEffect(() => {
@@ -60,7 +63,7 @@ export default function Rooms() {
     setDisplayedRooms(filteredRooms.slice(start, end))
   }, [filteredRooms, page, rowsPerPage])
 
-  const fetchData = async () => {
+  const fetchData = async (): Promise<void> => {
     // alert('fetchData')
     try {
       setLoading(true)
@@ -106,14 +109,28 @@ export default function Rooms() {
     setFilterStatus('')
   }
 
-  const handleDialogSuccess = () => {
+  const handleDialogSuccess = async (roomId?: number) => {
     if (editingRoom) {
       setSuccess('تم تحديث الغرفة بنجاح')
     } else {
       setSuccess('تم إنشاء الغرفة بنجاح')
     }
     setEditingRoom(null)
-    fetchData()
+    
+    // Fetch data first, then highlight the updated/new room
+    await fetchData()
+    
+    // Highlight the updated/new room after data is loaded
+    if (roomId) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        setHighlightedRoomId(roomId)
+        // Clear highlight after animation completes (3 seconds for 2 iterations)
+        setTimeout(() => {
+          setHighlightedRoomId(null)
+        }, 3000)
+      }, 100)
+    }
   }
 
   const handleDialogError = (message: string) => {
@@ -142,8 +159,10 @@ export default function Rooms() {
   const getStatusColor = (status: any) => status?.color || '#2196f3'
   const getStatusName = (status: any) => status?.name || 'غير محدد'
 
-  const RoomCard = ({ room }: { room: any }) => (
-    <Card className="relative border-border/40 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 overflow-hidden group">
+  const RoomCard = ({ room, isHighlighted }: { room: any; isHighlighted?: boolean }) => (
+    <Card className={`relative border-border/40 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 overflow-hidden group ${
+      isHighlighted ? 'animate-highlight border-primary/60 shadow-lg shadow-primary/20' : ''
+    }`}>
       <div className="absolute top-0 inset-x-0 h-1" style={{ backgroundColor: getStatusColor(room.status) }} />
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
@@ -161,7 +180,7 @@ export default function Rooms() {
         <Button variant="ghost" size="sm" onClick={() => handleView(room)} className="hover:bg-primary/10">عرض</Button>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => handleEdit(room)}>تعديل</Button>
-          <Button variant="destructive" size="sm" onClick={() => handleDelete(room.id)}>حذف</Button>
+          <Button variant="outline" size="sm" onClick={() => handleDelete(room.id)}>حذف</Button>
         </div>
       </CardFooter>
     </Card>
@@ -172,10 +191,24 @@ export default function Rooms() {
     setOpenDetailsDialog(true)
   }
 
-  const handleDetailsSuccess = () => {
+  const handleDetailsSuccess = async (roomId?: number) => {
     setSuccess('تم تحديث حالة الغرفة')
     setSelectedRoom(null)
-    fetchData()
+    
+    // Fetch data first, then highlight the updated room
+    await fetchData()
+    
+    // Highlight the updated room after data is loaded
+    if (roomId) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        setHighlightedRoomId(roomId)
+        // Clear highlight after animation completes (3 seconds for 2 iterations)
+        setTimeout(() => {
+          setHighlightedRoomId(null)
+        }, 3000)
+      }, 100)
+    }
   }
 
   return (
@@ -199,107 +232,122 @@ export default function Rooms() {
           </Alert>
       )}
 
-      {/* Modern Filters Card - Mobile Responsive */}
-      <Card className="border-border/40 shadow-lg">
-        <CardContent className="pt-1 sm:pt-1">
-          {/* Search Bar - Full width on mobile */}
-          <div className="mb-1 sm:mb-1">
-            <Label className="flex items-center gap-2 mb-2 text-sm font-medium">
-              <Search className="size-4" />
-              البحث
-            </Label>
-            <Input
-              placeholder="ابحث عن غرفة..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-11 w-full"
-            />
-          </div>
-
-          {/* Filters Grid - Responsive */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div>
-              <Label className="text-sm font-medium">الدور</Label>
-              <Select value={filterFloor} onValueChange={setFilterFloor}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="جميع الأدوار" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الأدوار</SelectItem>
-                  {floors.map((floor: any) => (
-                    <SelectItem key={floor.id} value={String(floor.id)}>الدور {floor.number}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm font-medium">النوع</Label>
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="جميع الأنواع" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الأنواع</SelectItem>
-                  {roomTypes.map((type: any) => (
-                    <SelectItem key={type.id} value={String(type.id)}>{type.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm font-medium">الحالة</Label>
-              <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="جميع الحالات" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الحالات</SelectItem>
-                  {roomStatuses.map((status: any) => (
-                    <SelectItem key={status.id} value={String(status.id)}>{status.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label className="text-sm font-medium">العرض</Label>
-              <div className="flex gap-2">
-                <Button 
-                  variant={viewMode === 'grid' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className="flex-1 h-9"
-                >
-                  <Grid3x3 className="size-4" />
-                </Button>
-                <Button 
-                  variant={viewMode === 'list' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className="flex-1 h-9"
-                >
-                  <List className="size-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Bar - Mobile Responsive */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 sm:mt-6 pt-4 border-t border-border/40">
+      {/* Action Bar */}
+        <div className="pt-1">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div className="text-sm text-muted-foreground font-medium">
               <span className="text-foreground font-bold">{filteredRooms.length}</span> من أصل <span className="text-foreground font-bold">{rooms.length}</span> غرفة
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-              <Button variant="outline" onClick={clearFilters} className="h-9 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => setOpenFiltersDialog(true)} className="h-9 w-full sm:w-auto">
                 <Filter className="size-4 mr-2" />
-                مسح المرشحات
+                الفلاتر والبحث
               </Button>
               <Button onClick={() => setOpenDialog(true)} className="h-9 w-full sm:w-auto shadow-md">
                 إضافة غرفة جديدة
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+      {/* Filters Dialog */}
+      <Dialog open={openFiltersDialog} onOpenChange={setOpenFiltersDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
+          <DialogHeader>
+            <DialogTitle className="text-lg sm:text-xl">الفلاتر والبحث</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Search Bar */}
+            <div>
+              <Label className="flex items-center gap-2 mb-2 text-sm font-medium">
+                <Search className="size-4" />
+                البحث
+              </Label>
+              <Input
+                placeholder="ابحث عن غرفة..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-11 w-full"
+              />
+            </div>
+
+            {/* Filters Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm font-medium">الدور</Label>
+                <Select value={filterFloor} onValueChange={setFilterFloor}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="جميع الأدوار" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">جميع الأدوار</SelectItem>
+                    {floors.map((floor: any) => (
+                      <SelectItem key={floor.id} value={String(floor.id)}>الدور {floor.number}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">النوع</Label>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="جميع الأنواع" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">جميع الأنواع</SelectItem>
+                    {roomTypes.map((type: any) => (
+                      <SelectItem key={type.id} value={String(type.id)}>{type.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm font-medium">الحالة</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="جميع الحالات" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">جميع الحالات</SelectItem>
+                    {roomStatuses.map((status: any) => (
+                      <SelectItem key={status.id} value={String(status.id)}>{status.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-medium">العرض</Label>
+                <div className="flex gap-2">
+                  <Button 
+                    variant={viewMode === 'grid' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="flex-1 h-9"
+                  >
+                    <Grid3x3 className="size-4" />
+                  </Button>
+                  <Button 
+                    variant={viewMode === 'list' ? 'default' : 'outline'} 
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                    className="flex-1 h-9"
+                  >
+                    <List className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={clearFilters} className="w-full sm:w-auto h-11">
+              مسح الفلاتر
+            </Button>
+            <Button onClick={() => setOpenFiltersDialog(false)} className="w-full sm:w-auto h-11">
+              تطبيق
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Content */}
       {loading ? (
@@ -325,10 +373,51 @@ export default function Rooms() {
       ) : (
         <>
           {viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {displayedRooms.map((room: any) => (
-                <RoomCard key={room.id} room={room} />
-              ))}
+            <div className="space-y-8">
+              {(() => {
+                // Group rooms by floor
+                const roomsByFloor = new Map<number | string, any[]>()
+                displayedRooms.forEach((room: any) => {
+                  const floorId = room.floor_id || room.floor?.id || 'no-floor'
+                  if (!roomsByFloor.has(floorId)) {
+                    roomsByFloor.set(floorId, [])
+                  }
+                  roomsByFloor.get(floorId)!.push(room)
+                })
+
+                // Sort floors by number
+                const sortedFloors = Array.from(roomsByFloor.entries()).sort((a, b) => {
+                  const floorA = displayedRooms.find((r: any) => (r.floor_id || r.floor?.id) === a[0])?.floor
+                  const floorB = displayedRooms.find((r: any) => (r.floor_id || r.floor?.id) === b[0])?.floor
+                  const numA = floorA?.number || 0
+                  const numB = floorB?.number || 0
+                  return numA - numB
+                })
+
+                return sortedFloors.map(([floorId, floorRooms]) => {
+                  const floor = floorRooms[0]?.floor
+                  const floorNumber = floor?.number || floorId
+                  const floorName = floor?.name || ''
+                  
+                  return (
+                    <div key={floorId} className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-2xl font-bold text-foreground">
+                          الدور {floorNumber}
+                        </h2>
+                        {floorName && (
+                          <span className="text-muted-foreground">({floorName})</span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {floorRooms.map((room: any) => (
+                          <RoomCard key={room.id} room={room} isHighlighted={highlightedRoomId === room.id} />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })
+              })()}
             </div>
           ) : (
             <Card className="">
@@ -346,7 +435,10 @@ export default function Rooms() {
                   </TableHeader>
                   <TableBody>
                     {displayedRooms.map((room: any) => (
-                      <TableRow key={room.id}>
+                      <TableRow 
+                        key={room.id}
+                        className={highlightedRoomId === room.id ? 'animate-highlight bg-primary/5 border-primary/60' : ''}
+                      >
                         <TableCell className="font-semibold text-center">
                           <div className="flex flex-col">
                             <span>غرفة {room.number}</span>
@@ -371,7 +463,7 @@ export default function Rooms() {
                             <Button variant="outline" size="sm" onClick={() => handleEdit(room)} className="h-8 px-2 text-xs">
                               تعديل
                             </Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleDelete(room.id)} className="h-8 px-2 text-xs">
+                            <Button variant="ghost" size="sm" onClick={() => handleDelete(room.id)} className="h-8 px-2 text-xs">
                               حذف
                             </Button>
                           </div>

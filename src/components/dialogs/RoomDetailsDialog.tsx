@@ -12,7 +12,7 @@ interface RoomDetailsDialogProps {
   onOpenChange: (open: boolean) => void
   selectedRoom: any | null
   roomStatuses: any[]
-  onSuccess: () => void
+  onSuccess: (roomId?: number) => void
   onError: (message: string) => void
 }
 
@@ -48,8 +48,8 @@ export default function RoomDetailsDialog({
         notes: room.notes || ''
       }
       await apiClient.put(`/rooms/${room.id}`, payload)
-      onSuccess()
       onOpenChange(false)
+      onSuccess(room.id)
     } catch (err: any) {
       onError(err?.response?.data?.message || 'فشل تحديث الحالة')
     } finally {

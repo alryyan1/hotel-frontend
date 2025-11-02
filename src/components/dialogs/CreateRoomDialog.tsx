@@ -14,7 +14,7 @@ interface CreateRoomDialogProps {
   floors: any[]
   roomTypes: any[]
   roomStatuses: any[]
-  onSuccess: () => void
+  onSuccess: (roomId?: number) => void
   onError: (message: string) => void
 }
 
@@ -82,14 +82,17 @@ export default function CreateRoomDialog({
       
       const submitData = { ...form, beds: parseInt(form.beds) }
       
+      let roomId: number | undefined
       if (editingRoom) {
         await apiClient.put(`/rooms/${editingRoom.id}`, submitData)
+        roomId = editingRoom.id
       } else {
-        await apiClient.post('/rooms', submitData)
+        const response = await apiClient.post('/rooms', submitData)
+        roomId = response.data.id
       }
       
       onOpenChange(false)
-      onSuccess()
+      onSuccess(roomId)
     } catch (err: any) {
       onError(err?.response?.data?.message || 'فشلت العملية')
     } finally {
