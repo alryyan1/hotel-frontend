@@ -14,6 +14,7 @@ import Customers from './pages/Customers';
 import CustomerLedger from './pages/CustomerLedger';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
+import Costs from './pages/Costs';
 import MainLayout from './layouts/MainLayout';
 import { Toaster } from './components/ui/sonner';
 
@@ -51,6 +52,7 @@ function App() {
           <Route path="reservations-list" element={<ReservationsList />} />
           <Route path="customers" element={<Customers />} />
           <Route path="customers/:id/ledger" element={<CustomerLedger />} />
+          <Route path="costs" element={<Costs />} />
           <Route path="users" element={<Users />} />
           <Route path="settings" element={<Settings />} />
         </Route>

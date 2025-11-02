@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import apiClient from '../api/axios'
+import dayjs from 'dayjs'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Grid3x3, List, Search, Filter } from 'lucide-react'
+import { Grid3x3, List, Search, Filter, Calendar } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import CreateRoomDialog from '@/components/dialogs/CreateRoomDialog'
 import RoomDetailsDialog from '@/components/dialogs/RoomDetailsDialog'
+import RoomReservationsDialog from '@/components/dialogs/RoomReservationsDialog'
 
 export default function Rooms() {
   const [rooms, setRooms] = useState<any[]>([])
@@ -37,6 +39,9 @@ export default function Rooms() {
   const [rowsPerPage, setRowsPerPage] = useState(9)
   const [dataLoaded, setDataLoaded] = useState(false)
   const [highlightedRoomId, setHighlightedRoomId] = useState<number | null>(null)
+  const [reservations, setReservations] = useState<any[]>([])
+  const [openReservationsDialog, setOpenReservationsDialog] = useState(false)
+  const [selectedRoomForReservations, setSelectedRoomForReservations] = useState<any>(null)
   const hasFetchedRef = useRef(false) // Use ref to prevent double calls in StrictMode
 
   useEffect(() => {
@@ -68,11 +73,12 @@ export default function Rooms() {
     try {
       setLoading(true)
       setDataLoaded(false) // Reset flag for manual refresh
-      const [roomsRes, floorsRes, roomTypesRes, roomStatusesRes] = await Promise.all([
+      const [roomsRes, floorsRes, roomTypesRes, roomStatusesRes, reservationsRes] = await Promise.all([
         apiClient.get('/rooms'),
         apiClient.get('/floors'),
         apiClient.get('/room-types'),
-        apiClient.get('/room-statuses')
+        apiClient.get('/room-statuses'),
+        apiClient.get('/reservations').catch(() => ({ data: [] })) // Fetch reservations, but don't fail if it errors
       ])
       // alert('data loaded')
       console.log(roomsRes.data,'roomsRes.data')
@@ -80,6 +86,8 @@ export default function Rooms() {
       setFloors(floorsRes.data)
       setRoomTypes(roomTypesRes.data)
       setRoomStatuses(roomStatusesRes.data)
+      const reservationsData = reservationsRes.data?.data || reservationsRes.data || []
+      setReservations(Array.isArray(reservationsData) ? reservationsData : [])
       setDataLoaded(true)
     } catch (err) {
       setError('فشل في تحميل البيانات')
@@ -159,11 +167,53 @@ export default function Rooms() {
   const getStatusColor = (status: any) => status?.color || '#2196f3'
   const getStatusName = (status: any) => status?.name || 'غير محدد'
 
-  const RoomCard = ({ room, isHighlighted }: { room: any; isHighlighted?: boolean }) => (
+  // Check if a room has active reservations
+  const hasActiveReservations = (roomId: number): boolean => {
+    const activeStatuses = ['pending', 'confirmed', 'checked_in']
+    return reservations.some((reservation: any) => 
+      activeStatuses.includes(reservation.status) &&
+      reservation.rooms?.some((room: any) => room.id === roomId)
+    )
+  }
+
+  // Get days remaining until room becomes available
+  const getDaysRemaining = (roomId: number): number | null => {
+    const activeStatuses = ['pending', 'confirmed', 'checked_in']
+    const roomReservations = reservations.filter((reservation: any) => 
+      activeStatuses.includes(reservation.status) &&
+      reservation.rooms?.some((room: any) => room.id === roomId)
+    )
+    
+    if (roomReservations.length === 0) return null
+    
+    // Find the latest check-out date
+    const latestCheckOut = roomReservations.reduce((latest: string | null, reservation: any) => {
+      const checkOutDate = reservation.check_out_date
+      if (!latest) return checkOutDate
+      return dayjs(checkOutDate).isAfter(dayjs(latest)) ? checkOutDate : latest
+    }, null)
+    
+    if (!latestCheckOut) return null
+    
+    const today = dayjs().startOf('day')
+    const checkOut = dayjs(latestCheckOut).startOf('day')
+    const days = checkOut.diff(today, 'day')
+    
+    return days >= 0 ? days : 0 // Return 0 if already past check-out date
+  }
+
+  const handleViewReservations = (room: any) => {
+    setSelectedRoomForReservations(room)
+    setOpenReservationsDialog(true)
+  }
+
+  const RoomCard = ({ room, isHighlighted }: { room: any; isHighlighted?: boolean }) => {
+    const isAvailable = !hasActiveReservations(room.id)
+    return (
     <Card className={`relative border-border/40 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 overflow-hidden group ${
       isHighlighted ? 'animate-highlight border-primary/60 shadow-lg shadow-primary/20' : ''
     }`}>
-      <div className="absolute top-0 inset-x-0 h-1" style={{ backgroundColor: getStatusColor(room.status) }} />
+      <div className={`absolute top-0 inset-x-0 h-1 ${isAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
           <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-bold text-lg shadow-sm group-hover:shadow-md transition-shadow">
@@ -172,19 +222,44 @@ export default function Rooms() {
           <div className="flex-1">
             <CardTitle className="text-lg">غرفة {room.number}</CardTitle>
             <CardDescription className="text-xs">الدور {room.floor?.number} {room.floor?.name ? `• ${room.floor.name}` : ''}</CardDescription>
+            {hasActiveReservations(room.id) && (() => {
+              const daysRemaining = getDaysRemaining(room.id)
+              return daysRemaining !== null ? (
+                <div className="mt-1">
+                  <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                    <Calendar className="size-3 mr-1" />
+                    متاح خلال {daysRemaining === 0 ? 'اليوم' : daysRemaining === 1 ? 'يوم واحد' : `${daysRemaining} أيام`}
+                  </Badge>
+                </div>
+              ) : null
+            })()}
           </div>
         </div>
       </CardHeader>
  
-      <CardFooter className="flex justify-between pt-3 border-t border-border/40">
-        <Button variant="ghost" size="sm" onClick={() => handleView(room)} className="hover:bg-primary/10">عرض</Button>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleEdit(room)}>تعديل</Button>
-          <Button variant="outline" size="sm" onClick={() => handleDelete(room.id)}>حذف</Button>
+      <CardFooter className="flex flex-col gap-2 pt-3 border-t border-border/40">
+        <div className="flex justify-between w-full">
+          <Button variant="ghost" size="sm" onClick={() => handleView(room)} className="hover:bg-primary/10">عرض</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleEdit(room)}>تعديل</Button>
+            <Button variant="outline" size="sm" onClick={() => handleDelete(room.id)}>حذف</Button>
+          </div>
         </div>
+        {hasActiveReservations(room.id) && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleViewReservations(room)} 
+            className="w-full hover:bg-primary/10 text-primary border-primary/20"
+          >
+            <Calendar className="size-4 mr-2" />
+            عرض الحجوزات النشطة
+          </Button>
+        )}
       </CardFooter>
     </Card>
-  )
+    )
+  }
 
   const handleView = (room: any) => {
     setSelectedRoom(room)
@@ -440,11 +515,20 @@ export default function Rooms() {
                         className={highlightedRoomId === room.id ? 'animate-highlight bg-primary/5 border-primary/60' : ''}
                       >
                         <TableCell className="font-semibold text-center">
-                          <div className="flex flex-col">
+                          <div className="flex flex-col gap-1">
                             <span>غرفة {room.number}</span>
                             <span className="text-xs text-muted-foreground sm:hidden">
                               الدور {room.floor?.number} • {room.type?.name}
                             </span>
+                            {hasActiveReservations(room.id) && (() => {
+                              const daysRemaining = getDaysRemaining(room.id)
+                              return daysRemaining !== null ? (
+                                <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 w-fit mx-auto sm:mx-0">
+                                  <Calendar className="size-3 mr-1" />
+                                  متاح خلال {daysRemaining === 0 ? 'اليوم' : daysRemaining === 1 ? 'يوم واحد' : `${daysRemaining} أيام`}
+                                </Badge>
+                              ) : null
+                            })()}
                           </div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell text-center  ">الدور {room.floor?.number}</TableCell>
@@ -456,16 +540,29 @@ export default function Rooms() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className="flex flex-wrap gap-1 justify-center items-center">
-                            <Button variant="ghost" size="sm" onClick={() => handleView(room)} className="h-8 px-2 text-xs">
-                              عرض
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(room)} className="h-8 px-2 text-xs">
-                              تعديل
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDelete(room.id)} className="h-8 px-2 text-xs">
-                              حذف
-                            </Button>
+                          <div className="flex flex-col gap-1 items-center">
+                            <div className="flex flex-wrap gap-1 justify-center items-center">
+                              <Button variant="ghost" size="sm" onClick={() => handleView(room)} className="h-8 px-2 text-xs">
+                                عرض
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleEdit(room)} className="h-8 px-2 text-xs">
+                                تعديل
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDelete(room.id)} className="h-8 px-2 text-xs">
+                                حذف
+                              </Button>
+                            </div>
+                            {hasActiveReservations(room.id) && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => handleViewReservations(room)} 
+                                className="h-8 px-2 text-xs text-primary border-primary/20 hover:bg-primary/10 mt-1"
+                              >
+                                <Calendar className="size-3 mr-1" />
+                                الحجوزات النشطة
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -556,6 +653,19 @@ export default function Rooms() {
         roomStatuses={roomStatuses}
         onSuccess={handleDetailsSuccess}
         onError={handleDialogError}
+      />
+
+      {/* Reservations Dialog */}
+      <RoomReservationsDialog
+        open={openReservationsDialog}
+        onOpenChange={(open) => {
+          setOpenReservationsDialog(open)
+          if (!open) {
+            setSelectedRoomForReservations(null)
+          }
+        }}
+        roomId={selectedRoomForReservations?.id || null}
+        roomNumber={selectedRoomForReservations?.number || ''}
       />
     </div>
   )

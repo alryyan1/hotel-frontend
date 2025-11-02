@@ -3,19 +3,20 @@ import type React from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft } from 'lucide-react'
+import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft, DollarSign } from 'lucide-react'
+import NotificationBell from '@/components/NotificationBell'
 
 const drawerWidth = 220
 
 const navItems: Array<{ to: string; label: string; icon: React.ReactNode }> = [
-  { to: '/', label: 'لوحة التحكم', icon: <Home className="size-5" /> },
-  { to: '/rooms', label: 'الغرف', icon: <BedDouble className="size-5" /> },
-  { to: '/floors', label: 'الأدوار', icon: <Building2 className="size-5" /> },
-  { to: '/room-types', label: 'أنواع الغرف', icon: <Tags className="size-5" /> },
-  { to: '/room-statuses', label: 'حالات الغرف', icon: <ListChecks className="size-5" /> },
   { to: '/reservations', label: 'إنشاء حجز', icon: <CalendarCheck2 className="size-5" /> },
   { to: '/reservations-list', label: 'قائمة الحجوزات', icon: <List className="size-5" /> },
   { to: '/customers', label: 'العملاء', icon: <UsersIcon className="size-5" /> },
+  { to: '/rooms', label: 'الغرف', icon: <BedDouble className="size-5" /> },
+  { to: '/room-types', label: 'أنواع الغرف', icon: <Tags className="size-5" /> },
+  { to: '/floors', label: 'الأدوار', icon: <Building2 className="size-5" /> },
+  // { to: '/room-statuses', label: 'حالات الغرف', icon: <ListChecks className="size-5" /> },
+  { to: '/costs', label: 'المصاريف', icon: <DollarSign className="size-5" /> },
   { to: '/users', label: 'المستخدمين', icon: <Shield className="size-5" /> },
   { to: '/settings', label: 'الإعدادات', icon: <Settings className="size-5" /> },
 ]
@@ -82,6 +83,7 @@ export default function MainLayout() {
             </div>
           </div>
           <div className="ms-auto flex items-center gap-2">
+            <NotificationBell />
             <Button variant="ghost" size="sm" className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-all duration-200" onClick={handleLogout}>
               <LogOut className="size-4" />
               <span className="hidden sm:inline">تسجيل الخروج</span>
