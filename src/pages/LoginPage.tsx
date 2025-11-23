@@ -55,7 +55,7 @@ export default function LoginPage() {
       window.dispatchEvent(new CustomEvent('auth-change'))
       
       // Use navigate instead of window.location for better UX
-      navigate('/', { replace: true })
+      navigate('/reservations-list', { replace: true })
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'فشل تسجيل الدخول'
       setError(message)

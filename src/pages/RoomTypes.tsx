@@ -30,6 +30,14 @@ export default function RoomTypes() {
     amenities: [] as string[]
   })
 
+  // Helper function to format numbers with thousands separator
+  const formatNumber = (value: number | string | null | undefined): string => {
+    if (value === null || value === undefined || value === '') return '-'
+    const num = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(num)) return '-'
+    return num.toLocaleString('en-US')
+  }
+
   useEffect(() => {
     fetchRoomTypes()
   }, [])
@@ -118,7 +126,7 @@ export default function RoomTypes() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      {/* <PageHeader
         title="إدارة أنواع الغرف"
         description="إضافة وتعديل أنواع الغرف والمرافق"
         icon="🏷️"
@@ -128,7 +136,7 @@ export default function RoomTypes() {
             إضافة نوع غرفة
           </Button>
         }
-      />
+      /> */}
 
       {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
       {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
@@ -171,7 +179,7 @@ export default function RoomTypes() {
                         <div className="flex flex-col gap-1">
                           <Badge variant="secondary" className="font-bold w-fit">{roomType.code}</Badge>
                           <span className="text-xs text-muted-foreground sm:hidden">
-                            {roomType.name} • ${roomType.base_price}
+                            {roomType.name} • {formatNumber(roomType.base_price)}
                           </span>
                         </div>
                       </TableCell>
@@ -179,16 +187,16 @@ export default function RoomTypes() {
                         <div className="flex flex-col">
                           <span>{roomType.name}</span>
                           <span className="text-xs text-muted-foreground sm:hidden">
-                            {roomType.capacity} ضيوف • {roomType.rooms_count || 0} غرفة
+                            {formatNumber(roomType.capacity)} ضيوف • {formatNumber(roomType.rooms_count || 0)} غرفة
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-center">
-                        <Badge variant="outline">{roomType.capacity} ضيوف</Badge>
+                        <Badge variant="outline">{formatNumber(roomType.capacity)} ضيوف</Badge>
                       </TableCell>
-                      <TableCell className="font-semibold hidden md:table-cell text-center">${roomType.base_price}</TableCell>
-                      <TableCell className="text-muted-foreground hidden lg:table-cell text-center">{roomType.area ?? '-'} م²</TableCell>
-                      <TableCell className="text-muted-foreground hidden lg:table-cell text-center">{roomType.beds_count ?? '-'}</TableCell>
+                      <TableCell className="font-semibold hidden md:table-cell text-center">{formatNumber(roomType.base_price)}</TableCell>
+                      <TableCell className="text-muted-foreground hidden lg:table-cell text-center">{roomType.area ? `${formatNumber(roomType.area)} م²` : '-'}</TableCell>
+                      <TableCell className="text-muted-foreground hidden lg:table-cell text-center">{formatNumber(roomType.beds_count)}</TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-xs truncate hidden xl:table-cell">
                         {Array.isArray(roomType.amenities) && roomType.amenities.length 
                           ? roomType.amenities.join(', ') 
@@ -196,7 +204,7 @@ export default function RoomTypes() {
                       </TableCell>
                       <TableCell className="text-center">
                         <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
-                          {roomType.rooms_count || 0}
+                          {formatNumber(roomType.rooms_count || 0)}
                         </span>
                       </TableCell>
                       <TableCell className="text-center">

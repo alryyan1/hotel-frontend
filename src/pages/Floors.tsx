@@ -149,7 +149,7 @@ export default function Floors() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-lg font-bold">الدور {floor.number}</span>
+                            <span className="text-lg font-bold">الطابق {floor.number}</span>
                             <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium">
                               {floor.rooms_count || 0} غرفة
                             </span>
@@ -198,7 +198,7 @@ export default function Floors() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30 hover:bg-muted/30">
-                  <TableHead className="font-bold text-center">رقم الدور</TableHead>
+                  <TableHead className="font-bold text-center">رقم الطابق</TableHead>
                   <TableHead className="font-bold text-center">الاسم</TableHead>
                   <TableHead className="font-bold text-center">الوصف</TableHead>
                   <TableHead className="font-bold text-center ">عدد الغرف</TableHead>
@@ -255,12 +255,12 @@ export default function Floors() {
           <DialogHeader className="text-center sm:text-right">
             <DialogTitle className="text-xl font-bold">{editingFloor ? 'تعديل دور' : 'إضافة دور جديد'}</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              {editingFloor ? 'تحديث بيانات الدور' : 'إنشاء دور جديد'}
+              {editingFloor ? 'تحديث بيانات الطابق' : 'إنشاء دور جديد'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-foreground">رقم الدور *</Label>
+              <Label className="text-sm font-semibold text-foreground">رقم الطابق *</Label>
               <Input 
                 type="number" 
                 value={form.number} 
@@ -272,7 +272,7 @@ export default function Floors() {
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-foreground">اسم الدور</Label>
+              <Label className="text-sm font-semibold text-foreground">اسم الطابق</Label>
               <Input 
                 value={form.name} 
                 onChange={(e) => setForm({ ...form, name: e.target.value })} 

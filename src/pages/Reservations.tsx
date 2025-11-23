@@ -55,18 +55,20 @@ export default function Reservations() {
     }
   }
 
-  const searchAvailability = async () => {
+  const searchAvailability = async (customCheckIn?: string, customCheckOut?: string) => {
     try {
       setError('')
       setSuccess('')
-      if (!checkIn || !checkOut) {
+      const checkInDate = customCheckIn ?? checkIn
+      const checkOutDate = customCheckOut ?? checkOut
+      if (!checkInDate || !checkOutDate) {
         setError('الرجاء اختيار تاريخي الوصول والمغادرة')
         return
       }
       setLoading(true)
       const params: any = {
-        check_in_date: checkIn,
-        check_out_date: checkOut,
+        check_in_date: checkInDate,
+        check_out_date: checkOutDate,
       }
       if (roomTypeId && roomTypeId !== 'all') params.room_type_id = roomTypeId
       if (guestCount) params.guest_count = guestCount
@@ -171,11 +173,27 @@ export default function Reservations() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <style>{`
+        @keyframes heartbeat {
+          0%, 100% {
+            transform: scale(1);
+          }
+          10%, 30% {
+            transform: scale(1.05);
+          }
+          20%, 40% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.08);
+          }
+        }
+      `}</style>
+      {/* <PageHeader
         title="إدارة الحجوزات"
         description="ابحث عن التوفر وأنشئ حجوزات بسهولة"
         icon="🗓️"
-      />
+      /> */}
 
       {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
       {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
@@ -214,7 +232,14 @@ export default function Reservations() {
               <Input 
                 type="date" 
                 value={checkOut} 
-                onChange={(e) => setCheckOut(e.target.value)}
+                onChange={(e) => {
+                  const newCheckOut = e.target.value
+                  setCheckOut(newCheckOut)
+                  // Trigger search if check-in date is also set
+                  if (checkIn && newCheckOut) {
+                    setTimeout(() => searchAvailability(checkIn, newCheckOut), 100)
+                  }
+                }}
                 className="h-11"
               />
             </div>
@@ -248,7 +273,7 @@ export default function Reservations() {
             <div className="col-span-12 md:col-span-1 flex items-end">
               <Button 
                 className="w-full h-11 shadow-md" 
-                onClick={searchAvailability} 
+                onClick={() => searchAvailability()} 
                 disabled={loading}
               >
                 {loading ? 'جارٍ البحث...' : 'بحث'}
@@ -270,6 +295,9 @@ export default function Reservations() {
                     onClick={openCreateDialog} 
                     disabled={selectedRooms.length === 0}
                     className="shadow-md"
+                    style={selectedRooms.length > 0 ? {
+                      animation: 'heartbeat 1.5s ease-in-out infinite'
+                    } : {}}
                   >
                     <Plus className="size-4 mr-2" />
                     إنشاء حجز ({selectedRooms.length})

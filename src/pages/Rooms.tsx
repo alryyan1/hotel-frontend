@@ -30,7 +30,7 @@ export default function Rooms() {
   const [openFiltersDialog, setOpenFiltersDialog] = useState(false)
   const [editingRoom, setEditingRoom] = useState<any>(null)
   const [selectedRoom, setSelectedRoom] = useState<any>(null)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterFloor, setFilterFloor] = useState('')
   const [filterType, setFilterType] = useState('')
@@ -82,7 +82,10 @@ export default function Rooms() {
       ])
       // alert('data loaded')
       console.log(roomsRes.data,'roomsRes.data')
-      setRooms(roomsRes.data)
+      // Backend returns grouped data, flatten it for filtering
+      const groupedRooms = roomsRes.data || []
+      const allRooms = groupedRooms.flatMap((group: any) => group.rooms || [])
+      setRooms(allRooms)
       setFloors(floorsRes.data)
       setRoomTypes(roomTypesRes.data)
       setRoomStatuses(roomStatusesRes.data)
@@ -167,6 +170,14 @@ export default function Rooms() {
   const getStatusColor = (status: any) => status?.color || '#2196f3'
   const getStatusName = (status: any) => status?.name || 'غير محدد'
 
+  // Helper function to format numbers with thousands separator
+  const formatNumber = (value: number | string | null | undefined): string => {
+    if (value === null || value === undefined || value === '') return '-'
+    const num = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(num)) return '-'
+    return num.toLocaleString('en-US')
+  }
+
   // Check if a room has active reservations
   const hasActiveReservations = (roomId: number): boolean => {
     const activeStatuses = ['pending', 'confirmed', 'checked_in']
@@ -202,6 +213,13 @@ export default function Rooms() {
     return days >= 0 ? days : 0 // Return 0 if already past check-out date
   }
 
+  // Get count of reservations for a room
+  const getReservationsCount = (roomId: number): number => {
+    return reservations.filter((reservation: any) => 
+      reservation.rooms?.some((room: any) => room.id === roomId)
+    ).length
+  }
+
   const handleViewReservations = (room: any) => {
     setSelectedRoomForReservations(room)
     setOpenReservationsDialog(true)
@@ -216,12 +234,27 @@ export default function Rooms() {
       <div className={`absolute top-0 inset-x-0 h-1 ${isAvailable ? 'bg-green-500' : 'bg-red-500'}`} />
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-bold text-lg shadow-sm group-hover:shadow-md transition-shadow">
+          <div className="relative flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-bold text-lg shadow-sm group-hover:shadow-md transition-shadow">
             {room.number}
+            <div className={`absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${
+              hasActiveReservations(room.id) ? 'bg-red-500' : 'bg-green-500'
+            }`} />
           </div>
           <div className="flex-1">
-            <CardTitle className="text-lg">غرفة {room.number}</CardTitle>
-            <CardDescription className="text-xs">الدور {room.floor?.number} {room.floor?.name ? `• ${room.floor.name}` : ''}</CardDescription>
+            <CardTitle className="text-lg flex items-center gap-2">
+              غرفة {room.number}
+              <div className={`h-2 w-2 rounded-full ${
+                hasActiveReservations(room.id) ? 'bg-red-500' : 'bg-green-500'
+              }`} />
+            </CardTitle>
+            <CardDescription className="text-xs">الطابق {room.floor?.number} {room.floor?.name ? `• ${room.floor.name}` : ''}</CardDescription>
+            {room.type && (
+              <div className="mt-1">
+                <Badge variant="secondary" className="text-xs">
+                  {room.type.name}
+                </Badge>
+              </div>
+            )}
             {hasActiveReservations(room.id) && (() => {
               const daysRemaining = getDaysRemaining(room.id)
               return daysRemaining !== null ? (
@@ -314,6 +347,14 @@ export default function Rooms() {
               <span className="text-foreground font-bold">{filteredRooms.length}</span> من أصل <span className="text-foreground font-bold">{rooms.length}</span> غرفة
             </div>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button 
+                variant={viewMode === 'list' ? 'default' : 'outline'} 
+                onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')} 
+                className="h-9 w-full sm:w-auto"
+              >
+                <List className="size-4 mr-2" />
+                {viewMode === 'list' ? 'عرض الشبكة' : 'عرض الجدول'}
+              </Button>
               <Button variant="outline" onClick={() => setOpenFiltersDialog(true)} className="h-9 w-full sm:w-auto">
                 <Filter className="size-4 mr-2" />
                 الفلاتر والبحث
@@ -349,7 +390,7 @@ export default function Rooms() {
             {/* Filters Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium">الدور</Label>
+                <Label className="text-sm font-medium">الطابق</Label>
                 <Select value={filterFloor} onValueChange={setFilterFloor}>
                   <SelectTrigger className="h-11">
                     <SelectValue placeholder="جميع الأدوار" />
@@ -357,7 +398,7 @@ export default function Rooms() {
                   <SelectContent>
                     <SelectItem value="">جميع الأدوار</SelectItem>
                     {floors.map((floor: any) => (
-                      <SelectItem key={floor.id} value={String(floor.id)}>الدور {floor.number}</SelectItem>
+                      <SelectItem key={floor.id} value={String(floor.id)}>الطابق {floor.number}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -450,42 +491,37 @@ export default function Rooms() {
           {viewMode === 'grid' ? (
             <div className="space-y-8">
               {(() => {
-                // Group rooms by floor
-                const roomsByFloor = new Map<number | string, any[]>()
+                // Group displayed rooms by floor (using backend grouping structure)
+                const roomsByFloor = new Map<number | string, { floor: any; rooms: any[] }>()
                 displayedRooms.forEach((room: any) => {
                   const floorId = room.floor_id || room.floor?.id || 'no-floor'
                   if (!roomsByFloor.has(floorId)) {
-                    roomsByFloor.set(floorId, [])
+                    roomsByFloor.set(floorId, {
+                      floor: room.floor,
+                      rooms: []
+                    })
                   }
-                  roomsByFloor.get(floorId)!.push(room)
+                  roomsByFloor.get(floorId)!.rooms.push(room)
                 })
+                console.log(roomsByFloor,'roomsByFloor')
 
-                // Sort floors by number
-                const sortedFloors = Array.from(roomsByFloor.entries()).sort((a, b) => {
-                  const floorA = displayedRooms.find((r: any) => (r.floor_id || r.floor?.id) === a[0])?.floor
-                  const floorB = displayedRooms.find((r: any) => (r.floor_id || r.floor?.id) === b[0])?.floor
-                  const numA = floorA?.number || 0
-                  const numB = floorB?.number || 0
-                  return numA - numB
-                })
-
-                return sortedFloors.map(([floorId, floorRooms]) => {
-                  const floor = floorRooms[0]?.floor
-                  const floorNumber = floor?.number || floorId
-                  const floorName = floor?.name || ''
+                return Array.from(roomsByFloor.entries()).map(([floorId, floorData]) => {
+                  const floor = floorData.floor
+                  const floorNumber = floor?.number ?? floorId
+                  const floorName = floor?.name ?? ''
                   
                   return (
                     <div key={floorId} className="space-y-4">
                       <div className="flex items-center gap-3">
                         <h2 className="text-2xl font-bold text-foreground">
-                          الدور {floorNumber}
+                          الطابق {floorNumber} 
                         </h2>
                         {floorName && (
                           <span className="text-muted-foreground">({floorName})</span>
                         )}
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {floorRooms.map((room: any) => (
+                        {floorData.rooms.map((room: any) => (
                           <RoomCard key={room.id} room={room} isHighlighted={highlightedRoomId === room.id} />
                         ))}
                       </div>
@@ -501,10 +537,11 @@ export default function Rooms() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-center">الغرفة</TableHead>
-                      <TableHead className="hidden sm:table-cell text-center">الدور</TableHead>
+                      <TableHead className="hidden sm:table-cell text-center">الطابق</TableHead>
                       <TableHead className="hidden md:table-cell text-center">النوع</TableHead>
-                      <TableHead className="hidden lg:table-cell text-center">الأسرة</TableHead>
-                      <TableHead className=" text-center">الحالة</TableHead>
+                      <TableHead className="hidden lg:table-cell text-center">السعر</TableHead>
+                      <TableHead className="text-center">الحالة</TableHead>
+                      <TableHead className="text-center">الحجوزات</TableHead>
                       <TableHead className="text-center">إجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -516,9 +553,14 @@ export default function Rooms() {
                       >
                         <TableCell className="font-semibold text-center">
                           <div className="flex flex-col gap-1">
-                            <span>غرفة {room.number}</span>
+                            <span className="flex items-center justify-center gap-2">
+                              غرفة {room.number}
+                              <div className={`h-2 w-2 rounded-full ${
+                                hasActiveReservations(room.id) ? 'bg-red-500' : 'bg-green-500'
+                              }`} />
+                            </span>
                             <span className="text-xs text-muted-foreground sm:hidden">
-                              الدور {room.floor?.number} • {room.type?.name}
+                              الطابق {room.floor?.number} • {room.type?.name}
                             </span>
                             {hasActiveReservations(room.id) && (() => {
                               const daysRemaining = getDaysRemaining(room.id)
@@ -531,12 +573,19 @@ export default function Rooms() {
                             })()}
                           </div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell text-center  ">الدور {room.floor?.number}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-center  ">الطابق {room.floor?.number}</TableCell>
                         <TableCell className="hidden md:table-cell text-center">{room.type?.name}</TableCell>
-                        <TableCell className="hidden lg:table-cell text-center">{room.beds}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-center font-semibold">
+                          {room.type?.base_price ? formatNumber(room.type.base_price) : '-'}
+                        </TableCell>
                         <TableCell className="text-center">
                           <Badge style={{ backgroundColor: getStatusColor(room.status) }} className="text-white text-xs">
                             {getStatusName(room.status)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="secondary" className="font-semibold">
+                            {getReservationsCount(room.id)}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">

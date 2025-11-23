@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -21,8 +21,8 @@ interface Notification {
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
-  const [lastFetchTime, setLastFetchTime] = useState<string | null>(null)
-  const [seenReservationIds, setSeenReservationIds] = useState<Set<string>>(new Set())
+  const lastFetchTimeRef = useRef<string | null>(null)
+  const seenReservationIdsRef = useRef<Set<string>>(new Set())
   const navigate = useNavigate()
 
   const fetchNotifications = useCallback(async () => {
@@ -32,7 +32,7 @@ export default function NotificationBell() {
       const reservations = data.data || data || []
       const now = dayjs()
       const newNotifications: Notification[] = []
-      const newSeenIds = new Set(seenReservationIds)
+      const newSeenIds = new Set(seenReservationIdsRef.current)
 
       reservations.forEach((reservation: any) => {
         const checkOutDate = dayjs(reservation.check_out_date)
@@ -65,7 +65,7 @@ export default function NotificationBell() {
         if (hoursAgo <= 24 && reservation.status !== 'cancelled') {
           const notifId = `new-${reservation.id}`
           // Only show if we haven't seen this reservation before OR it was created after last fetch
-          const wasCreatedAfterLastFetch = lastFetchTime && createdDate.isAfter(dayjs(lastFetchTime))
+          const wasCreatedAfterLastFetch = lastFetchTimeRef.current && createdDate.isAfter(dayjs(lastFetchTimeRef.current))
           const wasNotSeenBefore = !newSeenIds.has(notifId)
           
           if (wasNotSeenBefore || wasCreatedAfterLastFetch) {
@@ -109,12 +109,12 @@ export default function NotificationBell() {
         return [...uniqueNew, ...prev].slice(0, 20) // Keep only last 20
       })
 
-      setSeenReservationIds(newSeenIds)
-      setLastFetchTime(now.toISOString())
+      seenReservationIdsRef.current = newSeenIds
+      lastFetchTimeRef.current = now.toISOString()
     } catch (error) {
       console.error('Failed to fetch notifications', error)
     }
-  }, [lastFetchTime, seenReservationIds])
+  }, [])
 
   useEffect(() => {
     // Initial fetch

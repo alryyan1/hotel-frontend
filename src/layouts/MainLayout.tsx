@@ -14,7 +14,7 @@ const navItems: Array<{ to: string; label: string; icon: React.ReactNode }> = [
   { to: '/customers', label: 'العملاء', icon: <UsersIcon className="size-5" /> },
   { to: '/rooms', label: 'الغرف', icon: <BedDouble className="size-5" /> },
   { to: '/room-types', label: 'أنواع الغرف', icon: <Tags className="size-5" /> },
-  { to: '/floors', label: 'الأدوار', icon: <Building2 className="size-5" /> },
+  { to: '/floors', label: 'الطوابق', icon: <Building2 className="size-5" /> },
   // { to: '/room-statuses', label: 'حالات الغرف', icon: <ListChecks className="size-5" /> },
   { to: '/costs', label: 'المصاريف', icon: <DollarSign className="size-5" /> },
   { to: '/users', label: 'المستخدمين', icon: <Shield className="size-5" /> },
@@ -117,7 +117,7 @@ export default function MainLayout() {
                   <NavLink
                     to={item.to}
                     className={({ isActive }: { isActive: boolean }) => [
-                      'group flex items-center gap-3 rounded-xl px-1 py-1 text-sm font-medium transition-all duration-200',
+                      'group flex items-center gap-3 rounded-xl px-1 py-1 text-sm font-bold transition-all duration-200',
                       'hover:shadow-md hover:scale-[1.02] active:scale-[0.98]',
                       isActive
                         ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/20'
@@ -135,7 +135,7 @@ export default function MainLayout() {
                         </span>
                       </TooltipTrigger>
                       {!open && !mobileOpen && (
-                        <TooltipContent side="left" className="px-3 py-2 text-sm font-medium">
+                        <TooltipContent side="left" className="px-3 py-2 text-sm font-bold">
                           {item.label}
                         </TooltipContent>
                       )}
