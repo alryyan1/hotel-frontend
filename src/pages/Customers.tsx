@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui/page-header'
 import { Search, Plus, Edit, Trash2, Users, Phone, MapPin, Calendar, User, FileText } from 'lucide-react'
 import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
@@ -43,8 +43,6 @@ export default function Customers() {
     date_of_birth: '',
     gender: ''
   })
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     fetchCustomers()
@@ -65,15 +63,14 @@ export default function Customers() {
   const handleCreateCustomer = async () => {
     try {
       setLoading(true)
-      setError('')
       const payload = { ...customerForm }
       const { data } = await apiClient.post('/customers', payload)
       setCustomers(prev => [data, ...prev])
       setOpenCreate(false)
       setCustomerForm({ name: '', phone: '', national_id: '', address: '', date_of_birth: '', gender: '' })
-      setSuccess('تم إنشاء العميل بنجاح')
+      toast.success('تم إنشاء العميل بنجاح')
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل إنشاء العميل')
+      toast.error(err?.response?.data?.message || 'فشل إنشاء العميل')
     } finally {
       setLoading(false)
     }
@@ -84,16 +81,15 @@ export default function Customers() {
     
     try {
       setLoading(true)
-      setError('')
       const payload = { ...customerForm }
       const { data } = await apiClient.put(`/customers/${selectedCustomer.id}`, payload)
       setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? data : c))
       setOpenEdit(false)
       setSelectedCustomer(null)
       setCustomerForm({ name: '', phone: '', national_id: '', address: '', date_of_birth: '', gender: '' })
-      setSuccess('تم تحديث العميل بنجاح')
+      toast.success('تم تحديث العميل بنجاح')
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل تحديث العميل')
+      toast.error(err?.response?.data?.message || 'فشل تحديث العميل')
     } finally {
       setLoading(false)
     }
@@ -106,9 +102,9 @@ export default function Customers() {
       setLoading(true)
       await apiClient.delete(`/customers/${customer.id}`)
       setCustomers(prev => prev.filter(c => c.id !== customer.id))
-      setSuccess('تم حذف العميل بنجاح')
+      toast.success('تم حذف العميل بنجاح')
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل حذف العميل')
+      toast.error(err?.response?.data?.message || 'فشل حذف العميل')
     } finally {
       setLoading(false)
     }
@@ -153,18 +149,6 @@ export default function Customers() {
         icon="👥"
       />
 
-      {error && (
-        <Alert variant="destructive" className="shadow-md">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      {success && (
-        <Alert className="shadow-md border-green-200 bg-green-50">
-          <AlertDescription className="text-green-700 font-medium">{success}</AlertDescription>
-        </Alert>
-      )}
-
       <Card className="border-border/40 shadow-lg">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -195,21 +179,21 @@ export default function Customers() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>الاسم</TableHead>
-                  <TableHead>الهاتف</TableHead>
-                  <TableHead>الرقم الوطني</TableHead>
-                  <TableHead>النوع</TableHead>
-                  <TableHead>تاريخ التسجيل</TableHead>
+                  <TableHead className="text-center">الاسم</TableHead>
+                  <TableHead className="text-center">الهاتف</TableHead>
+                  <TableHead className="text-center">الرقم الوطني</TableHead>
+                  <TableHead className="text-center">النوع</TableHead>
+                  <TableHead className="text-center">تاريخ التسجيل</TableHead>
                   <TableHead className="text-center">الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCustomers.map((customer) => (
                   <TableRow key={customer.id}>
-                    <TableCell className="font-medium">{customer.name}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium text-center">{customer.name}</TableCell>
+                    <TableCell className="text-center">
                       {customer.phone ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-center gap-2">
                           <Phone className="size-3 text-muted-foreground" />
                           {customer.phone}
                         </div>
@@ -217,18 +201,18 @@ export default function Customers() {
                         <span className="text-muted-foreground">غير محدد</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       {customer.national_id || (
                         <span className="text-muted-foreground">غير محدد</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <Badge variant={customer.gender === 'male' ? 'default' : customer.gender === 'female' ? 'secondary' : 'outline'}>
                         {getGenderLabel(customer.gender)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <Calendar className="size-3 text-muted-foreground" />
                         {formatDate(customer.created_at)}
                       </div>

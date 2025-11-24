@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui/page-header'
 import { Search, Plus, Edit, Trash2, Users as UsersIcon, Calendar, Shield } from 'lucide-react'
 import dayjs from 'dayjs'
@@ -33,8 +33,6 @@ export default function Users() {
     password: '',
     password_confirmation: ''
   })
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     fetchUsers()
@@ -55,15 +53,14 @@ export default function Users() {
   const handleCreateUser = async () => {
     try {
       setLoading(true)
-      setError('')
       
       if (!userForm.name || !userForm.username || !userForm.password) {
-        setError('جميع الحقول مطلوبة')
+        toast.error('جميع الحقول مطلوبة')
         return
       }
       
       if (userForm.password !== userForm.password_confirmation) {
-        setError('كلمة المرور غير متطابقة')
+        toast.error('كلمة المرور غير متطابقة')
         return
       }
       
@@ -72,9 +69,9 @@ export default function Users() {
       setUsers(prev => [data, ...prev])
       setOpenCreate(false)
       setUserForm({ name: '', username: '', password: '', password_confirmation: '' })
-      setSuccess('تم إنشاء المستخدم بنجاح')
+      toast.success('تم إنشاء المستخدم بنجاح')
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل إنشاء المستخدم')
+      toast.error(err?.response?.data?.message || 'فشل إنشاء المستخدم')
     } finally {
       setLoading(false)
     }
@@ -85,15 +82,14 @@ export default function Users() {
     
     try {
       setLoading(true)
-      setError('')
       
       if (!userForm.name || !userForm.username) {
-        setError('الاسم واسم المستخدم مطلوبان')
+        toast.error('الاسم واسم المستخدم مطلوبان')
         return
       }
       
       if (userForm.password && userForm.password !== userForm.password_confirmation) {
-        setError('كلمة المرور غير متطابقة')
+        toast.error('كلمة المرور غير متطابقة')
         return
       }
       
@@ -112,9 +108,9 @@ export default function Users() {
       setOpenEdit(false)
       setSelectedUser(null)
       setUserForm({ name: '', username: '', password: '', password_confirmation: '' })
-      setSuccess('تم تحديث المستخدم بنجاح')
+      toast.success('تم تحديث المستخدم بنجاح')
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل تحديث المستخدم')
+      toast.error(err?.response?.data?.message || 'فشل تحديث المستخدم')
     } finally {
       setLoading(false)
     }
@@ -127,9 +123,9 @@ export default function Users() {
       setLoading(true)
       await apiClient.delete(`/users/${user.id}`)
       setUsers(prev => prev.filter(u => u.id !== user.id))
-      setSuccess('تم حذف المستخدم بنجاح')
+      toast.success('تم حذف المستخدم بنجاح')
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل حذف المستخدم')
+      toast.error(err?.response?.data?.message || 'فشل حذف المستخدم')
     } finally {
       setLoading(false)
     }
@@ -163,18 +159,6 @@ export default function Users() {
         icon="👤"
       />
 
-      {error && (
-        <Alert variant="destructive" className="shadow-md">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      {success && (
-        <Alert className="shadow-md border-green-200 bg-green-50">
-          <AlertDescription className="text-green-700 font-medium">{success}</AlertDescription>
-        </Alert>
-      )}
-
       <Card className="border-border/40 shadow-lg">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -205,24 +189,24 @@ export default function Users() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>الاسم</TableHead>
-                  <TableHead>اسم المستخدم</TableHead>
-                  <TableHead>تاريخ الإنشاء</TableHead>
+                  <TableHead className="text-center">الاسم</TableHead>
+                  <TableHead className="text-center">اسم المستخدم</TableHead>
+                  <TableHead className="text-center">تاريخ الإنشاء</TableHead>
                   <TableHead className="text-center">الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
+                    <TableCell className="font-medium text-center">{user.name}</TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <UsersIcon className="size-3 text-muted-foreground" />
                         {user.username}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-2">
                         <Calendar className="size-3 text-muted-foreground" />
                         {formatDate(user.created_at)}
                       </div>

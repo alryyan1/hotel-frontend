@@ -1,8 +1,18 @@
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions, 
+  Typography,
+  Button, 
+  TextField, 
+  FormControl,
+  InputLabel,
+  Select, 
+  MenuItem,
+  Box,
+  Grid
+} from '@mui/material'
 
 interface CreateCustomerDialogProps {
   open: boolean
@@ -36,74 +46,101 @@ export default function CreateCustomerDialog({
   loading
 }: CreateCustomerDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>عميل جديد</DialogTitle>
-          <DialogDescription>إضافة عميل إلى قاعدة البيانات</DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-12 gap-3 mt-1">
-          <div className="col-span-12">
-            <Label>الاسم</Label>
-            <Input 
-              value={customerForm.name} 
-              onChange={(e) => onCustomerFormChange({ ...customerForm, name: e.target.value })} 
-            />
-          </div>
-          <div className="col-span-12 md:col-span-6">
-            <Label>الهاتف</Label>
-            <Input 
-              value={customerForm.phone} 
-              onChange={(e) => onCustomerFormChange({ ...customerForm, phone: e.target.value })} 
-            />
-          </div>
-          <div className="col-span-12 md:col-span-6">
-            <Label>الرقم الوطني</Label>
-            <Input 
-              value={customerForm.national_id} 
-              onChange={(e) => onCustomerFormChange({ ...customerForm, national_id: e.target.value })} 
-            />
-          </div>
-          <div className="col-span-12">
-            <Label>العنوان</Label>
-            <Input 
-              value={customerForm.address} 
-              onChange={(e) => onCustomerFormChange({ ...customerForm, address: e.target.value })} 
-            />
-          </div>
-          <div className="col-span-12 md:col-span-6">
-            <Label>تاريخ الميلاد</Label>
-            <Input 
-              type="date" 
-              value={customerForm.date_of_birth} 
-              onChange={(e) => onCustomerFormChange({ ...customerForm, date_of_birth: e.target.value })} 
-            />
-          </div>
-          <div className="col-span-12 md:col-span-6">
-            <Label>النوع</Label>
-            <Select 
-              value={customerForm.gender} 
-              onValueChange={(v: string) => onCustomerFormChange({ ...customerForm, gender: v })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="غير محدد" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="male">ذكر</SelectItem>
-                <SelectItem value="female">أنثى</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            إلغاء
-          </Button>
-          <Button onClick={onCreateCustomer} disabled={loading}>
-            حفظ
-          </Button>
-        </DialogFooter>
+    <Dialog 
+      open={open} 
+      onClose={() => onOpenChange(false)}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: '12px',
+          maxWidth: '500px'
+        }
+      }}
+    >
+      <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>عميل جديد</DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          إضافة عميل إلى قاعدة البيانات
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+          <TextField
+            label="الاسم"
+            value={customerForm.name}
+            onChange={(e) => onCustomerFormChange({ ...customerForm, name: e.target.value })}
+            fullWidth
+            required
+          />
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="الهاتف"
+                value={customerForm.phone}
+                onChange={(e) => onCustomerFormChange({ ...customerForm, phone: e.target.value })}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="الرقم الوطني"
+                value={customerForm.national_id}
+                onChange={(e) => onCustomerFormChange({ ...customerForm, national_id: e.target.value })}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+          
+          <TextField
+            label="العنوان"
+            value={customerForm.address}
+            onChange={(e) => onCustomerFormChange({ ...customerForm, address: e.target.value })}
+            fullWidth
+            multiline
+            rows={2}
+          />
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="تاريخ الميلاد"
+                type="date"
+                value={customerForm.date_of_birth}
+                onChange={(e) => onCustomerFormChange({ ...customerForm, date_of_birth: e.target.value })}
+                fullWidth
+                InputLabelProps={{
+                  shrink: true,
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>النوع</InputLabel>
+                <Select
+                  value={customerForm.gender}
+                  onChange={(e) => onCustomerFormChange({ ...customerForm, gender: e.target.value as string })}
+                  label="النوع"
+                >
+                  <MenuItem value="male">ذكر</MenuItem>
+                  <MenuItem value="female">أنثى</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Box>
       </DialogContent>
+      <DialogActions sx={{ padding: '16px 24px', gap: '8px' }}>
+        <Button variant="outlined" onClick={() => onOpenChange(false)}>
+          إلغاء
+        </Button>
+        <Button 
+          variant="contained" 
+          onClick={onCreateCustomer} 
+          disabled={loading}
+        >
+          حفظ
+        </Button>
+      </DialogActions>
     </Dialog>
   )
 }

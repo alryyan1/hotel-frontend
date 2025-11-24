@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -34,8 +34,6 @@ const colorOptions = [
 export default function RoomStatuses() {
   const [roomStatuses, setRoomStatuses] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [editingRoomStatus, setEditingRoomStatus] = useState<any>(null)
   const [form, setForm] = useState({
@@ -54,7 +52,7 @@ export default function RoomStatuses() {
       const { data } = await apiClient.get('/room-statuses')
       setRoomStatuses(data)
     } catch (err) {
-      setError('فشل في تحميل حالات الغرف')
+      toast.error('فشل في تحميل حالات الغرف')
     } finally {
       setLoading(false)
     }
@@ -64,14 +62,13 @@ export default function RoomStatuses() {
     e.preventDefault()
     try {
       setLoading(true)
-      setError('')
       
       if (editingRoomStatus) {
         await apiClient.put(`/room-statuses/${editingRoomStatus.id}`, form)
-        setSuccess('تم تحديث حالة الغرفة بنجاح')
+        toast.success('تم تحديث حالة الغرفة بنجاح')
       } else {
         await apiClient.post('/room-statuses', form)
-        setSuccess('تم إنشاء حالة الغرفة بنجاح')
+        toast.success('تم إنشاء حالة الغرفة بنجاح')
       }
       
       setOpenDialog(false)
@@ -79,7 +76,7 @@ export default function RoomStatuses() {
       setEditingRoomStatus(null)
       fetchRoomStatuses()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشلت العملية')
+      toast.error(err?.response?.data?.message || 'فشلت العملية')
     } finally {
       setLoading(false)
     }
@@ -101,10 +98,10 @@ export default function RoomStatuses() {
     try {
       setLoading(true)
       await apiClient.delete(`/room-statuses/${id}`)
-      setSuccess('تم حذف حالة الغرفة بنجاح')
+      toast.success('تم حذف حالة الغرفة بنجاح')
       fetchRoomStatuses()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل الحذف')
+      toast.error(err?.response?.data?.message || 'فشل الحذف')
     } finally {
       setLoading(false)
     }
@@ -132,17 +129,6 @@ export default function RoomStatuses() {
           </Button>
         }
       />
-
-      {error && (
-        <Alert variant="destructive" className="mx-0">
-          <AlertDescription className="text-sm font-medium">{error}</AlertDescription>
-        </Alert>
-      )}
-      {success && (
-        <Alert className="mx-0 border-green-200 bg-green-50">
-          <AlertDescription className="text-sm font-medium text-green-700">{success}</AlertDescription>
-        </Alert>
-      )}
 
       <Card className="border-border/40 shadow-lg">
         <CardContent className="p-4 sm:p-6">

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageHeader } from '@/components/ui/page-header'
 import { Search, Calendar, Users, Plus } from 'lucide-react'
@@ -19,9 +19,6 @@ export default function Reservations() {
   const [availableRooms, setAvailableRooms] = useState<any[]>([])
   const [roomTypes, setRoomTypes] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [smsStatus, setSmsStatus] = useState<{success: boolean, message: string} | null>(null)
   const [openCreate, setOpenCreate] = useState(false)
   const [selectedRooms, setSelectedRooms] = useState<any[]>([])
   const [customers, setCustomers] = useState<any[]>([])
@@ -57,12 +54,10 @@ export default function Reservations() {
 
   const searchAvailability = async (customCheckIn?: string, customCheckOut?: string) => {
     try {
-      setError('')
-      setSuccess('')
       const checkInDate = customCheckIn ?? checkIn
       const checkOutDate = customCheckOut ?? checkOut
       if (!checkInDate || !checkOutDate) {
-        setError('الرجاء اختيار تاريخي الوصول والمغادرة')
+        toast.error('الرجاء اختيار تاريخي الوصول والمغادرة')
         return
       }
       setLoading(true)
@@ -78,11 +73,11 @@ export default function Reservations() {
       
       // Show message if no rooms are available
       if (!rooms || rooms.length === 0) {
-        setError('لا توجد غرف متاحة للتواريخ المحددة')
+        toast.error('لا توجد غرف متاحة للتواريخ المحددة')
       }
     } catch (e) {
       console.error('Availability search failed', e)
-      setError('فشل في جلب التوفر')
+      toast.error('فشل في جلب التوفر')
     } finally {
       setLoading(false)
     }
@@ -98,7 +93,7 @@ export default function Reservations() {
 
   const openCreateDialog = () => {
     if (!checkIn || !checkOut) {
-      setError('اختر التواريخ أولاً')
+      toast.error('اختر التواريخ أولاً')
       return
     }
     setOpenCreate(true)
@@ -107,10 +102,8 @@ export default function Reservations() {
   const createReservation = async () => {
     try {
       setLoading(true)
-      setError('')
-      setSmsStatus(null)
       if (!form.customer_id || selectedRooms.length === 0) {
-        setError('العميل وغرفة واحدة على الأقل مطلوبة')
+        toast.error('العميل وغرفة واحدة على الأقل مطلوبة')
         return
       }
       const payload = {
@@ -126,19 +119,17 @@ export default function Reservations() {
       // Handle SMS result
       if (data.sms_result) {
         if (data.sms_result.success) {
-          setSmsStatus({
-            success: true,
-            message: 'تم إرسال رسالة تأكيد الحجز بنجاح'
+          toast.success('تم إرسال رسالة تأكيد الحجز بنجاح', {
+            position: 'top-right'
           })
         } else {
-          setSmsStatus({
-            success: false,
-            message: `فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`
+          toast.warning(`فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`, {
+            position: 'top-right'
           })
         }
       }
       
-      setSuccess('تم إنشاء الحجز بنجاح')
+      toast.success('تم إنشاء الحجز بنجاح')
       setOpenCreate(false)
       setSelectedRooms([])
       setForm({ customer_id: '', notes: '' })
@@ -148,7 +139,7 @@ export default function Reservations() {
         await searchAvailability()
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل إنشاء الحجز')
+      toast.error(err?.response?.data?.message || 'فشل إنشاء الحجز')
     } finally {
       setLoading(false)
     }
@@ -163,9 +154,9 @@ export default function Reservations() {
       setForm((f)=>({ ...f, customer_id: data.id }))
       setOpenCustomer(false)
       setCustomerForm({ name: '', phone: '', national_id: '', address: '', date_of_birth: '', gender: '' })
-      setSuccess('تم إنشاء العميل')
+      toast.success('تم إنشاء العميل')
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل إنشاء العميل')
+      toast.error(err?.response?.data?.message || 'فشل إنشاء العميل')
     } finally {
       setLoading(false)
     }
@@ -195,15 +186,6 @@ export default function Reservations() {
         icon="🗓️"
       /> */}
 
-      {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
-      {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
-      {smsStatus && (
-        <Alert className={`shadow-md ${smsStatus.success ? 'border-blue-200 bg-blue-50' : 'border-orange-200 bg-orange-50'}`}>
-          <AlertDescription className={`font-medium ${smsStatus.success ? 'text-blue-700' : 'text-orange-700'}`}>
-            📱 {smsStatus.message}
-          </AlertDescription>
-        </Alert>
-      )}
 
       <Card className="border-border/40 shadow-lg">
         <CardContent className="pt-1">
@@ -303,7 +285,7 @@ export default function Reservations() {
                     إنشاء حجز ({selectedRooms.length})
                   </Button>
                 </div>
-                <div className="grid grid-cols-12 gap-4">
+                <div className="grid grid-cols-12 gap-4 p-2">
                   {availableRooms.map((room: any) => (
                     <div key={room.id} className="col-span-12 sm:col-span-6 lg:col-span-4">
                       <div 

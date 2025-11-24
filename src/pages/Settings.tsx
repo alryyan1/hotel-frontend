@@ -6,19 +6,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Textarea } from '@/components/ui/textarea'
+import { toast } from 'sonner'
 
 export default function Settings() {
   const [form, setForm] = useState({
-    official_name: '', trade_name: '', address_line: '', city: '', postal_code: '', country: '',
-    phone: '', email: '', website: '', cancellation_policy: ''
+    official_name: '', address_line: '', city: '',
+    phone: '', phone_2: '', email: ''
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     (async () => {
@@ -27,15 +24,11 @@ export default function Settings() {
         if (data) {
           setForm({
             official_name: data.official_name || '',
-            trade_name: data.trade_name || '',
             address_line: data.address_line || '',
             city: data.city || '',
-            postal_code: data.postal_code || '',
-            country: data.country || '',
             phone: data.phone || '',
+            phone_2: data.phone_2 || '',
             email: data.email || '',
-            website: data.website || '',
-            cancellation_policy: data.cancellation_policy || '',
           })
           if (data.logo_path) {
             setLogoPreview(`${import.meta.env.VITE_API_BASE}/storage/${data.logo_path}`)
@@ -54,8 +47,6 @@ export default function Settings() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    setError('')
-    setSuccess('')
     try {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ''))
@@ -63,10 +54,10 @@ export default function Settings() {
       const { data } = await apiClient.post('/settings/hotel', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
-      setSuccess('تم حفظ الإعدادات بنجاح')
+      toast.success('تم حفظ الإعدادات بنجاح')
       if (data.logo_path) setLogoPreview(`${import.meta.env.VITE_API_BASE}/storage/${data.logo_path}`)
     } catch (err: any) {
-      setError(err?.response?.data?.message || err.message || 'فشل الحفظ')
+      toast.error(err?.response?.data?.message || err.message || 'فشل الحفظ')
     } finally {
       setLoading(false)
     }
@@ -84,32 +75,21 @@ export default function Settings() {
     <div className="space-y-6">
       <PageHeader
         title="إعدادات الفندق"
-        description="تحديث معلومات الفندق والشعار وسياسات الحجز"
+        description="تحديث معلومات الفندق والشعار"
         icon="⚙️"
       />
 
-      {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
-      {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
 
       <Card className="border-border/40 shadow-lg">
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>الاسم الرسمي *</Label>
-                <Input 
-                  value={form.official_name} 
-                  onChange={(e) => updateField('official_name', e.target.value)} 
-                  required 
-                />
-              </div>
-              <div>
-                <Label>الاسم التجاري</Label>
-                <Input 
-                  value={form.trade_name} 
-                  onChange={(e) => updateField('trade_name', e.target.value)} 
-                />
-              </div>
+            <div>
+              <Label>الاسم الرسمي *</Label>
+              <Input 
+                value={form.official_name} 
+                onChange={(e) => updateField('official_name', e.target.value)} 
+                required 
+              />
             </div>
 
             <div>
@@ -120,28 +100,12 @@ export default function Settings() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label>المدينة</Label>
-                <Input 
-                  value={form.city} 
-                  onChange={(e) => updateField('city', e.target.value)} 
-                />
-              </div>
-              <div>
-                <Label>الرمز البريدي</Label>
-                <Input 
-                  value={form.postal_code} 
-                  onChange={(e) => updateField('postal_code', e.target.value)} 
-                />
-              </div>
-              <div>
-                <Label>الدولة</Label>
-                <Input 
-                  value={form.country} 
-                  onChange={(e) => updateField('country', e.target.value)} 
-                />
-              </div>
+            <div>
+              <Label>المدينة</Label>
+              <Input 
+                value={form.city} 
+                onChange={(e) => updateField('city', e.target.value)} 
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -153,6 +117,13 @@ export default function Settings() {
                 />
               </div>
               <div>
+                <Label>الهاتف 2</Label>
+                <Input 
+                  value={form.phone_2} 
+                  onChange={(e) => updateField('phone_2', e.target.value)} 
+                />
+              </div>
+              <div>
                 <Label>البريد الإلكتروني</Label>
                 <Input 
                   type="email"
@@ -160,22 +131,6 @@ export default function Settings() {
                   onChange={(e) => updateField('email', e.target.value)} 
                 />
               </div>
-              <div>
-                <Label>الموقع الإلكتروني</Label>
-                <Input 
-                  value={form.website} 
-                  onChange={(e) => updateField('website', e.target.value)} 
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label>سياسة الإلغاء</Label>
-              <Textarea 
-                value={form.cancellation_policy} 
-                onChange={(e) => updateField('cancellation_policy', e.target.value)} 
-                rows={3}
-              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">

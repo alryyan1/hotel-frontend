@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Grid3x3, List, Search, Filter, Calendar } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -23,8 +23,6 @@ export default function Rooms() {
   const [roomTypes, setRoomTypes] = useState<any[]>([])
   const [roomStatuses, setRoomStatuses] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false)
   const [openFiltersDialog, setOpenFiltersDialog] = useState(false)
@@ -93,7 +91,7 @@ export default function Rooms() {
       setReservations(Array.isArray(reservationsData) ? reservationsData : [])
       setDataLoaded(true)
     } catch (err) {
-      setError('فشل في تحميل البيانات')
+      toast.error('فشل في تحميل البيانات')
     } finally {
       setLoading(false)
     }
@@ -122,9 +120,9 @@ export default function Rooms() {
 
   const handleDialogSuccess = async (roomId?: number) => {
     if (editingRoom) {
-      setSuccess('تم تحديث الغرفة بنجاح')
+      toast.success('تم تحديث الغرفة بنجاح')
     } else {
-      setSuccess('تم إنشاء الغرفة بنجاح')
+      toast.success('تم إنشاء الغرفة بنجاح')
     }
     setEditingRoom(null)
     
@@ -145,7 +143,7 @@ export default function Rooms() {
   }
 
   const handleDialogError = (message: string) => {
-    setError(message)
+    toast.error(message)
   }
 
   const handleEdit = (room: any) => {
@@ -158,10 +156,10 @@ export default function Rooms() {
     try {
       setLoading(true)
       await apiClient.delete(`/rooms/${id}`)
-      setSuccess('تم حذف الغرفة بنجاح')
+      toast.success('تم حذف الغرفة بنجاح')
       fetchData()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل الحذف')
+      toast.error(err?.response?.data?.message || 'فشل الحذف')
     } finally {
       setLoading(false)
     }
@@ -300,7 +298,7 @@ export default function Rooms() {
   }
 
   const handleDetailsSuccess = async (roomId?: number) => {
-    setSuccess('تم تحديث حالة الغرفة')
+    toast.success('تم تحديث حالة الغرفة')
     setSelectedRoom(null)
     
     // Fetch data first, then highlight the updated room
@@ -328,17 +326,6 @@ export default function Rooms() {
         icon="🏨"
       /> */}
 
-      {/* Alerts */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-          </Alert>
-      )}
-      {success && (
-        <Alert>
-          <AlertDescription className="text-green-700">{success}</AlertDescription>
-          </Alert>
-      )}
 
       {/* Action Bar */}
         <div className="pt-1">

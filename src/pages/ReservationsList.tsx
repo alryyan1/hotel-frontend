@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { PageHeader } from '@/components/ui/page-header'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Filter, Eye, Edit, Trash2, CheckCircle, XCircle, Clock, UserCheck, UserX } from 'lucide-react'
+import { Search, Filter, Eye, Edit, Trash2, CheckCircle, XCircle, Clock, UserCheck, UserX, Loader2 } from 'lucide-react'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
 
@@ -52,6 +52,7 @@ const statusConfig = {
 export default function ReservationsList() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(false)
+  const [actionLoading, setActionLoading] = useState<Record<number, string>>({}) // Track loading per reservation: { reservationId: 'actionType' }
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
@@ -76,66 +77,95 @@ export default function ReservationsList() {
     }
   }
 
-  const handleAction = async () => {
-    if (!selectedReservation) return
+  const handleAction = async (reservation: Reservation, action: 'confirm' | 'checkin' | 'checkout' | 'cancel' | 'delete', skipDialog: boolean = false) => {
+    // Show dialog for checkout and cancel actions
+    if (!skipDialog && (action === 'checkout' || action === 'cancel' || action === 'delete')) {
+      setSelectedReservation(reservation)
+      setActionType(action)
+      setOpenConfirm(true)
+      return
+    }
 
     try {
-      setLoading(true)
+      setActionLoading(prev => ({ ...prev, [reservation.id]: action }))
       
-      switch (actionType) {
+      let updatedReservation: Reservation | null = null
+      
+      switch (action) {
         case 'confirm':
-          const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/confirm`)
+          const { data } = await apiClient.post(`/reservations/${reservation.id}/confirm`)
+          updatedReservation = data
           toast.success('تم تأكيد الحجز بنجاح')
           
           // Handle SMS result
           if (data.sms_result) {
             if (data.sms_result.success) {
-              toast.success('تم إرسال رسالة تأكيد الحجز بنجاح', { duration: 4000 })
+              toast.success('تم إرسال رسالة تأكيد الحجز بنجاح', { 
+                position: 'top-right',
+                duration: 4000 
+              })
             } else {
-              toast.error(`فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`, { duration: 5000 })
+              toast.error(`فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`, { 
+                position: 'top-right',
+                duration: 5000 
+              })
             }
           }
           break
         case 'checkin':
-          await apiClient.post(`/reservations/${selectedReservation.id}/check-in`)
+          const checkinData = await apiClient.post(`/reservations/${reservation.id}/check-in`)
+          updatedReservation = checkinData.data
           toast.success('تم تسجيل الوصول بنجاح')
           break
         case 'checkout':
-          await apiClient.post(`/reservations/${selectedReservation.id}/check-out`)
+          const checkoutData = await apiClient.post(`/reservations/${reservation.id}/check-out`)
+          updatedReservation = checkoutData.data
           toast.success('تم تسجيل المغادرة بنجاح')
           break
         case 'cancel':
-          await apiClient.post(`/reservations/${selectedReservation.id}/cancel`)
+          const cancelData = await apiClient.post(`/reservations/${reservation.id}/cancel`)
+          updatedReservation = cancelData.data
           toast.success('تم إلغاء الحجز بنجاح')
           break
         case 'delete':
-          await apiClient.delete(`/reservations/${selectedReservation.id}`)
-          toast.success('تم حذف الحجز بنجاح')
-          break
+          await apiClient.delete(`/reservations/${reservation.id}`)
+          // Remove reservation from list
+          setReservations(prev => prev.filter(r => r.id !== reservation.id))
+          setOpenConfirm(false)
+          setSelectedReservation(null)
+          return
+      }
+      
+      // Update reservation in list
+      if (updatedReservation) {
+        setReservations(prev => prev.map(r => r.id === reservation.id ? updatedReservation! : r))
       }
       
       setOpenConfirm(false)
       setSelectedReservation(null)
-      fetchReservations()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل في تنفيذ العملية')
     } finally {
-      setLoading(false)
+      setActionLoading(prev => {
+        const newState = { ...prev }
+        delete newState[reservation.id]
+        return newState
+      })
     }
   }
 
-  const openActionDialog = (reservation: Reservation, action: typeof actionType) => {
-    setSelectedReservation(reservation)
-    setActionType(action)
-    setOpenConfirm(true)
+  const handleDialogAction = async () => {
+    if (!selectedReservation) return
+    await handleAction(selectedReservation, actionType, true)
   }
+
 
   const filteredReservations = reservations.filter(reservation => {
     const matchesSearch = 
-      reservation.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reservation.customer.phone?.includes(searchTerm) ||
-      reservation.customer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      reservation.rooms.some(room => room.number.includes(searchTerm))
+      (reservation.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      (reservation.customer?.phone?.includes(searchTerm) || false) ||
+      (reservation.customer?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      (reservation.rooms?.some(room => room.number.includes(searchTerm)) || false)
     
     const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter
     
@@ -180,6 +210,8 @@ export default function ReservationsList() {
 
   const getActionButtons = (reservation: Reservation) => {
     const buttons = []
+    const isLoading = actionLoading[reservation.id] !== undefined
+    const currentAction = actionLoading[reservation.id]
     
     if (reservation.status === 'pending') {
       buttons.push(
@@ -187,10 +219,15 @@ export default function ReservationsList() {
           key="confirm"
           size="sm"
           variant="outline"
-          onClick={() => openActionDialog(reservation, 'confirm')}
+          onClick={() => handleAction(reservation, 'confirm', true)}
+          disabled={isLoading}
           className="text-blue-600 hover:text-blue-700"
         >
-          تأكيد
+          {currentAction === 'confirm' ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            'تأكيد'
+          )}
         </Button>
       )
     }
@@ -201,10 +238,15 @@ export default function ReservationsList() {
           key="checkin"
           size="sm"
           variant="outline"
-          onClick={() => openActionDialog(reservation, 'checkin')}
+          onClick={() => handleAction(reservation, 'checkin', true)}
+          disabled={isLoading}
           className="text-green-600 hover:text-green-700"
         >
-          تسجيل الوصول
+          {currentAction === 'checkin' ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            'تسجيل الوصول'
+          )}
         </Button>
       )
     }
@@ -215,10 +257,15 @@ export default function ReservationsList() {
           key="checkout"
           size="sm"
           variant="outline"
-          onClick={() => openActionDialog(reservation, 'checkout')}
+          onClick={() => handleAction(reservation, 'checkout', false)}
+          disabled={isLoading}
           className="text-gray-600 hover:text-gray-700"
         >
-          تسجيل المغادرة
+          {currentAction === 'checkout' ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            'تسجيل المغادرة'
+          )}
         </Button>
       )
     }
@@ -229,36 +276,29 @@ export default function ReservationsList() {
           key="cancel"
           size="sm"
           variant="outline"
-          onClick={() => openActionDialog(reservation, 'cancel')}
+          onClick={() => handleAction(reservation, 'cancel', false)}
+          disabled={isLoading}
           className="text-red-600 hover:text-red-700"
         >
-          إلغاء
+          {currentAction === 'cancel' ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            'إلغاء'
+          )}
         </Button>
       )
     }
-    
-    buttons.push(
-      <Button
-        key="delete"
-        size="sm"
-        variant="outline"
-        onClick={() => openActionDialog(reservation, 'delete')}
-        className="text-red-600 hover:text-red-700"
-      >
-        <Trash2 className="size-4" />
-      </Button>
-    )
     
     return buttons
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      {/* <PageHeader
         title="قائمة الحجوزات"
         description="عرض وإدارة جميع الحجوزات"
         icon="📋"
-      />
+      /> */}
 
       <Card className="border-border/40 shadow-lg">
     
@@ -268,7 +308,7 @@ export default function ReservationsList() {
               <div className="relative">
                 <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground size-4" />
                 <Input
-                  placeholder="البحث بالعميل، الهاتف، البريد الإلكتروني، أو رقم الغرفة..."
+                  placeholder="البحث بالعميل، الهاتف،   أو رقم الغرفة..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pr-10"
@@ -299,7 +339,7 @@ export default function ReservationsList() {
           <CardTitle>الحجوزات ({filteredReservations.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {loading && reservations.length === 0 ? (
             <div className="text-center py-8">جارٍ التحميل...</div>
           ) : (
             <div className="overflow-x-auto">
@@ -317,14 +357,21 @@ export default function ReservationsList() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredReservations.map((reservation) => (
+                  {filteredReservations.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        لا توجد حجوزات
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredReservations.map((reservation) => (
                     <TableRow key={reservation.id}>
                       <TableCell className="font-medium text-center">#{reservation.id}</TableCell>
                       <TableCell className="text-center">
                         <div>
-                          <div className="font-medium">{reservation.customer.name}</div>
+                          <div className="font-medium">{reservation.customer?.name || 'غير محدد'}</div>
                           <div className="text-sm text-muted-foreground">
-                            {reservation.customer.phone || reservation.customer.email}
+                            {reservation.customer?.phone || reservation.customer?.email || '-'}
                           </div>
                         </div>
                       </TableCell>
@@ -367,7 +414,8 @@ export default function ReservationsList() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -386,8 +434,8 @@ export default function ReservationsList() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">العميل</label>
-                  <p className="font-medium">{selectedReservation.customer.name}</p>
-                  <p className="text-sm text-muted-foreground">{selectedReservation.customer.phone}</p>
+                  <p className="font-medium">{selectedReservation.customer?.name || 'غير محدد'}</p>
+                  <p className="text-sm text-muted-foreground">{selectedReservation.customer?.phone || '-'}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">الحالة</label>
@@ -446,8 +494,15 @@ export default function ReservationsList() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenConfirm(false)}>إلغاء</Button>
-            <Button onClick={handleAction} disabled={loading}>
-              {loading ? 'جارٍ التنفيذ...' : 'تأكيد'}
+            <Button onClick={handleDialogAction} disabled={selectedReservation ? actionLoading[selectedReservation.id] !== undefined : false}>
+              {selectedReservation && actionLoading[selectedReservation.id] ? (
+                <>
+                  <Loader2 className="size-4 mr-2 animate-spin" />
+                  جارٍ التنفيذ...
+                </>
+              ) : (
+                'تأكيد'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
@@ -15,8 +15,6 @@ import { Textarea } from '@/components/ui/textarea'
 export default function RoomTypes() {
   const [roomTypes, setRoomTypes] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [editingRoomType, setEditingRoomType] = useState<any>(null)
   const [form, setForm] = useState({
@@ -48,7 +46,7 @@ export default function RoomTypes() {
       const { data } = await apiClient.get('/room-types')
       setRoomTypes(data)
     } catch (err) {
-      setError('فشل في تحميل أنواع الغرف')
+      toast.error('فشل في تحميل أنواع الغرف')
     } finally {
       setLoading(false)
     }
@@ -58,7 +56,6 @@ export default function RoomTypes() {
     e.preventDefault()
     try {
       setLoading(true)
-      setError('')
       
       const submitData = {
         ...form,
@@ -71,10 +68,10 @@ export default function RoomTypes() {
       
       if (editingRoomType) {
         await apiClient.put(`/room-types/${editingRoomType.id}`, submitData)
-        setSuccess('تم تحديث نوع الغرفة بنجاح')
+        toast.success('تم تحديث نوع الغرفة بنجاح')
       } else {
         await apiClient.post('/room-types', submitData)
-        setSuccess('تم إنشاء نوع الغرفة بنجاح')
+        toast.success('تم إنشاء نوع الغرفة بنجاح')
       }
       
       setOpenDialog(false)
@@ -82,7 +79,7 @@ export default function RoomTypes() {
       setEditingRoomType(null)
       fetchRoomTypes()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشلت العملية')
+      toast.error(err?.response?.data?.message || 'فشلت العملية')
     } finally {
       setLoading(false)
     }
@@ -109,10 +106,10 @@ export default function RoomTypes() {
     try {
       setLoading(true)
       await apiClient.delete(`/room-types/${id}`)
-      setSuccess('تم حذف نوع الغرفة بنجاح')
+      toast.success('تم حذف نوع الغرفة بنجاح')
       fetchRoomTypes()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل الحذف')
+      toast.error(err?.response?.data?.message || 'فشل الحذف')
     } finally {
       setLoading(false)
     }
@@ -126,7 +123,7 @@ export default function RoomTypes() {
 
   return (
     <div className="space-y-6">
-      {/* <PageHeader
+      <PageHeader
         title="إدارة أنواع الغرف"
         description="إضافة وتعديل أنواع الغرف والمرافق"
         icon="🏷️"
@@ -136,10 +133,8 @@ export default function RoomTypes() {
             إضافة نوع غرفة
           </Button>
         }
-      /> */}
+      />
 
-      {error && <Alert variant="destructive" className="shadow-md"><AlertDescription>{error}</AlertDescription></Alert>}
-      {success && <Alert className="shadow-md border-green-200 bg-green-50"><AlertDescription className="text-green-700 font-medium">{success}</AlertDescription></Alert>}
 
       <Card className="border-border/40 shadow-lg">
         <CardContent className="pt-4 sm:pt-6">

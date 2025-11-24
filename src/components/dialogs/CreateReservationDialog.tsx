@@ -1,9 +1,15 @@
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions, 
+  Button, 
+  TextField, 
+  FormLabel, 
+  Autocomplete,
+  Box,
+  Chip
+} from '@mui/material'
 
 interface CreateReservationDialogProps {
   open: boolean
@@ -32,62 +38,80 @@ export default function CreateReservationDialog({
   loading
 }: CreateReservationDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>إنشاء حجز</DialogTitle>
-        </DialogHeader>
-        <div className="grid grid-cols-12 gap-3 mt-1">
-          <div className="col-span-12">
-            <Label>العميل</Label>
-            <Select 
-              value={form.customer_id} 
-              onValueChange={(v: string) => onFormChange({ ...form, customer_id: v })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="اختر العميل" />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((c: any) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name} — {c.phone || c.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="col-span-12">
-            <Button variant="outline" onClick={onOpenCustomerDialog}>
-              عميل جديد
-            </Button>
-          </div>
-          <div className="col-span-12">
-            <Label>ملاحظات</Label>
-            <Input 
-              value={form.notes} 
-              onChange={(e) => onFormChange({ ...form, notes: e.target.value })} 
-            />
-          </div>
-          <div className="col-span-12">
-            <div className="text-sm font-semibold">الغرف المختارة</div>
-            <div className="flex gap-2 flex-wrap mt-1">
+    <Dialog 
+      open={open} 
+      onClose={() => onOpenChange(false)}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: '12px',
+          maxWidth: '500px'
+        }
+      }}
+    >
+      <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>إنشاء حجز</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+          <Autocomplete
+            options={customers}
+            getOptionLabel={(option: any) => `${option.name} — ${option.phone || option.email || ''}`}
+            value={customers.find((c: any) => String(c.id) === form.customer_id) || null}
+            onChange={(_, newValue: any) => {
+              onFormChange({ ...form, customer_id: newValue ? String(newValue.id) : '' })
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="العميل" />
+            )}
+            fullWidth
+          />
+          
+          <Button 
+            variant="outlined" 
+            onClick={onOpenCustomerDialog}
+            fullWidth
+          >
+            عميل جديد
+          </Button>
+          
+          <TextField
+            label="ملاحظات"
+            value={form.notes}
+            onChange={(e) => onFormChange({ ...form, notes: e.target.value })}
+            fullWidth
+            multiline
+            rows={3}
+          />
+          
+          <Box>
+            <FormLabel sx={{ fontWeight: 'bold', mb: 1, display: 'block' }}>
+              الغرف المختارة
+            </FormLabel>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {selectedRooms.map((r: any) => (
-                <span key={r.id} className="rounded-full border px-2 py-0.5 text-xs">
-                  غرفة {r.number}
-                </span>
+                <Chip 
+                  key={r.id} 
+                  label={`غرفة ${r.number}`}
+                  size="small"
+                  variant="outlined"
+                />
               ))}
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            إلغاء
-          </Button>
-          <Button onClick={onCreateReservation} disabled={loading}>
-            حفظ
-          </Button>
-        </DialogFooter>
+            </Box>
+          </Box>
+        </Box>
       </DialogContent>
+      <DialogActions sx={{ padding: '16px 24px', gap: '8px' }}>
+        <Button variant="outlined" onClick={() => onOpenChange(false)}>
+          إلغاء
+        </Button>
+        <Button 
+          variant="contained" 
+          onClick={onCreateReservation} 
+          disabled={loading}
+        >
+          حفظ
+        </Button>
+      </DialogActions>
     </Dialog>
   )
 }

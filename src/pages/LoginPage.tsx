@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import apiClient from '../api/axios'
 
 interface LoginFormData {
@@ -21,13 +21,11 @@ export default function LoginPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
 
   const handleInputChange = (field: keyof LoginFormData) => (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     setFormData(prev => ({ ...prev, [field]: e.target.value }))
-    if (error) setError('') // Clear error on input change
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,12 +33,11 @@ export default function LoginPage() {
     
     // Validation
     if (!formData.username || !formData.password) {
-      setError('الرجاء إدخال اسم المستخدم وكلمة المرور')
+      toast.error('الرجاء إدخال اسم المستخدم وكلمة المرور')
       return
     }
 
     setLoading(true)
-    setError('')
 
     try {
       const { data } = await apiClient.post('/login', {
@@ -58,7 +55,7 @@ export default function LoginPage() {
       navigate('/reservations-list', { replace: true })
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'فشل تسجيل الدخول'
-      setError(message)
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -134,11 +131,6 @@ export default function LoginPage() {
 
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-5">
-                  {error && (
-                    <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
-                      <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                  )}
 
                   {/* Username Field */}
                   <div className="space-y-2">

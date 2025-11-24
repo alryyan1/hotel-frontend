@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Edit, Trash2, Building } from 'lucide-react'
@@ -13,8 +13,6 @@ import { Plus, Edit, Trash2, Building } from 'lucide-react'
 export default function Floors() {
   const [floors, setFloors] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [editingFloor, setEditingFloor] = useState<any>(null)
   const [form, setForm] = useState({
@@ -33,7 +31,7 @@ export default function Floors() {
       const { data } = await apiClient.get('/floors')
       setFloors(data)
     } catch (err) {
-      setError('Failed to fetch floors')
+      toast.error('Failed to fetch floors')
     } finally {
       setLoading(false)
     }
@@ -43,14 +41,13 @@ export default function Floors() {
     e.preventDefault()
     try {
       setLoading(true)
-      setError('')
 
       if (editingFloor) {
         await apiClient.put(`/floors/${editingFloor.id}`, form)
-        setSuccess('Floor updated successfully')
+        toast.success('Floor updated successfully')
       } else {
         await apiClient.post('/floors', form)
-        setSuccess('Floor created successfully')
+        toast.success('Floor created successfully')
       }
 
       setOpenDialog(false)
@@ -58,7 +55,7 @@ export default function Floors() {
       setEditingFloor(null)
       fetchFloors()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Operation failed')
+      toast.error(err?.response?.data?.message || 'Operation failed')
     } finally {
       setLoading(false)
     }
@@ -80,10 +77,10 @@ export default function Floors() {
     try {
       setLoading(true)
       await apiClient.delete(`/floors/${id}`)
-      setSuccess('Floor deleted successfully')
+      toast.success('Floor deleted successfully')
       fetchFloors()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Delete failed')
+      toast.error(err?.response?.data?.message || 'Delete failed')
     } finally {
       setLoading(false)
     }
@@ -111,17 +108,6 @@ export default function Floors() {
           </Button>
         }
       />
-
-      {error && (
-        <Alert variant="destructive" className="mx-0">
-          <AlertDescription className="text-sm font-medium">{error}</AlertDescription>
-        </Alert>
-      )}
-      {success && (
-        <Alert className="mx-0 border-green-200 bg-green-50">
-          <AlertDescription className="text-sm font-medium text-green-700">{success}</AlertDescription>
-        </Alert>
-      )}
 
       <Card className="border-border/40 shadow-lg">
         <CardContent className="p-4 sm:p-6">

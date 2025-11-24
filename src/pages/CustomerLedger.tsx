@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui/page-header'
 import { ArrowLeft, FileText, Calendar, Users, DollarSign, Plus, CreditCard, Download } from 'lucide-react'
 import dayjs from 'dayjs'
@@ -76,8 +76,6 @@ export default function CustomerLedger() {
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
   const [roomTypes, setRoomTypes] = useState<Record<number, { base_price: number; name: string }>>({})
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false)
   const [paymentForm, setPaymentForm] = useState({
     method: '',
@@ -101,7 +99,7 @@ export default function CustomerLedger() {
       const { data } = await apiClient.get(`/customers/${id}`)
       setCustomer(data?.data || data)
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل في جلب بيانات العميل')
+      toast.error(err?.response?.data?.message || 'فشل في جلب بيانات العميل')
     } finally {
       setLoading(false)
     }
@@ -135,7 +133,7 @@ export default function CustomerLedger() {
       )
       setReservations(customerReservations)
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل في جلب الحجوزات')
+      toast.error(err?.response?.data?.message || 'فشل في جلب الحجوزات')
     } finally {
       setLoading(false)
     }
@@ -243,14 +241,12 @@ export default function CustomerLedger() {
 
   const handleCreatePayment = async () => {
     if (!id || !paymentForm.method || !paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
-      setError('يرجى ملء جميع الحقول المطلوبة')
+      toast.error('يرجى ملء جميع الحقول المطلوبة')
       return
     }
 
     try {
       setLoading(true)
-      setError('')
-      setSuccess('')
       
       const payload: any = {
         customer_id: Number(id),
@@ -267,12 +263,12 @@ export default function CustomerLedger() {
       }
 
       await apiClient.post('/payments', payload)
-      setSuccess('تم إضافة الدفعة بنجاح')
+      toast.success('تم إضافة الدفعة بنجاح')
       setOpenPaymentDialog(false)
       setPaymentForm({ method: '', amount: '', notes: '', reference: '' })
       await fetchPayments()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل في إضافة الدفعة')
+      toast.error(err?.response?.data?.message || 'فشل في إضافة الدفعة')
     } finally {
       setLoading(false)
     }
@@ -283,7 +279,6 @@ export default function CustomerLedger() {
 
     try {
       setLoading(true)
-      setError('')
       
       const response = await apiClient.get(`/customers/${id}/ledger/pdf`, {
         responseType: 'blob'
@@ -306,9 +301,9 @@ export default function CustomerLedger() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
       
-      setSuccess('تم تصدير الكشف بنجاح')
+      toast.success('تم تصدير الكشف بنجاح')
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'فشل في تصدير الكشف')
+      toast.error(err?.response?.data?.message || 'فشل في تصدير الكشف')
     } finally {
       setLoading(false)
     }
@@ -328,20 +323,6 @@ export default function CustomerLedger() {
 
   return (
     <div className="space-y-6">
-     
-
-      {error && (
-        <Alert variant="destructive" className="shadow-md">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {success && (
-        <Alert className="shadow-md border-green-200 bg-green-50">
-          <AlertDescription className="text-green-700 font-medium">{success}</AlertDescription>
-        </Alert>
-      )}
-
       <div className="flex items-center justify-between">
         <Button
           variant="outline"
