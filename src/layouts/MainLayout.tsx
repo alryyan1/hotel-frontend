@@ -3,7 +3,7 @@ import type React from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft, DollarSign } from 'lucide-react'
+import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft, DollarSign, Package, ShoppingCart, ArrowDownCircle } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 
 const drawerWidth = 220
@@ -17,6 +17,9 @@ const navItems: Array<{ to: string; label: string; icon: React.ReactNode }> = [
   { to: '/floors', label: 'الطوابق', icon: <Building2 className="size-5" /> },
   // { to: '/room-statuses', label: 'حالات الغرف', icon: <ListChecks className="size-5" /> },
   { to: '/costs', label: 'المصاريف', icon: <DollarSign className="size-5" /> },
+  { to: '/inventory', label: 'المخزون', icon: <Package className="size-5" /> },
+  { to: '/inventory-orders', label: 'طلبات المخزون', icon: <ShoppingCart className="size-5" /> },
+  { to: '/inventory-receipts', label: 'واردات المخزون', icon: <ArrowDownCircle className="size-5" /> },
   { to: '/users', label: 'المستخدمين', icon: <Shield className="size-5" /> },
   { to: '/settings', label: 'الإعدادات', icon: <Settings className="size-5" /> },
 ]

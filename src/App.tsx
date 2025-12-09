@@ -22,6 +22,9 @@ import CustomerLedger from './pages/CustomerLedger';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Costs from './pages/Costs';
+import Inventory from './pages/Inventory';
+import InventoryOrders from './pages/InventoryOrders';
+import InventoryReceipts from './pages/InventoryReceipts';
 import MainLayout from './layouts/MainLayout';
 import { Toaster } from './components/ui/sonner';
 
@@ -69,6 +72,9 @@ function App() {
               <Route path="customers" element={<Customers />} />
               <Route path="customers/:id/ledger" element={<CustomerLedger />} />
               <Route path="costs" element={<Costs />} />
+              <Route path="inventory" element={<Inventory />} />
+              <Route path="inventory-orders" element={<InventoryOrders />} />
+              <Route path="inventory-receipts" element={<InventoryReceipts />} />
               <Route path="users" element={<Users />} />
               <Route path="settings" element={<Settings />} />
             </Route>
