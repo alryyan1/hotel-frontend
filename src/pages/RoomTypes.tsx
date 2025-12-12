@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function RoomTypes() {
   const [roomTypes, setRoomTypes] = useState<any[]>([])
@@ -160,7 +161,48 @@ export default function RoomTypes() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {roomTypes.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col gap-1">
+                          <Skeleton className="h-5 w-12 mx-auto" />
+                          <Skeleton className="h-3 w-24 mx-auto sm:hidden" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col">
+                          <Skeleton className="h-5 w-20 mx-auto" />
+                          <Skeleton className="h-3 w-32 mx-auto sm:hidden" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-center">
+                        <Skeleton className="h-6 w-16 mx-auto" />
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-center">
+                        <Skeleton className="h-5 w-16 mx-auto" />
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-center">
+                        <Skeleton className="h-4 w-12 mx-auto" />
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-center">
+                        <Skeleton className="h-4 w-8 mx-auto" />
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        <Skeleton className="h-4 w-32 mx-auto" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-6 w-12 mx-auto" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          <Skeleton className="h-8 w-8" />
+                          <Skeleton className="h-8 w-8" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : roomTypes.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-12">
                       <div className="text-5xl mb-3 opacity-50">🏷️</div>

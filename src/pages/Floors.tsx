@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { PageHeader } from '@/components/ui/page-header'
 import { Plus, Edit, Trash2, Building } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function Floors() {
   const [floors, setFloors] = useState<any[]>([])
@@ -119,7 +120,28 @@ export default function Floors() {
 
           {/* Mobile-first card layout */}
           <div className="block lg:hidden space-y-3">
-            {floors.length === 0 ? (
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="border-border/40">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3 flex-1">
+                        <Skeleton className="w-10 h-10 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-32" />
+                          <Skeleton className="h-4 w-24" />
+                        </div>
+                      </div>
+                    </div>
+                    <Skeleton className="h-4 w-full mb-3" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-9 flex-1" />
+                      <Skeleton className="h-9 flex-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : floors.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-5xl mb-3 opacity-50">🏢</div>
                 <p className="text-muted-foreground">لا توجد أدوار. ابدأ بإضافة دور جديد.</p>
@@ -192,7 +214,30 @@ export default function Floors() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {floors.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-6 w-12 mx-auto" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-5 w-24 mx-auto" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-4 w-32 mx-auto" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Skeleton className="h-6 w-16 mx-auto" />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex gap-2 justify-center">
+                          <Skeleton className="h-8 w-16" />
+                          <Skeleton className="h-8 w-16" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : floors.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-12">
                       <div className="text-5xl mb-3 opacity-50">🏢</div>

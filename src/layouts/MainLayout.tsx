@@ -61,7 +61,33 @@ export default function MainLayout() {
   const currentPage = navItems.find(item => item.to === location.pathname)?.label || 'لوحة التحكم'
 
   return (
-    <div className=" min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <>
+      <style>{`
+        @keyframes gradient {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
+          }
+        }
+        .animated-gradient-bg {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(-45deg, #e3f2fd, #f1f8e9, #fff3e0, #fce4ec, #e8eaf6);
+          background-size: 400% 400%;
+          animation: gradient 15s ease infinite;
+          z-index: -1;
+        }
+      `}</style>
+      <div className="animated-gradient-bg" />
+      <div className="min-h-screen" style={{ position: 'relative', zIndex: 1 }}>
       {/* Top bar - Modern glassmorphism */}
       <header className="w-full top-0 inset-x-0 z-40 border-b border-border/40 bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 shadow-sm">
         <div className="flex items-center gap-3 px-4 h-16">
@@ -180,8 +206,8 @@ export default function MainLayout() {
         </div>
       </main>
       </div>
-    
-    </div>
+      </div>
+    </>
   )
 }
 

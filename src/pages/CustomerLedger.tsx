@@ -310,20 +310,26 @@ export default function CustomerLedger() {
       // Create a temporary URL for the blob
       const url = window.URL.createObjectURL(blob)
       
-      // Create a temporary anchor element and trigger download
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `customer_ledger_${id}_${dayjs().format('YYYY-MM-DD')}.pdf`
-      document.body.appendChild(link)
-      link.click()
+      // Open PDF in a new tab
+      const newWindow = window.open(url, '_blank')
       
-      // Clean up
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
+      if (!newWindow) {
+        toast.error('يرجى السماح بالنوافذ المنبثقة لعرض PDF')
+        window.URL.revokeObjectURL(url)
+        return
+      }
       
-      toast.success('تم تصدير الكشف بنجاح')
+      // Clean up the URL after the window is closed or after a delay
+      newWindow.addEventListener('load', () => {
+        // Revoke URL after a delay to ensure the PDF loads
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url)
+        }, 1000)
+      })
+      
+      toast.success('تم فتح الكشف في نافذة جديدة')
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل في تصدير الكشف')
+      toast.error(err?.response?.data?.message || 'فشل في فتح الكشف')
     } finally {
       setLoading(false)
     }
@@ -361,7 +367,7 @@ export default function CustomerLedger() {
               disabled={loading || ledgerEntries.length === 0}
               sx={{ boxShadow: 2 }}
             >
-              تصدير PDF
+              عرض PDF
             </Button>
             <Button
               variant="contained"

@@ -82,7 +82,7 @@ export default function LoginPage() {
             <img 
               src="/logo.png" 
               alt="Logo" 
-              className="h-12 w-12 rounded-xl bg-primary-foreground/20 object-contain p-2 shadow-md"
+              className="h-32 w-32 lg:h-40 lg:w-40 rounded-xl bg-primary-foreground/20 object-contain p-3 shadow-md"
             />
           </div>
           <div>
