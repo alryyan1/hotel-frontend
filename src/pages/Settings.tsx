@@ -1,20 +1,37 @@
 import { useEffect, useState } from 'react'
-import { Upload, Save } from 'lucide-react'
 import apiClient from '../api/axios'
-import { PageHeader } from '@/components/ui/page-header'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
+import {
+  Box,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  Typography,
+  Stack,
+  Grid,
+  Divider,
+  CircularProgress,
+} from '@mui/material'
+import { Upload as UploadIcon, Save as SaveIcon } from '@mui/icons-material'
 import { toast } from 'sonner'
 
 export default function Settings() {
   const [form, setForm] = useState({
-    official_name: '', address_line: '', city: '',
-    phone: '', phone_2: '', email: ''
+    official_name: '',
+    address_line: '',
+    city: '',
+    phone: '',
+    phone_2: '',
+    email: '',
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState('')
+  const [stampFile, setStampFile] = useState<File | null>(null)
+  const [stampPreview, setStampPreview] = useState('')
+  const [headerFile, setHeaderFile] = useState<File | null>(null)
+  const [headerPreview, setHeaderPreview] = useState('')
+  const [footerFile, setFooterFile] = useState<File | null>(null)
+  const [footerPreview, setFooterPreview] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -30,8 +47,33 @@ export default function Settings() {
             phone_2: data.phone_2 || '',
             email: data.email || '',
           })
-          if (data.logo_path) {
-            setLogoPreview(`${import.meta.env.VITE_API_BASE}/storage/${data.logo_path}`)
+          if (data.logo_url) {
+            setLogoPreview(data.logo_url)
+          } else if (data.logo_path) {
+            // Fallback: construct URL if backend doesn't provide logo_url
+            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            setLogoPreview(`${baseUrl}/storage/${data.logo_path}`)
+          }
+          if (data.stamp_url) {
+            setStampPreview(data.stamp_url)
+          } else if (data.stamp_path) {
+            // Fallback: construct URL if backend doesn't provide stamp_url
+            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            setStampPreview(`${baseUrl}/storage/${data.stamp_path}`)
+          }
+          if (data.header_url) {
+            setHeaderPreview(data.header_url)
+          } else if (data.header_path) {
+            // Fallback: construct URL if backend doesn't provide header_url
+            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            setHeaderPreview(`${baseUrl}/storage/${data.header_path}`)
+          }
+          if (data.footer_url) {
+            setFooterPreview(data.footer_url)
+          } else if (data.footer_path) {
+            // Fallback: construct URL if backend doesn't provide footer_url
+            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            setFooterPreview(`${baseUrl}/storage/${data.footer_path}`)
           }
         }
       } catch (e) {
@@ -51,11 +93,41 @@ export default function Settings() {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ''))
       if (logoFile) fd.append('logo', logoFile)
+      if (stampFile) fd.append('stamp', stampFile)
+      if (headerFile) fd.append('header', headerFile)
+      if (footerFile) fd.append('footer', footerFile)
       const { data } = await apiClient.post('/settings/hotel', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       toast.success('تم حفظ الإعدادات بنجاح')
-      if (data.logo_path) setLogoPreview(`${import.meta.env.VITE_API_BASE}/storage/${data.logo_path}`)
+      if (data.logo_url) {
+        setLogoPreview(data.logo_url)
+      } else if (data.logo_path) {
+        // Fallback: construct URL if backend doesn't provide logo_url
+        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+        setLogoPreview(`${baseUrl}/storage/${data.logo_path}`)
+      }
+      if (data.stamp_url) {
+        setStampPreview(data.stamp_url)
+      } else if (data.stamp_path) {
+        // Fallback: construct URL if backend doesn't provide stamp_url
+        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+        setStampPreview(`${baseUrl}/storage/${data.stamp_path}`)
+      }
+      if (data.header_url) {
+        setHeaderPreview(data.header_url)
+      } else if (data.header_path) {
+        // Fallback: construct URL if backend doesn't provide header_url
+        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+        setHeaderPreview(`${baseUrl}/storage/${data.header_path}`)
+      }
+      if (data.footer_url) {
+        setFooterPreview(data.footer_url)
+      } else if (data.footer_path) {
+        // Fallback: construct URL if backend doesn't provide footer_url
+        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+        setFooterPreview(`${baseUrl}/storage/${data.footer_path}`)
+      }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err.message || 'فشل الحفظ')
     } finally {
@@ -71,111 +143,317 @@ export default function Settings() {
     }
   }
 
+  const handleStampChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setStampFile(file)
+      setStampPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setHeaderFile(file)
+      setHeaderPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleFooterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setFooterFile(file)
+      setFooterPreview(URL.createObjectURL(file))
+    }
+  }
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="إعدادات الفندق"
-        description="تحديث معلومات الفندق والشعار"
-        icon="⚙️"
-      />
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
+      <Box>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+          ⚙️ إعدادات الفندق
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          تحديث معلومات الفندق والشعار والختم
+        </Typography>
+      </Box>
 
-
-      <Card className="border-border/40 shadow-lg">
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <Label>الاسم الرسمي *</Label>
-              <Input 
-                value={form.official_name} 
-                onChange={(e) => updateField('official_name', e.target.value)} 
-                required 
-              />
-            </div>
-
-            <div>
-              <Label>العنوان</Label>
-              <Input 
-                value={form.address_line} 
-                onChange={(e) => updateField('address_line', e.target.value)} 
-              />
-            </div>
-
-            <div>
-              <Label>المدينة</Label>
-              <Input 
-                value={form.city} 
-                onChange={(e) => updateField('city', e.target.value)} 
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label>الهاتف</Label>
-                <Input 
-                  value={form.phone} 
-                  onChange={(e) => updateField('phone', e.target.value)} 
-                />
-              </div>
-              <div>
-                <Label>الهاتف 2</Label>
-                <Input 
-                  value={form.phone_2} 
-                  onChange={(e) => updateField('phone_2', e.target.value)} 
-                />
-              </div>
-              <div>
-                <Label>البريد الإلكتروني</Label>
-                <Input 
-                  type="email"
-                  value={form.email} 
-                  onChange={(e) => updateField('email', e.target.value)} 
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-              <div>
-                <Label>الشعار</Label>
-                <div className="flex items-center gap-3 mt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => document.getElementById('logo-upload')?.click()}
-                  >
-                    <Upload className="size-4 mr-2" />
-                    رفع الشعار
-                  </Button>
-                  <input
-                    id="logo-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleLogoChange}
+      <Card sx={{ boxShadow: 3 }}>
+        <CardContent sx={{ pt: 3 }}>
+          <form onSubmit={handleSubmit}>
+            <Stack spacing={3}>
+              {/* Basic Information Section */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+                  المعلومات الأساسية
+                </Typography>
+                <Stack spacing={2}>
+                  <TextField
+                    fullWidth
+                    label="الاسم الرسمي"
+                    value={form.official_name}
+                    onChange={(e) => updateField('official_name', e.target.value)}
+                    required
+                    size="small"
                   />
-                </div>
-              </div>
-              <div>
-                {logoPreview && (
-                  <div className="flex items-center gap-2">
-                    <img 
-                      src={logoPreview} 
-                      alt="Logo Preview" 
-                      className="w-16 h-16 object-cover rounded-lg border shadow-sm"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
+                  <TextField
+                    fullWidth
+                    label="العنوان"
+                    value={form.address_line}
+                    onChange={(e) => updateField('address_line', e.target.value)}
+                    size="small"
+                  />
+                  <TextField
+                    fullWidth
+                    label="المدينة"
+                    value={form.city}
+                    onChange={(e) => updateField('city', e.target.value)}
+                    size="small"
+                  />
+                </Stack>
+              </Box>
 
-            <div className="pt-4 border-t border-border/40">
-              <Button type="submit" disabled={loading} className="shadow-md">
-                <Save className="size-4 mr-2" />
-                {loading ? 'جارٍ الحفظ...' : 'حفظ الإعدادات'}
-              </Button>
-            </div>
+              <Divider />
+
+              {/* Contact Information Section */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+                  معلومات الاتصال
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="الهاتف"
+                      value={form.phone}
+                      onChange={(e) => updateField('phone', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="الهاتف 2"
+                      value={form.phone_2}
+                      onChange={(e) => updateField('phone_2', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      type="email"
+                      label="البريد الإلكتروني"
+                      value={form.email}
+                      onChange={(e) => updateField('email', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* Logo and Stamp Section */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+                  الشعار والختم
+                </Typography>
+                <Grid container spacing={3}>
+                  {/* Logo Upload */}
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Stack spacing={2}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        الشعار
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Button
+                          variant="outlined"
+                          component="label"
+                          startIcon={<UploadIcon />}
+                          size="small"
+                        >
+                          رفع الشعار
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={handleLogoChange}
+                          />
+                        </Button>
+                        {logoPreview && (
+                          <Box
+                            component="img"
+                            src={logoPreview}
+                            alt="Logo Preview"
+                            sx={{
+                              width: 64,
+                              height: 64,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              boxShadow: 1,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </Stack>
+                  </Grid>
+
+                  {/* Stamp Upload */}
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Stack spacing={2}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        الختم
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Button
+                          variant="outlined"
+                          component="label"
+                          startIcon={<UploadIcon />}
+                          size="small"
+                        >
+                          رفع الختم
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={handleStampChange}
+                          />
+                        </Button>
+                        {stampPreview && (
+                          <Box
+                            component="img"
+                            src={stampPreview}
+                            alt="Stamp Preview"
+                            sx={{
+                              width: 64,
+                              height: 64,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              boxShadow: 1,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* Header and Footer Section */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+                  الرأسية والتذييل
+                </Typography>
+                <Grid container spacing={3}>
+                  {/* Header Upload */}
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Stack spacing={2}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        الرأسية (Header)
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Button
+                          variant="outlined"
+                          component="label"
+                          startIcon={<UploadIcon />}
+                          size="small"
+                        >
+                          رفع الرأسية
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={handleHeaderChange}
+                          />
+                        </Button>
+                        {headerPreview && (
+                          <Box
+                            component="img"
+                            src={headerPreview}
+                            alt="Header Preview"
+                            sx={{
+                              maxWidth: '100%',
+                              maxHeight: 150,
+                              objectFit: 'contain',
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              boxShadow: 1,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </Stack>
+                  </Grid>
+
+                  {/* Footer Upload */}
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Stack spacing={2}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        التذييل (Footer)
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Button
+                          variant="outlined"
+                          component="label"
+                          startIcon={<UploadIcon />}
+                          size="small"
+                        >
+                          رفع التذييل
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={handleFooterChange}
+                          />
+                        </Button>
+                        {footerPreview && (
+                          <Box
+                            component="img"
+                            src={footerPreview}
+                            alt="Footer Preview"
+                            sx={{
+                              maxWidth: '100%',
+                              maxHeight: 150,
+                              objectFit: 'contain',
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              boxShadow: 1,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </Stack>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* Submit Button */}
+              <Box sx={{ pt: 2 }}>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={16} /> : <SaveIcon />}
+                  sx={{ boxShadow: 2 }}
+                >
+                  {loading ? 'جارٍ الحفظ...' : 'حفظ الإعدادات'}
+                </Button>
+              </Box>
+            </Stack>
           </form>
         </CardContent>
       </Card>
-    </div>
+    </Box>
   )
 }

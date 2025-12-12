@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react'
 import apiClient from '@/api/axios'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  TextField,
+  Chip,
+  Box,
+  Typography,
+  Stack,
+  CircularProgress,
+} from '@mui/material'
 
 interface RoomDetailsDialogProps {
   open: boolean
@@ -64,70 +75,97 @@ export default function RoomDetailsDialog({
   if (!room) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md mx-4 sm:mx-0">
-        <DialogHeader>
-          <DialogTitle className="text-lg sm:text-xl">تفاصيل الغرفة</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 flex items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-lg">
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}>تفاصيل الغرفة</DialogTitle>
+      <DialogContent>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                bgcolor: 'primary.50',
+                color: 'primary.main',
+                fontWeight: 'bold',
+                fontSize: '1.125rem',
+              }}
+            >
               {room.number}
-            </div>
-            <div>
-              <div className="font-bold text-lg">غرفة {room.number}</div>
-              <div className="text-sm text-muted-foreground">
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                غرفة {room.number}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
                 الدور {room.floor?.number} • {room.type?.name}
-              </div>
-            </div>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <Label className="text-sm font-medium">حالة الغرفة</Label>
-              <Select 
-                value={String(room.room_status_id)} 
-                onValueChange={(v: string) => setRoom({ ...room, room_status_id: v })}
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {roomStatuses.map((status: any) => (
-                    <SelectItem key={status.id} value={String(status.id)}>
-                      {status.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm font-medium">ملاحظات</Label>
-              <Textarea 
-                value={room.notes || ''} 
-                onChange={(e) => setRoom({ ...room, notes: e.target.value })} 
-                placeholder="أضف ملاحظات..."
-                rows={3}
-                className="resize-none"
-              />
-            </div>
-            <div>
-              <div className="text-sm font-semibold mb-2">معلومات إضافية</div>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="text-xs">الأسرة: {room.beds}</Badge>
-                <Badge variant="outline" className="text-xs">النوع: {room.type?.code}</Badge>
-                <Badge variant="outline" className="text-xs">السعر: ${room.type?.base_price}</Badge>
-              </div>
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-          <Button variant="outline" onClick={handleClose} className="w-full sm:w-auto h-11">
+              </Typography>
+            </Box>
+          </Box>
+          <FormControl fullWidth size="small">
+            <InputLabel>حالة الغرفة</InputLabel>
+            <Select
+              value={String(room.room_status_id)}
+              onChange={(e) => setRoom({ ...room, room_status_id: e.target.value })}
+              label="حالة الغرفة"
+            >
+              {roomStatuses.map((status: any) => (
+                <MenuItem key={status.id} value={String(status.id)}>
+                  {status.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            fullWidth
+            label="ملاحظات"
+            value={room.notes || ''}
+            onChange={(e) => setRoom({ ...room, notes: e.target.value })}
+            placeholder="أضف ملاحظات..."
+            multiline
+            rows={3}
+            size="small"
+          />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+              معلومات إضافية
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Chip label={`الأسرة: ${room.beds}`} size="small" variant="outlined" />
+              <Chip label={`النوع: ${room.type?.code}`} size="small" variant="outlined" />
+              <Chip label={`السعر: $${room.type?.base_price}`} size="small" variant="outlined" />
+            </Stack>
+          </Box>
+        </Stack>
+        <DialogActions sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: 1, pt: 3 }}>
+          <Button
+            variant="outlined"
+            onClick={handleClose}
+            fullWidth={false}
+            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44 }}
+          >
             إغلاق
           </Button>
-          <Button onClick={handleChangeStatus} disabled={savingStatus} className="w-full sm:w-auto h-11">
-            {savingStatus ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}
+          <Button
+            variant="contained"
+            onClick={handleChangeStatus}
+            disabled={savingStatus}
+            fullWidth={false}
+            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44 }}
+          >
+            {savingStatus ? (
+              <>
+                <CircularProgress size={16} sx={{ mr: 1 }} />
+                جارٍ الحفظ...
+              </>
+            ) : (
+              'حفظ التغييرات'
+            )}
           </Button>
-        </DialogFooter>
+        </DialogActions>
       </DialogContent>
     </Dialog>
   )

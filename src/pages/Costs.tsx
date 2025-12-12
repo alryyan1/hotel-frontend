@@ -1,30 +1,44 @@
 import { useEffect, useState } from 'react'
 import apiClient from '../api/axios'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { toast } from 'sonner'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
-import { Plus, Edit, Trash2, DollarSign, Search, Filter, Tag, Download } from 'lucide-react'
-import dayjs from 'dayjs'
 import {
-  Dialog as MuiDialog,
-  DialogTitle as MuiDialogTitle,
-  DialogContent as MuiDialogContent,
-  DialogActions as MuiDialogActions,
-  Button as MuiButton,
-  TextField,
-  Typography,
   Box,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+  Stack,
+  Grid,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  IconButton
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
+  InputAdornment,
+  CircularProgress,
 } from '@mui/material'
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  AttachMoney as DollarSignIcon,
+  Search as SearchIcon,
+  FilterList as FilterIcon,
+  LocalOffer as TagIcon,
+  Download as DownloadIcon,
+} from '@mui/icons-material'
+import { toast } from 'sonner'
+import dayjs from 'dayjs'
 
 export default function Costs() {
   const [costs, setCosts] = useState<any[]>([])
@@ -337,275 +351,343 @@ export default function Costs() {
     }
   }
 
+  const formatCurrency = (amount: number) => {
+    return parseFloat(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
+
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'cash': return 'نقد'
+      case 'bankak': return 'بنك'
+      default: return method
+    }
+  }
+
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3 }}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-     
-        <Button 
-          onClick={() => setOpenDialog(true)} 
-          className="w-full sm:w-auto h-11 shadow-md"
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setOpenDialog(true)}
+          sx={{ boxShadow: 2 }}
         >
-          <Plus className="size-4 mr-2" />
           إضافة مصروف جديد
         </Button>
-      </div>
+      </Stack>
 
       {/* Action Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="text-sm text-muted-foreground font-medium">
-          <span className="text-foreground font-bold">{filteredCosts.length}</span> من أصل <span className="text-foreground font-bold">{costs.length}</span> مصروف
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => setOpenFiltersDialog(true)} className="h-9 w-full sm:w-auto">
-            <Filter className="size-4 mr-2" />
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
+        <Typography variant="body2" color="text.secondary">
+          <Typography component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+            {filteredCosts.length}
+          </Typography>
+          {' من أصل '}
+          <Typography component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+            {costs.length}
+          </Typography>
+          {' مصروف'}
+        </Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          <Button variant="outlined" startIcon={<FilterIcon />} onClick={() => setOpenFiltersDialog(true)} size="small">
             الفلاتر والبحث
           </Button>
-          <Button variant="outline" onClick={() => setOpenCategoryDialog(true)} className="h-9 w-full sm:w-auto">
-            <Tag className="size-4 mr-2" />
+          <Button variant="outlined" startIcon={<TagIcon />} onClick={() => setOpenCategoryDialog(true)} size="small">
             إدارة الفئات
           </Button>
-          <Button variant="outline" onClick={() => setOpenExportDialog(true)} className="h-9 w-full sm:w-auto">
-            <Download className="size-4 mr-2" />
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => setOpenExportDialog(true)} size="small">
             تصدير Excel
           </Button>
-        </div>
-      </div>
+        </Stack>
+      </Stack>
 
       {/* Filters Dialog */}
-      <Dialog open={openFiltersDialog} onOpenChange={setOpenFiltersDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
-          <DialogHeader>
-            <DialogTitle className="text-lg sm:text-xl">الفلاتر والبحث</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
+      <Dialog open={openFiltersDialog} onClose={() => setOpenFiltersDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 'bold' }}>الفلاتر والبحث</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
             {/* Search Bar */}
-            <div>
-              <Label className="flex items-center gap-2 mb-2 text-sm font-medium">
-                <Search className="size-4" />
-                البحث
-              </Label>
-              <Input
-                placeholder="ابحث في الوصف، الفئة، الملاحظات..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-11 w-full"
-              />
-            </div>
+            <TextField
+              fullWidth
+              label="البحث"
+              placeholder="ابحث في الوصف، الفئة، الملاحظات..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              size="small"
+            />
 
             {/* Filters Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-medium">الفئة</Label>
-                <select
-                  value={filterCategory}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                  className="flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="">جميع الفئات</option>
-                  {categories.map((category: any) => (
-                    <option key={category.id} value={category.id.toString()}>{category.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label className="text-sm font-medium">من تاريخ</Label>
-                <Input
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="category-filter-label">الفئة</InputLabel>
+                  <Select
+                    labelId="category-filter-label"
+                    value={filterCategory}
+                    onChange={(e) => setFilterCategory(e.target.value)}
+                    label="الفئة"
+                  >
+                    <MenuItem value="">جميع الفئات</MenuItem>
+                    {categories.map((category: any) => (
+                      <MenuItem key={category.id} value={category.id.toString()}>
+                        {category.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  fullWidth
                   type="date"
+                  label="من تاريخ"
                   value={filterDateFrom}
                   onChange={(e) => setFilterDateFrom(e.target.value)}
-                  className="h-11"
+                  size="small"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
                 />
-              </div>
-              <div>
-                <Label className="text-sm font-medium">إلى تاريخ</Label>
-                <Input
+              </Grid>
+              <Grid size={{ xs: 12, sm: 4 }}>
+                <TextField
+                  fullWidth
                   type="date"
+                  label="إلى تاريخ"
                   value={filterDateTo}
                   onChange={(e) => setFilterDateTo(e.target.value)}
-                  className="h-11"
+                  size="small"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
                 />
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={clearFilters} className="w-full sm:w-auto h-11">
-              مسح الفلاتر
-            </Button>
-            <Button onClick={() => setOpenFiltersDialog(false)} className="w-full sm:w-auto h-11">
-              تطبيق
-            </Button>
-          </DialogFooter>
+              </Grid>
+            </Grid>
+          </Stack>
         </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={clearFilters}>
+            مسح الفلاتر
+          </Button>
+          <Button variant="contained" onClick={() => setOpenFiltersDialog(false)}>
+            تطبيق
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Costs Table/Cards */}
-      <Card className="border-border/40 shadow-lg">
-        <CardContent className="p-4 sm:p-6">
+      <Card sx={{ boxShadow: 3 }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           {loading ? (
-            <div className="text-center py-12">
-              <div className="text-5xl mb-3 opacity-50">💰</div>
-              <p className="text-muted-foreground">جارٍ التحميل...</p>
-            </div>
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <CircularProgress />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                جارٍ التحميل...
+              </Typography>
+            </Box>
           ) : filteredCosts.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-5xl mb-3 opacity-50">💰</div>
-              <p className="text-muted-foreground font-medium">لا توجد مصاريف</p>
-              <p className="text-sm text-muted-foreground mt-2">
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <Typography variant="h2" sx={{ mb: 2, opacity: 0.5 }}>
+                💰
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                لا توجد مصاريف
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 {searchTerm || filterCategory || filterDateFrom || filterDateTo
                   ? 'لم يتم العثور على مصاريف تطابق معايير البحث'
                   : 'ابدأ بإضافة مصروف جديد'}
-              </p>
+              </Typography>
               {!(searchTerm || filterCategory || filterDateFrom || filterDateTo) && (
-                <Button onClick={() => setOpenDialog(true)} size="lg" className="mt-4 shadow-md">
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setOpenDialog(true)}
+                  sx={{ mt: 2, boxShadow: 2 }}
+                >
                   إضافة مصروف جديد
                 </Button>
               )}
-            </div>
+            </Box>
           ) : (
             <>
               {/* Mobile Card Layout */}
-              <div className="block lg:hidden space-y-3">
-                {filteredCosts.map((cost: any) => (
-                  <Card key={cost.id} className="border-border/40 hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-lg font-bold text-foreground">{cost.description}</span>
-                            {cost.cost_category && (
-                              <span className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-1 text-xs font-medium">
-                                {cost.cost_category.name}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                            <span>{dayjs(cost.date).format('YYYY-MM-DD')}</span>
-                            <span className="font-bold text-primary text-base">
-                              {parseFloat(cost.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                            {cost.payment_method && (
-                              <span className="inline-flex items-center rounded-md bg-secondary/10 text-secondary px-2 py-1 text-xs font-medium">
-                                {cost.payment_method === 'cash' ? 'نقد' : cost.payment_method === 'bankak' ? 'بنك' : cost.payment_method}
-                              </span>
-                            )}
-                          </div>
-                          {cost.notes && (
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{cost.notes}</p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleEdit(cost)} 
-                          className="flex-1 h-9 text-sm"
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          تعديل
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => handleDelete(cost.id)} 
-                          className="flex-1 h-9 text-sm"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          حذف
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Desktop Table Layout */}
-              <div className="hidden lg:block overflow-x-auto rounded-lg border border-border/40">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableHead className="font-bold text-center">التاريخ</TableHead>
-                      <TableHead className="font-bold text-center">الوصف</TableHead>
-                      <TableHead className="font-bold text-center">الفئة</TableHead>
-                      <TableHead className="font-bold text-center">المبلغ</TableHead>
-                      <TableHead className="font-bold text-center">طريقة الدفع</TableHead>
-                      <TableHead className="font-bold text-center">الملاحظات</TableHead>
-                      <TableHead className="font-bold text-center">إجراءات</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredCosts.map((cost: any) => (
-                      <TableRow key={cost.id} className="hover:bg-muted/20 transition-colors">
-                        <TableCell className="text-center font-medium">
-                          {dayjs(cost.date).format('YYYY-MM-DD')}
-                        </TableCell>
-                        <TableCell className="font-medium text-center">{cost.description || '-'}</TableCell>
-                        <TableCell className="text-center">
-                          {cost.cost_category ? (
-                            <span className="inline-flex items-center rounded-md bg-primary/10 text-primary px-2 py-1 text-xs font-medium">
-                              {cost.cost_category.name}
-                            </span>
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center font-bold text-primary">
-                          {parseFloat(cost.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {cost.payment_method ? (
-                            <span className="inline-flex items-center rounded-md bg-secondary/10 text-secondary px-2 py-1 text-xs font-medium">
-                              {cost.payment_method === 'cash' ? 'نقد' : cost.payment_method === 'bankak' ? 'بنك' : cost.payment_method}
-                            </span>
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-center max-w-xs truncate">
-                          {cost.notes || '-'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex gap-2 justify-center">
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(cost)} className="hover:bg-primary/10">
-                              <Edit className="w-4 h-4 mr-2" />
+              <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+                <Stack spacing={2}>
+                  {filteredCosts.map((cost: any) => (
+                    <Card key={cost.id} sx={{ boxShadow: 1, '&:hover': { boxShadow: 2 } }}>
+                      <CardContent sx={{ p: 2 }}>
+                        <Stack spacing={1.5}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                            <Box sx={{ flex: 1 }}>
+                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                                  {cost.description}
+                                </Typography>
+                                {cost.cost_category && (
+                                  <Chip
+                                    label={cost.cost_category.name}
+                                    color="primary"
+                                    size="small"
+                                    sx={{ fontSize: '0.75rem' }}
+                                  />
+                                )}
+                              </Stack>
+                              <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 1 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  {dayjs(cost.date).format('YYYY-MM-DD')}
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                                  {formatCurrency(cost.amount)}
+                                </Typography>
+                                {cost.payment_method && (
+                                  <Chip
+                                    label={getPaymentMethodLabel(cost.payment_method)}
+                                    color="secondary"
+                                    size="small"
+                                    sx={{ fontSize: '0.75rem' }}
+                                  />
+                                )}
+                              </Stack>
+                              {cost.notes && (
+                                <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                  {cost.notes}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Stack>
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<EditIcon />}
+                              onClick={() => handleEdit(cost)}
+                              fullWidth
+                            >
                               تعديل
                             </Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleDelete(cost.id)}>
-                              <Trash2 className="w-4 h-4 mr-2" />
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<DeleteIcon />}
+                              onClick={() => handleDelete(cost.id)}
+                              fullWidth
+                            >
                               حذف
                             </Button>
-                          </div>
+                          </Stack>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+              </Box>
+
+              {/* Desktop Table Layout */}
+              <Box sx={{ display: { xs: 'none', lg: 'block' }, overflowX: 'auto' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'action.hover' }}>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>التاريخ</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>الوصف</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>الفئة</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>المبلغ</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>طريقة الدفع</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>الملاحظات</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>إجراءات</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredCosts.map((cost: any) => (
+                      <TableRow key={cost.id} sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
+                        <TableCell align="center" sx={{ fontWeight: 500 }}>
+                          {dayjs(cost.date).format('YYYY-MM-DD')}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 500 }}>
+                          {cost.description || '-'}
+                        </TableCell>
+                        <TableCell align="center">
+                          {cost.cost_category ? (
+                            <Chip
+                              label={cost.cost_category.name}
+                              color="primary"
+                              size="small"
+                            />
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                          {formatCurrency(cost.amount)}
+                        </TableCell>
+                        <TableCell align="center">
+                          {cost.payment_method ? (
+                            <Chip
+                              label={getPaymentMethodLabel(cost.payment_method)}
+                              color="secondary"
+                              size="small"
+                            />
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell align="center" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {cost.notes || '-'}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEdit(cost)}
+                              color="primary"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDelete(cost.id)}
+                              color="error"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+              </Box>
             </>
           )}
         </CardContent>
       </Card>
 
       {/* Create/Edit Dialog */}
-      <MuiDialog 
-        open={openDialog} 
-        onClose={() => setOpenDialog(false)}
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
         maxWidth="sm"
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
-            maxWidth: '500px',
+            borderRadius: 2,
             maxHeight: '90vh'
           }
         }}
       >
-        <MuiDialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
+        <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
           {editingCost ? 'تعديل مصروف' : 'إضافة مصروف جديد'}
-        </MuiDialogTitle>
-        <MuiDialogContent>
+        </DialogTitle>
+        <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {editingCost ? 'تحديث بيانات المصروف' : 'إنشاء مصروف جديد'}
           </Typography>
@@ -618,36 +700,44 @@ export default function Costs() {
               fullWidth
               placeholder="وصف المصروف"
               autoComplete="off"
+              size="small"
             />
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-              <TextField
-                label="المبلغ"
-                type="number"
-                inputProps={{ step: "0.01", min: "0" }}
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                required
-                fullWidth
-                placeholder="0.00"
-                autoComplete="off"
-              />
-              <TextField
-                label="التاريخ"
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-                required
-                fullWidth
-                InputLabelProps={{
-                  shrink: true,
-                }}
-              />
-            </Box>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="المبلغ"
+                  type="number"
+                  inputProps={{ step: "0.01", min: "0" }}
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  required
+                  fullWidth
+                  placeholder="0.00"
+                  autoComplete="off"
+                  size="small"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  label="التاريخ"
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  required
+                  fullWidth
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  size="small"
+                />
+              </Grid>
+            </Grid>
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: showQuickAddCategory ? 2 : 0 }}>
-                <FormControl fullWidth>
-                  <InputLabel>الفئة</InputLabel>
+              <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mb: showQuickAddCategory ? 2 : 0 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="category-select-label">الفئة</InputLabel>
                   <Select
+                    labelId="category-select-label"
                     value={form.cost_category_id}
                     onChange={(e) => setForm({ ...form, cost_category_id: e.target.value })}
                     label="الفئة"
@@ -661,20 +751,20 @@ export default function Costs() {
                   </Select>
                 </FormControl>
                 {!showQuickAddCategory && (
-                  <MuiButton
+                  <Button
                     type="button"
                     variant="outlined"
                     size="small"
+                    startIcon={<AddIcon />}
                     onClick={() => setShowQuickAddCategory(true)}
-                    sx={{ minWidth: 'auto', px: 2, whiteSpace: 'nowrap' }}
+                    sx={{ whiteSpace: 'nowrap', minWidth: 'auto' }}
                   >
-                    <Plus className="size-4 mr-1" />
                     إضافة فئة
-                  </MuiButton>
+                  </Button>
                 )}
-              </Box>
+              </Stack>
               {showQuickAddCategory && (
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <Stack direction="row" spacing={1} alignItems="flex-start">
                   <TextField
                     label="اسم الفئة الجديدة"
                     value={quickCategoryName}
@@ -689,17 +779,17 @@ export default function Costs() {
                       }
                     }}
                   />
-                  <MuiButton
+                  <Button
                     type="button"
                     variant="contained"
                     size="small"
                     onClick={handleQuickAddCategory}
                     disabled={addingQuickCategory || !quickCategoryName.trim()}
-                    sx={{ minWidth: 'auto', px: 2, whiteSpace: 'nowrap', height: '40px' }}
+                    sx={{ whiteSpace: 'nowrap', minWidth: 'auto', height: '40px' }}
                   >
-                    {addingQuickCategory ? '...' : 'إضافة'}
-                  </MuiButton>
-                  <MuiButton
+                    {addingQuickCategory ? <CircularProgress size={16} /> : 'إضافة'}
+                  </Button>
+                  <Button
                     type="button"
                     variant="outlined"
                     size="small"
@@ -707,16 +797,17 @@ export default function Costs() {
                       setShowQuickAddCategory(false)
                       setQuickCategoryName('')
                     }}
-                    sx={{ minWidth: 'auto', px: 2, whiteSpace: 'nowrap', height: '40px' }}
+                    sx={{ whiteSpace: 'nowrap', minWidth: 'auto', height: '40px' }}
                   >
                     إلغاء
-                  </MuiButton>
-                </Box>
+                  </Button>
+                </Stack>
               )}
             </Box>
-            <FormControl fullWidth>
-              <InputLabel>طريقة الدفع</InputLabel>
+            <FormControl fullWidth size="small">
+              <InputLabel id="payment-method-label">طريقة الدفع</InputLabel>
               <Select
+                labelId="payment-method-label"
                 value={form.payment_method}
                 onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
                 label="طريقة الدفع"
@@ -735,44 +826,33 @@ export default function Costs() {
               rows={4}
               placeholder="ملاحظات إضافية (اختياري)"
               autoComplete="off"
+              size="small"
             />
-            <MuiDialogActions sx={{ padding: '16px 0', gap: '8px', flexDirection: { xs: 'column-reverse', sm: 'row' } }}>
-              <MuiButton
+            <DialogActions sx={{ padding: '16px 0', gap: 1 }}>
+              <Button
                 type="button"
                 variant="outlined"
                 onClick={handleCloseDialog}
                 fullWidth
-                sx={{ 
-                  order: { xs: 2, sm: 1 },
-                  height: '48px',
-                  fontSize: '1rem',
-                  fontWeight: 500
-                }}
               >
                 إلغاء
-              </MuiButton>
-              <MuiButton
+              </Button>
+              <Button
                 type="submit"
                 variant="contained"
                 disabled={loading}
                 fullWidth
-                sx={{ 
-                  order: { xs: 1, sm: 2 },
-                  height: '48px',
-                  fontSize: '1rem',
-                  fontWeight: 500
-                }}
               >
-                {loading ? 'جارٍ الحفظ...' : (editingCost ? 'تحديث' : 'إنشاء')}
-              </MuiButton>
-            </MuiDialogActions>
+                {loading ? <CircularProgress size={16} /> : (editingCost ? 'تحديث' : 'إنشاء')}
+              </Button>
+            </DialogActions>
           </Box>
-        </MuiDialogContent>
-      </MuiDialog>
+        </DialogContent>
+      </Dialog>
 
       {/* Cost Categories Management Dialog */}
-      <MuiDialog 
-        open={openCategoryDialog} 
+      <Dialog
+        open={openCategoryDialog}
         onClose={() => {
           setOpenCategoryDialog(false)
           setCategoryForm({ name: '' })
@@ -782,15 +862,16 @@ export default function Costs() {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
+            borderRadius: 2,
             maxHeight: '90vh'
           }
         }}
       >
-        <MuiDialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Tag className="size-5" />
-        </MuiDialogTitle>
-        <MuiDialogContent>
+        <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TagIcon />
+          إدارة الفئات
+        </DialogTitle>
+        <DialogContent>
           <Box sx={{ mb: 3 }}>
             <Box component="form" onSubmit={handleCategorySubmit} sx={{ display: 'flex', gap: 2, mb: 3 }}>
               <TextField
@@ -801,84 +882,82 @@ export default function Costs() {
                 fullWidth
                 placeholder="أدخل اسم الفئة"
                 autoComplete="off"
+                size="small"
               />
               {editingCategory && (
-                <MuiButton
+                <Button
                   type="button"
                   variant="outlined"
                   onClick={() => {
                     setCategoryForm({ name: '' })
                     setEditingCategory(null)
                   }}
-                  sx={{ minWidth: '100px', height: '56px' }}
+                  sx={{ minWidth: '100px' }}
                 >
                   إلغاء
-                </MuiButton>
+                </Button>
               )}
-              <MuiButton
+              <Button
                 type="submit"
                 variant="contained"
                 disabled={loading || !categoryForm.name}
-                sx={{ minWidth: '120px', height: '56px' }}
+                sx={{ minWidth: '120px' }}
               >
                 {editingCategory ? 'تحديث' : 'إضافة'}
-              </MuiButton>
+              </Button>
             </Box>
           </Box>
           
-          <Card className="border-border/40">
-            <CardContent className="p-0">
-              <div className="rounded-lg border border-border/40">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableHead className="font-bold text-center">الاسم</TableHead>
-                      <TableHead className="font-bold text-center">الإجراءات</TableHead>
+          <Card sx={{ border: 1, borderColor: 'divider' }}>
+            <CardContent sx={{ p: 0 }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>الاسم</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>الإجراءات</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {costCategories.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={2} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                        لا توجد فئات
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {costCategories.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={2} className="text-center text-muted-foreground py-8">
-                          لا توجد فئات
+                  ) : (
+                    costCategories.map((category: any) => (
+                      <TableRow key={category.id} sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
+                        <TableCell align="center" sx={{ fontWeight: 500 }}>
+                          {category.name}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEditCategory(category)}
+                              color="primary"
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteCategory(category.id)}
+                              color="error"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      costCategories.map((category: any) => (
-                        <TableRow key={category.id} className="hover:bg-muted/20 transition-colors">
-                          <TableCell className="font-medium text-center">{category.name}</TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex gap-2 justify-center">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => handleEditCategory(category)} 
-                                className="hover:bg-primary/10"
-                              >
-                                <Edit className="w-4 h-4 mr-2" />
-                                تعديل
-                              </Button>
-                              <Button 
-                                variant="destructive" 
-                                size="sm" 
-                                onClick={() => handleDeleteCategory(category.id)}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                حذف
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
-        </MuiDialogContent>
-        <MuiDialogActions sx={{ padding: '16px 24px' }}>
-          <MuiButton
+        </DialogContent>
+        <DialogActions sx={{ padding: '16px 24px' }}>
+          <Button
             variant="outlined"
             onClick={() => {
               setOpenCategoryDialog(false)
@@ -887,13 +966,13 @@ export default function Costs() {
             }}
           >
             إغلاق
-          </MuiButton>
-        </MuiDialogActions>
-      </MuiDialog>
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Export Excel Dialog */}
-      <MuiDialog 
-        open={openExportDialog} 
+      <Dialog
+        open={openExportDialog}
         onClose={() => {
           setOpenExportDialog(false)
           setExportDateFrom('')
@@ -903,20 +982,20 @@ export default function Costs() {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
+            borderRadius: 2,
             maxWidth: '400px'
           }
         }}
       >
-        <MuiDialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Download className="size-5" />
+        <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <DownloadIcon />
           تصدير إلى Excel
-        </MuiDialogTitle>
-        <MuiDialogContent>
+        </DialogTitle>
+        <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             اختر نطاق التاريخ للتصدير (اختياري)
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Stack spacing={3}>
             <TextField
               label="من تاريخ"
               type="date"
@@ -926,6 +1005,7 @@ export default function Costs() {
               InputLabelProps={{
                 shrink: true,
               }}
+              size="small"
             />
             <TextField
               label="إلى تاريخ"
@@ -936,11 +1016,12 @@ export default function Costs() {
               InputLabelProps={{
                 shrink: true,
               }}
+              size="small"
             />
-          </Box>
-        </MuiDialogContent>
-        <MuiDialogActions sx={{ padding: '16px 24px' }}>
-          <MuiButton
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ padding: '16px 24px' }}>
+          <Button
             variant="outlined"
             onClick={() => {
               setOpenExportDialog(false)
@@ -949,17 +1030,15 @@ export default function Costs() {
             }}
           >
             إلغاء
-          </MuiButton>
-          <MuiButton
+          </Button>
+          <Button
             variant="contained"
             onClick={handleExportExcel}
           >
             تصدير
-          </MuiButton>
-        </MuiDialogActions>
-      </MuiDialog>
-    </div>
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   )
 }
-
-

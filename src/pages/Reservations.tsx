@@ -1,13 +1,23 @@
 import { useEffect, useState } from 'react'
 import apiClient from '../api/axios'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent } from '@/components/ui/card'
+import {
+  Box,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  Typography,
+  Stack,
+  Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  CircularProgress,
+} from '@mui/material'
+import { Search as SearchIcon, CalendarToday as CalendarIcon, People as PeopleIcon, Add as AddIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material'
 import { toast } from 'sonner'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { PageHeader } from '@/components/ui/page-header'
-import { Search, Calendar, Users, Plus } from 'lucide-react'
 import CreateReservationDialog from '@/components/dialogs/CreateReservationDialog'
 import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
 
@@ -162,8 +172,12 @@ export default function Reservations() {
     }
   }
 
+  const isRoomSelected = (roomId: number) => {
+    return selectedRooms.some(r => r.id === roomId)
+  }
+
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
       <style>{`
         @keyframes heartbeat {
           0%, 100% {
@@ -180,167 +194,262 @@ export default function Reservations() {
           }
         }
       `}</style>
-      {/* <PageHeader
-        title="إدارة الحجوزات"
-        description="ابحث عن التوفر وأنشئ حجوزات بسهولة"
-        icon="🗓️"
-      /> */}
 
-
-      <Card className="border-border/40 shadow-lg">
-        <CardContent className="pt-1">
-          <div className="flex items-center gap-2 mb-1">
-            <Search className="size-5 text-primary" />
-            <h3 className="font-bold text-lg">البحث عن توفر الغرف</h3>
-          </div>
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12 md:col-span-3">
-              <Label className="flex items-center gap-2 mb-1">
-                <Calendar className="size-4" />
-                تاريخ الوصول
-              </Label>
-              <Input 
-                type="date" 
-                value={checkIn} 
-                onChange={(e) => setCheckIn(e.target.value)}
-                className="h-11"
-              />
-            </div>
-            <div className="col-span-12 md:col-span-3">
-              <Label className="flex items-center gap-2 mb-1">
-                <Calendar className="size-4" />
-                تاريخ المغادرة
-              </Label>
-              <Input 
-                type="date" 
-                value={checkOut} 
-                onChange={(e) => {
-                  const newCheckOut = e.target.value
-                  setCheckOut(newCheckOut)
-                  // Trigger search if check-in date is also set
-                  if (checkIn && newCheckOut) {
-                    setTimeout(() => searchAvailability(checkIn, newCheckOut), 100)
-                  }
-                }}
-                className="h-11"
-              />
-            </div>
-            <div className="col-span-12 md:col-span-2">
-              <Label className="flex items-center gap-2 mb-1">
-                <Users className="size-4" />
-                عدد الضيوف
-              </Label>
-              <Input 
-                type="number" 
-                min={1} 
-                value={guestCount} 
-                onChange={(e) => setGuestCount(parseInt(e.target.value) || 1)}
-                className="h-11"
-              />
-            </div>
-            <div className="col-span-12 md:col-span-3">
-              <Label className="mb-1 block">نوع الغرفة</Label>
-              <Select value={roomTypeId} onValueChange={(v: string) => setRoomTypeId(v)}>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="الكل" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">الكل</SelectItem>
-                  {roomTypes.map((t: any) => (
-                    <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-12 md:col-span-1 flex items-end">
-              <Button 
-                className="w-full h-11 shadow-md" 
-                onClick={() => searchAvailability()} 
-                disabled={loading}
-              >
-                {loading ? 'جارٍ البحث...' : 'بحث'}
-              </Button>
-            </div>
-          </div>
+      <Card sx={{ boxShadow: 3 }}>
+        <CardContent sx={{ pt: 2 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+            <SearchIcon color="primary" />
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              البحث عن توفر الغرف
+            </Typography>
+          </Stack>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <CalendarIcon sx={{ fontSize: 16 }} />
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    تاريخ الوصول
+                  </Typography>
+                </Stack>
+                <TextField
+                  type="date"
+                  value={checkIn}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                  fullWidth
+                  size="small"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Stack>
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <CalendarIcon sx={{ fontSize: 16 }} />
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    تاريخ المغادرة
+                  </Typography>
+                </Stack>
+                <TextField
+                  type="date"
+                  value={checkOut}
+                  onChange={(e) => {
+                    const newCheckOut = e.target.value
+                    setCheckOut(newCheckOut)
+                    // Trigger search if check-in date is also set
+                    if (checkIn && newCheckOut) {
+                      setTimeout(() => searchAvailability(checkIn, newCheckOut), 100)
+                    }
+                  }}
+                  fullWidth
+                  size="small"
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                />
+              </Stack>
+            </Grid>
+            <Grid size={{ xs: 12, md: 2 }}>
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <PeopleIcon sx={{ fontSize: 16 }} />
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    عدد الضيوف
+                  </Typography>
+                </Stack>
+                <TextField
+                  type="number"
+                  inputProps={{ min: 1 }}
+                  value={guestCount}
+                  onChange={(e) => setGuestCount(parseInt(e.target.value) || 1)}
+                  fullWidth
+                  size="small"
+                />
+              </Stack>
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <Stack spacing={1}>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  نوع الغرفة
+                </Typography>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="room-type-label">الكل</InputLabel>
+                  <Select
+                    labelId="room-type-label"
+                    value={roomTypeId}
+                    onChange={(e) => setRoomTypeId(e.target.value)}
+                    label="الكل"
+                  >
+                    <MenuItem value="all">الكل</MenuItem>
+                    {roomTypes.map((t: any) => (
+                      <MenuItem key={t.id} value={String(t.id)}>{t.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Stack>
+            </Grid>
+            <Grid size={{ xs: 12, md: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-end', height: '100%' }}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={() => searchAvailability()}
+                  disabled={loading}
+                  sx={{ height: 40, boxShadow: 2 }}
+                >
+                  {loading ? <CircularProgress size={16} color="inherit" /> : 'بحث'}
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
         </CardContent>
       </Card>
 
       {/* Show results section when search has been performed */}
       {(availableRooms?.length > 0 || (availableRooms?.length === 0 && !loading && checkIn && checkOut)) && (
-        <Card className="border-border/40 shadow-lg p-0!">
-          <CardContent className="pt-1">
+        <Card sx={{ boxShadow: 3 }}>
+          <CardContent sx={{ pt: 2 }}>
             {availableRooms?.length > 0 ? (
               <>
-                <div className="flex items-center justify-between mb-6">
-                  <div className="font-bold text-lg">الغرف المتاحة ({availableRooms.length})</div>
-                  <Button 
-                    onClick={openCreateDialog} 
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                    الغرف المتاحة ({availableRooms.length})
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={openCreateDialog}
                     disabled={selectedRooms.length === 0}
-                    className="shadow-md"
-                    style={selectedRooms.length > 0 ? {
-                      animation: 'heartbeat 1.5s ease-in-out infinite'
-                    } : {}}
+                    startIcon={<AddIcon />}
+                    sx={{
+                      boxShadow: 2,
+                      ...(selectedRooms.length > 0 && {
+                        animation: 'heartbeat 1.5s ease-in-out infinite'
+                      })
+                    }}
                   >
-                    <Plus className="size-4 mr-2" />
                     إنشاء حجز ({selectedRooms.length})
                   </Button>
-                </div>
-                <div className="grid grid-cols-12 gap-4 p-2">
-                  {availableRooms.map((room: any) => (
-                    <div key={room.id} className="col-span-12 sm:col-span-6 lg:col-span-4">
-                      <div 
-                        onClick={() => toggleRoom(room)} 
-                        className={`cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:shadow-lg ${
-                          selectedRooms.find(r=>r.id===room.id) 
-                            ? 'border-primary bg-primary/5 shadow-md shadow-primary/20' 
-                            : 'border-border/40 hover:border-primary/40'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary font-bold text-lg shadow-sm hover:shadow-md transition-shadow relative">
-                            {room.number}
-                            {selectedRooms.find(r=>r.id===room.id) && (
-                              <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs border-2 border-background">✓</div>
+                </Stack>
+                <Grid container spacing={2} sx={{ p: 1 }}>
+                  {availableRooms.map((room: any) => {
+                    const isSelected = isRoomSelected(room.id)
+                    return (
+                      <Grid key={room.id} size={{ xs: 12, sm: 6, lg: 4 }}>
+                        <Box
+                          onClick={() => toggleRoom(room)}
+                          sx={{
+                            cursor: 'pointer',
+                            borderRadius: 2,
+                            border: 2,
+                            borderColor: isSelected ? 'primary.main' : 'divider',
+                            bgcolor: isSelected ? 'primary.light' : 'background.paper',
+                            p: 2,
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                              boxShadow: 3,
+                              borderColor: isSelected ? 'primary.main' : 'primary.light',
+                            },
+                            boxShadow: isSelected ? 2 : 0,
+                          }}
+                        >
+                          <Stack direction="row" spacing={1.5} sx={{ mb: 1.5 }}>
+                            <Box
+                              sx={{
+                                width: 56,
+                                height: 56,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: 2,
+                                bgcolor: 'primary.light',
+                                color: 'primary.main',
+                                fontWeight: 'bold',
+                                fontSize: '1.125rem',
+                                boxShadow: 1,
+                                position: 'relative',
+                              }}
+                            >
+                              {room.number}
+                              {isSelected && (
+                                <Box
+                                  sx={{
+                                    position: 'absolute',
+                                    top: -4,
+                                    right: -4,
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: '50%',
+                                    bgcolor: 'primary.main',
+                                    color: 'primary.contrastText',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.75rem',
+                                    border: 2,
+                                    borderColor: 'background.paper',
+                                  }}
+                                >
+                                  <CheckCircleIcon sx={{ fontSize: 14 }} />
+                                </Box>
+                              )}
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                                غرفة {room.number}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                الدور {room.floor?.number} • {room.type?.name}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                          <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
+                            <Chip
+                              label={`${room.type?.capacity} ضيوف`}
+                              size="small"
+                              variant="outlined"
+                              sx={{ fontSize: '0.75rem' }}
+                            />
+                            {room.type?.area && (
+                              <Chip
+                                label={`${room.type.area} م²`}
+                                size="small"
+                                variant="outlined"
+                                sx={{ fontSize: '0.75rem' }}
+                              />
                             )}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-bold text-base">غرفة {room.number}</div>
-                            <div className="text-xs text-muted-foreground">
-                              الدور {room.floor?.number} • {room.type?.name}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-1.5 flex-wrap text-xs">
-                          <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
-                            {room.type?.capacity} ضيوف
-                          </span>
-                          {room.type?.area && (
-                            <span className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
-                              {room.type.area} م²
-                            </span>
-                          )}
-                          {Array.isArray(room.type?.amenities) && room.type.amenities.slice(0,2).map((a:string,i:number)=>(
-                            <span key={i} className="rounded-lg border border-border/60 bg-background px-2 py-1 font-medium">
-                              {a}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                            {Array.isArray(room.type?.amenities) && room.type.amenities.slice(0, 2).map((a: string, i: number) => (
+                              <Chip
+                                key={i}
+                                label={a}
+                                size="small"
+                                variant="outlined"
+                                sx={{ fontSize: '0.75rem' }}
+                              />
+                            ))}
+                          </Stack>
+                        </Box>
+                      </Grid>
+                    )
+                  })}
+                </Grid>
               </>
             ) : (
-              <div className="text-center py-12">
-                <div className="text-5xl mb-3 opacity-50">🏨</div>
-                <p className="text-muted-foreground text-lg font-medium">لا توجد غرف متاحة</p>
-                <p className="text-muted-foreground text-sm mt-2">
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <Typography variant="h2" sx={{ mb: 2, opacity: 0.5 }}>
+                  🏨
+                </Typography>
+                <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500, mb: 1 }}>
+                  لا توجد غرف متاحة
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                   للتواريخ المحددة ({checkIn} - {checkOut})
-                </p>
-                <p className="text-muted-foreground text-sm">
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
                   جرب تواريخ أخرى أو نوع غرفة مختلف
-                </p>
-              </div>
+                </Typography>
+              </Box>
             )}
           </CardContent>
         </Card>
@@ -366,9 +475,6 @@ export default function Reservations() {
         onCreateCustomer={createCustomer}
         loading={loading}
       />
-    </div>
+    </Box>
   )
 }
-
-
-

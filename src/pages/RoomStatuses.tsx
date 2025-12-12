@@ -292,7 +292,7 @@ export default function RoomStatuses() {
                 <Input 
                   value={form.code} 
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} 
-                  placeholder="AVAIL, OCCUPIED" 
+                  placeholder="CLEANING, MAINTENANCE" 
                   required 
                   className="h-12 text-base"
                   autoComplete="off"

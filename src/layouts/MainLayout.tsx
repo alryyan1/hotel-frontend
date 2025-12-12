@@ -3,7 +3,7 @@ import type React from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft, DollarSign, Package, ShoppingCart, ArrowDownCircle } from 'lucide-react'
+import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft, DollarSign, Package, ShoppingCart, ArrowDownCircle, Sparkles } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
 
 const drawerWidth = 220
@@ -20,6 +20,7 @@ const navItems: Array<{ to: string; label: string; icon: React.ReactNode }> = [
   { to: '/inventory', label: 'المخزون', icon: <Package className="size-5" /> },
   { to: '/inventory-orders', label: 'طلبات المخزون', icon: <ShoppingCart className="size-5" /> },
   { to: '/inventory-receipts', label: 'واردات المخزون', icon: <ArrowDownCircle className="size-5" /> },
+  { to: '/cleaning-notifications', label: 'تنبيهات النظافة', icon: <Sparkles className="size-5" /> },
   { to: '/users', label: 'المستخدمين', icon: <Shield className="size-5" /> },
   { to: '/settings', label: 'الإعدادات', icon: <Settings className="size-5" /> },
 ]
@@ -27,6 +28,7 @@ const navItems: Array<{ to: string; label: string; icon: React.ReactNode }> = [
 export default function MainLayout() {
   const [open, setOpen] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -38,7 +40,9 @@ export default function MainLayout() {
   // Responsive: close sidebar on mobile by default
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (mobile) {
         setOpen(false)
       } else {
         setOpen(true)
@@ -106,10 +110,15 @@ export default function MainLayout() {
       {/* Sidebar - Modern with smooth animations */}
       <div className=' flex gap-1'>
           <aside
-        className={` border-s border-border/40 bg-card/95 backdrop-blur-xl shadow-xl transition-all duration-300 ease-in-out ${
+        className={`fixed top-16 right-0 border-e border-border/40 bg-card/95 backdrop-blur-xl shadow-xl transition-all duration-300 ease-in-out z-30 ${
           mobileOpen ? 'translate-x-0' : window.innerWidth < 768 && !open ? 'translate-x-full' : ''
         }`}
-        style={{ width: open || mobileOpen ? drawerWidth : 72 }}
+        style={{ 
+          width: open || mobileOpen ? drawerWidth : 72,
+          height: 'calc(100vh - 4rem)',
+          overflowY: 'auto',
+          overflowX: 'hidden'
+        }}
         aria-label="الشريط الجانبي"
       >
         <TooltipProvider>
@@ -138,7 +147,7 @@ export default function MainLayout() {
                         </span>
                       </TooltipTrigger>
                       {!open && !mobileOpen && (
-                        <TooltipContent side="left" className="px-3 py-2 text-sm font-bold">
+                        <TooltipContent side="right" className="px-3 py-2 text-sm font-bold">
                           {item.label}
                         </TooltipContent>
                       )}
@@ -161,9 +170,12 @@ export default function MainLayout() {
 
       {/* Main content - Modern with padding and max-width */}
       <main
-        className="flex-1  transition-all duration-300" 
+        className="flex-1 transition-all duration-300 md:mr-0 "
+        style={{ 
+          marginRight: window.innerWidth >= 768 ? (open ? drawerWidth : 72) : 0
+        }}
       >
-        <div className="container max-w-7xl p-3 ">
+        <div className="container max-w-7xl p-1">
           <Outlet />
         </div>
       </main>

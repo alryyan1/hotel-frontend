@@ -1,16 +1,48 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import apiClient from '../api/axios'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+import {
+  Box,
+  Button,
+  TextField,
+  Card,
+  CardContent,
+  CardHeader,
+  Typography,
+  Stack,
+  Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
+  InputAdornment,
+  CircularProgress,
+} from '@mui/material'
+import {
+  Search as SearchIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  People as PeopleIcon,
+  Phone as PhoneIcon,
+  CalendarToday as CalendarIcon,
+  Person as PersonIcon,
+  Description as FileTextIcon,
+  Upload as UploadIcon,
+  Download as DownloadIcon,
+  Close as CloseIcon,
+} from '@mui/icons-material'
 import { toast } from 'sonner'
-import { PageHeader } from '@/components/ui/page-header'
-import { Search, Plus, Edit, Trash2, Users, Phone, MapPin, Calendar, User, FileText } from 'lucide-react'
 import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
@@ -23,6 +55,7 @@ interface Customer {
   address?: string
   date_of_birth?: string
   gender?: 'male' | 'female'
+  document_path?: string
   created_at: string
   updated_at: string
 }
@@ -43,6 +76,8 @@ export default function Customers() {
     date_of_birth: '',
     gender: ''
   })
+  const [uploadingDocument, setUploadingDocument] = useState<number | null>(null)
+  const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({})
 
   useEffect(() => {
     fetchCustomers()
@@ -141,124 +176,297 @@ export default function Customers() {
     }
   }
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="إدارة العملاء"
-        description="إدارة بيانات العملاء وحجوزاتهم"
-        icon="👥"
-      />
+  const getGenderColor = (gender?: string): 'default' | 'secondary' | 'primary' => {
+    switch (gender) {
+      case 'male': return 'primary'
+      case 'female': return 'secondary'
+      default: return 'default'
+    }
+  }
 
-      <Card className="border-border/40 shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Users className="size-5 text-primary" />
-              قائمة العملاء ({filteredCustomers.length})
-            </CardTitle>
-            <Button onClick={() => setOpenCreate(true)} className="shadow-md">
-              <Plus className="size-4 mr-2" />
+  const handleFileUpload = async (customer: Customer, file: File) => {
+    if (file.type !== 'application/pdf') {
+      toast.error('يرجى رفع ملف PDF فقط')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('حجم الملف يجب أن يكون أقل من 10 ميجابايت')
+      return
+    }
+
+    try {
+      setUploadingDocument(customer.id)
+      const formData = new FormData()
+      formData.append('document', file)
+
+      const { data } = await apiClient.post(`/customers/${customer.id}/document`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      // Update customer in the list
+      setCustomers(prev => prev.map(c => 
+        c.id === customer.id 
+          ? { ...c, document_path: data.document_path }
+          : c
+      ))
+
+      toast.success('تم رفع المستند بنجاح')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل رفع المستند')
+    } finally {
+      setUploadingDocument(null)
+    }
+  }
+
+  const handleDeleteDocument = async (customer: Customer) => {
+    if (!confirm(`هل أنت متأكد من حذف المستند للعميل "${customer.name}"؟`)) return
+
+    try {
+      setUploadingDocument(customer.id)
+      await apiClient.delete(`/customers/${customer.id}/document`)
+      
+      setCustomers(prev => prev.map(c => 
+        c.id === customer.id 
+          ? { ...c, document_path: undefined }
+          : c
+      ))
+
+      toast.success('تم حذف المستند بنجاح')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل حذف المستند')
+    } finally {
+      setUploadingDocument(null)
+    }
+  }
+
+  const handleDownloadDocument = async (customer: Customer) => {
+    try {
+      const response = await apiClient.get(`/customers/${customer.id}/document`, {
+        responseType: 'blob',
+      })
+
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `customer_${customer.id}_document.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل تحميل المستند')
+    }
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
+      {/* Page Header */}
+      <Box>
+        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+          👥 إدارة العملاء
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          إدارة بيانات العملاء وحجوزاتهم
+        </Typography>
+      </Box>
+
+      <Card sx={{ boxShadow: 3 }}>
+        <CardHeader
+          title={
+            <Stack direction="row" spacing={1} alignItems="center">
+              <PeopleIcon color="primary" />
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                قائمة العملاء ({filteredCustomers.length})
+              </Typography>
+            </Stack>
+          }
+          action={
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setOpenCreate(true)}
+              sx={{ boxShadow: 2 }}
+            >
               عميل جديد
             </Button>
-          </div>
-        </CardHeader>
+          }
+        />
         <CardContent>
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground size-4" />
-              <Input
-                placeholder="البحث بالاسم، الهاتف، أو الرقم الوطني..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              placeholder="البحث بالاسم، الهاتف، أو الرقم الوطني..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
 
-          <div className="rounded-md border">
+          <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead className="text-center">الاسم</TableHead>
-                  <TableHead className="text-center">الهاتف</TableHead>
-                  <TableHead className="text-center">الرقم الوطني</TableHead>
-                  <TableHead className="text-center">النوع</TableHead>
-                  <TableHead className="text-center">تاريخ التسجيل</TableHead>
-                  <TableHead className="text-center">الإجراءات</TableHead>
+                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>الاسم</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>الهاتف</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>الرقم الوطني</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>النوع</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>المستند</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>تاريخ التسجيل</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 'bold' }}>الإجراءات</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
                 {filteredCustomers.map((customer) => (
                   <TableRow key={customer.id}>
-                    <TableCell className="font-medium text-center">{customer.name}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell align="center" sx={{ fontWeight: 500 }}>
+                      {customer.name}
+                    </TableCell>
+                    <TableCell align="center">
                       {customer.phone ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <Phone className="size-3 text-muted-foreground" />
+                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+                          <PhoneIcon sx={{ fontSize: 14 }} color="action" />
                           {customer.phone}
-                        </div>
+                        </Stack>
                       ) : (
-                        <span className="text-muted-foreground">غير محدد</span>
+                        <Typography variant="body2" color="text.secondary">
+                          غير محدد
+                        </Typography>
                       )}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell align="center">
                       {customer.national_id || (
-                        <span className="text-muted-foreground">غير محدد</span>
+                        <Typography variant="body2" color="text.secondary">
+                          غير محدد
+                        </Typography>
                       )}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={customer.gender === 'male' ? 'default' : customer.gender === 'female' ? 'secondary' : 'outline'}>
-                        {getGenderLabel(customer.gender)}
-                      </Badge>
+                    <TableCell align="center">
+                      <Chip
+                        label={getGenderLabel(customer.gender)}
+                        color={getGenderColor(customer.gender)}
+                        size="small"
+                      />
                     </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Calendar className="size-3 text-muted-foreground" />
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={0.5} justifyContent="center">
+                        {customer.document_path ? (
+                          <>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<DownloadIcon />}
+                              onClick={() => handleDownloadDocument(customer)}
+                              sx={{ color: 'success.main', borderColor: 'success.main', '&:hover': { borderColor: 'success.dark', bgcolor: 'success.light' } }}
+                            >
+                              تحميل
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<CloseIcon />}
+                              onClick={() => handleDeleteDocument(customer)}
+                              disabled={uploadingDocument === customer.id}
+                              sx={{ color: 'error.main', borderColor: 'error.main', '&:hover': { borderColor: 'error.dark', bgcolor: 'error.light' } }}
+                            >
+                              حذف
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              ref={(el) => {
+                                if (el) {
+                                  fileInputRefs.current[customer.id] = el
+                                }
+                              }}
+                              type="file"
+                              accept=".pdf"
+                              style={{ display: 'none' }}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  handleFileUpload(customer, file)
+                                }
+                                // Reset input to allow selecting the same file again
+                                e.target.value = ''
+                              }}
+                              disabled={uploadingDocument === customer.id}
+                            />
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={uploadingDocument === customer.id ? <CircularProgress size={14} /> : <UploadIcon />}
+                              disabled={uploadingDocument === customer.id}
+                              onClick={() => {
+                                fileInputRefs.current[customer.id]?.click()
+                              }}
+                              sx={{ color: 'info.main', borderColor: 'info.main', '&:hover': { borderColor: 'info.dark', bgcolor: 'info.light' } }}
+                            >
+                              {uploadingDocument === customer.id ? 'جاري الرفع...' : 'رفع مستند'}
+                            </Button>
+                          </>
+                        )}
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+                        <CalendarIcon sx={{ fontSize: 14 }} color="action" />
                         {formatDate(customer.created_at)}
-                      </div>
+                      </Stack>
                     </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-2">
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={0.5} justifyContent="center">
                         <Button
-                          variant="outline"
-                          size="sm"
+                          variant="outlined"
+                          size="small"
+                          startIcon={<FileTextIcon />}
                           onClick={() => navigate(`/customers/${customer.id}/ledger`)}
-                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          sx={{ color: 'info.main', borderColor: 'info.main', '&:hover': { borderColor: 'info.dark', bgcolor: 'info.light' } }}
                         >
-                          <FileText className="size-3 mr-1" />
                           كشف حساب
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
+                        <IconButton
+                          size="small"
                           onClick={() => openEditDialog(customer)}
+                          color="primary"
                         >
-                          <Edit className="size-3 mr-1" />
-                          تعديل
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                          size="small"
                           onClick={() => handleDeleteCustomer(customer)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          color="error"
                         >
-                          <Trash2 className="size-3 mr-1" />
-                          حذف
-                        </Button>
-                      </div>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-          </div>
+          </Box>
 
           {filteredCustomers.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              <User className="size-12 mx-auto mb-4 opacity-50" />
-              <p>لا يوجد عملاء</p>
-              <p className="text-sm">ابدأ بإضافة عميل جديد</p>
-            </div>
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <PersonIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} color="action" />
+              <Typography variant="body1" color="text.secondary">
+                لا يوجد عملاء
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                ابدأ بإضافة عميل جديد
+              </Typography>
+            </Box>
           )}
         </CardContent>
       </Card>
@@ -272,75 +480,87 @@ export default function Customers() {
         loading={loading}
       />
 
-      <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>تعديل العميل</DialogTitle>
-            <DialogDescription>تحديث بيانات العميل</DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-12 gap-3 mt-1">
-            <div className="col-span-12">
-              <Label>الاسم</Label>
-              <Input 
-                value={customerForm.name} 
-                onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })} 
+      <Dialog open={openEdit} onClose={() => setOpenEdit(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>تعديل العميل</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            تحديث بيانات العميل
+          </Typography>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                label="الاسم"
+                value={customerForm.name}
+                onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+                size="small"
               />
-            </div>
-            <div className="col-span-12 md:col-span-6">
-              <Label>الهاتف</Label>
-              <Input 
-                value={customerForm.phone} 
-                onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })} 
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="الهاتف"
+                value={customerForm.phone}
+                onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                size="small"
               />
-            </div>
-            <div className="col-span-12 md:col-span-6">
-              <Label>الرقم الوطني</Label>
-              <Input 
-                value={customerForm.national_id} 
-                onChange={(e) => setCustomerForm({ ...customerForm, national_id: e.target.value })} 
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="الرقم الوطني"
+                value={customerForm.national_id}
+                onChange={(e) => setCustomerForm({ ...customerForm, national_id: e.target.value })}
+                size="small"
               />
-            </div>
-            <div className="col-span-12">
-              <Label>العنوان</Label>
-              <Input 
-                value={customerForm.address} 
-                onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })} 
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                label="العنوان"
+                value={customerForm.address}
+                onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
+                size="small"
               />
-            </div>
-            <div className="col-span-12 md:col-span-6">
-              <Label>تاريخ الميلاد</Label>
-              <Input 
-                type="date" 
-                value={customerForm.date_of_birth} 
-                onChange={(e) => setCustomerForm({ ...customerForm, date_of_birth: e.target.value })} 
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                type="date"
+                label="تاريخ الميلاد"
+                value={customerForm.date_of_birth}
+                onChange={(e) => setCustomerForm({ ...customerForm, date_of_birth: e.target.value })}
+                size="small"
+                InputLabelProps={{
+                  shrink: true,
+                }}
               />
-            </div>
-            <div className="col-span-12 md:col-span-6">
-              <Label>النوع</Label>
-              <Select 
-                value={customerForm.gender} 
-                onValueChange={(v: string) => setCustomerForm({ ...customerForm, gender: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="غير محدد" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">ذكر</SelectItem>
-                  <SelectItem value="female">أنثى</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenEdit(false)}>
-              إلغاء
-            </Button>
-            <Button onClick={handleEditCustomer} disabled={loading}>
-              حفظ التغييرات
-            </Button>
-          </DialogFooter>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="gender-select-label">النوع</InputLabel>
+                <Select
+                  labelId="gender-select-label"
+                  value={customerForm.gender}
+                  onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}
+                  label="النوع"
+                >
+                  <MenuItem value="male">ذكر</MenuItem>
+                  <MenuItem value="female">أنثى</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEdit(false)} variant="outlined">
+            إلغاء
+          </Button>
+          <Button onClick={handleEditCustomer} disabled={loading} variant="contained">
+            {loading ? <CircularProgress size={16} /> : 'حفظ التغييرات'}
+          </Button>
+        </DialogActions>
       </Dialog>
-    </div>
+    </Box>
   )
 }

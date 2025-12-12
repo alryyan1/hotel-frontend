@@ -1,15 +1,35 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import apiClient from '../api/axios'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Typography,
+  Stack,
+  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Chip,
+  CircularProgress,
+} from '@mui/material'
+import {
+  ArrowBack as ArrowLeftIcon,
+  Description as FileTextIcon,
+  CalendarToday as CalendarIcon,
+  CreditCard as CreditCardIcon,
+  Add as AddIcon,
+  Download as DownloadIcon,
+  AttachMoney as DollarSignIcon,
+} from '@mui/icons-material'
 import { toast } from 'sonner'
-import { PageHeader } from '@/components/ui/page-header'
-import { ArrowLeft, FileText, Calendar, Users, DollarSign, Plus, CreditCard, Download } from 'lucide-react'
-import dayjs from 'dayjs'
 import CreatePaymentDialog from '@/components/dialogs/CreatePaymentDialog'
+import dayjs from 'dayjs'
 
 interface Reservation {
   id: number
@@ -322,167 +342,183 @@ export default function CustomerLedger() {
   const finalBalance = totalDebit - totalCredit
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Button
-          variant="outline"
+          variant="outlined"
+          startIcon={<ArrowLeftIcon />}
           onClick={() => navigate('/customers')}
-          className="shadow-md"
+          sx={{ boxShadow: 2 }}
         >
-          <ArrowLeft className="size-4 mr-2" />
           العودة إلى العملاء
         </Button>
         {customer && (
-          <div className="flex gap-2">
+          <Stack direction="row" spacing={1}>
             <Button
-              variant="outline"
+              variant="outlined"
+              startIcon={<DownloadIcon />}
               onClick={handleExportPdf}
-              className="shadow-md"
               disabled={loading || ledgerEntries.length === 0}
+              sx={{ boxShadow: 2 }}
             >
-              <Download className="size-4 mr-2" />
               تصدير PDF
             </Button>
             <Button
+              variant="contained"
+              startIcon={<AddIcon />}
               onClick={() => setOpenPaymentDialog(true)}
-              className="shadow-md"
+              sx={{ boxShadow: 2 }}
             >
-              <Plus className="size-4 mr-2" />
               إضافة دفعة
             </Button>
-          </div>
+          </Stack>
         )}
-      </div>
+      </Stack>
 
       {customer && (
-        <Card className="border-border/40 shadow-lg">
-         
+        <Card sx={{ boxShadow: 3 }}>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">الاسم</p>
-                <p className="font-semibold text-lg">{customer.name}</p>
-              </div>
+            <Grid container spacing={3} alignItems="center">
+              <Grid size={{ xs: 12, md: 3 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  الاسم
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {customer.name}
+                </Typography>
+              </Grid>
               {customer.phone && (
-                <div>
-                  <p className="text-sm text-muted-foreground">الهاتف</p>
-                  <p className="font-semibold">{customer.phone}</p>
-                </div>
+                <Grid size={{ xs: 12, md: 3 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    الهاتف
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    {customer.phone}
+                  </Typography>
+                </Grid>
               )}
               {customer.national_id && (
-                <div>
-                  <p className="text-sm text-muted-foreground">الرقم الوطني</p>
-                  <p className="font-semibold">{customer.national_id}</p>
-                </div>
+                <Grid size={{ xs: 12, md: 3 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                    الرقم الوطني
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    {customer.national_id}
+                  </Typography>
+                </Grid>
               )}
-            </div>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  الرصيد النهائي
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                  {formatCurrency(finalBalance)}
+                </Typography>
+              </Grid>
+            </Grid>
           </CardContent>
         </Card>
       )}
 
-      <Card className="border-border/40 shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="size-5 text-primary" />
-              كشف الحساب
-            </CardTitle>
-          </div>
-        </CardHeader>
+      <Card sx={{ boxShadow: 3 }}>
+        <CardHeader
+          title={
+            <Stack direction="row" spacing={1} alignItems="center">
+              <FileTextIcon color="primary" />
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                كشف الحساب
+              </Typography>
+            </Stack>
+          }
+        />
         <CardContent>
           {loading ? (
-            <div className="text-center py-8">جارٍ التحميل...</div>
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <CircularProgress />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                جارٍ التحميل...
+              </Typography>
+            </Box>
           ) : ledgerEntries.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <FileText className="size-12 mx-auto mb-4 opacity-50" />
-              <p>لا توجد حركات حسابية</p>
-            </div>
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <FileTextIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} color="action" />
+              <Typography variant="body1" color="text.secondary">
+                لا توجد حركات حسابية
+              </Typography>
+            </Box>
           ) : (
-            <div className="overflow-x-auto">
+            <Box sx={{ overflowX: 'auto' }}>
               <Table>
-                <TableHeader>
+                <TableHead>
                   <TableRow>
-                    <TableHead className="text-center">التاريخ</TableHead>
-                    <TableHead className="text-center">الوصف</TableHead>
-                    <TableHead className="text-center">الغرف / طريقة الدفع</TableHead>
-                    <TableHead className="text-center">عدد الأيام</TableHead>
-                    <TableHead className="text-center">مدين</TableHead>
-                    <TableHead className="text-center">دائن</TableHead>
-                    <TableHead className="text-center">الرصيد</TableHead>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>التاريخ</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>الوصف</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>الغرف / طريقة الدفع</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>عدد الأيام</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>مدين</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>دائن</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>الرصيد</TableCell>
                   </TableRow>
-                </TableHeader>
+                </TableHead>
                 <TableBody>
                   {ledgerEntries.map((entry, index) => (
                     <TableRow key={`${entry.type}-${entry.id}`}>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <Calendar className="size-3 text-muted-foreground" />
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+                          <CalendarIcon sx={{ fontSize: 14 }} color="action" />
                           {entry.date}
-                        </div>
+                        </Stack>
                       </TableCell>
-                      <TableCell className="text-center font-medium">
+                      <TableCell align="center" sx={{ fontWeight: 500 }}>
                         {entry.description}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell align="center">
                         {entry.type === 'reservation' ? (
-                          <Badge variant="outline">{entry.rooms}</Badge>
+                          <Chip label={entry.rooms} variant="outlined" size="small" />
                         ) : (
-                          <Badge variant="secondary" className="flex items-center gap-1">
-                            <CreditCard className="size-3" />
-                            {entry.paymentMethod}
-                          </Badge>
+                          <Chip
+                            icon={<CreditCardIcon sx={{ fontSize: 14 }} />}
+                            label={entry.paymentMethod}
+                            color="secondary"
+                            size="small"
+                          />
                         )}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell align="center">
                         {entry.days || '-'}
                       </TableCell>
-                      <TableCell className="text-center font-semibold text-green-700">
+                      <TableCell align="center" sx={{ fontWeight: 600, color: 'success.main' }}>
                         {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
                       </TableCell>
-                      <TableCell className="text-center font-semibold text-red-700">
+                      <TableCell align="center" sx={{ fontWeight: 600, color: 'error.main' }}>
                         {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
                       </TableCell>
-                      <TableCell className="text-center font-bold">
+                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>
                         {formatCurrency(entry.balance)}
                       </TableCell>
                     </TableRow>
                   ))}
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={4} className="text-center">
+                  <TableRow sx={{ bgcolor: 'action.hover', fontWeight: 'bold' }}>
+                    <TableCell colSpan={4} align="center" sx={{ fontWeight: 'bold' }}>
                       الإجمالي
                     </TableCell>
-                    <TableCell className="text-center text-green-700">
+                    <TableCell align="center" sx={{ fontWeight: 'bold', color: 'success.main' }}>
                       {formatCurrency(totalDebit)}
                     </TableCell>
-                    <TableCell className="text-center text-red-700">
+                    <TableCell align="center" sx={{ fontWeight: 'bold', color: 'error.main' }}>
                       {formatCurrency(totalCredit)}
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>
                       {formatCurrency(finalBalance)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
-            </div>
+            </Box>
           )}
         </CardContent>
       </Card>
 
-      {ledgerEntries.length > 0 && (
-        <Card className="border-border/40 shadow-lg bg-primary/5">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <DollarSign className="size-5 text-primary" />
-                <span className="font-semibold text-lg">الرصيد النهائي:</span>
-              </div>
-              <span className="font-bold text-2xl text-primary">
-                {formatCurrency(finalBalance)}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <CreatePaymentDialog
         open={openPaymentDialog}
@@ -492,6 +528,6 @@ export default function CustomerLedger() {
         onCreatePayment={handleCreatePayment}
         loading={loading}
       />
-    </div>
+    </Box>
   )
 }

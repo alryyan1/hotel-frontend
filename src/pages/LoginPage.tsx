@@ -78,14 +78,16 @@ export default function LoginPage() {
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 h-full">
         {/* Left brand/hero - hidden on mobile */}
         <div className="hidden md:flex flex-col justify-between bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-10 lg:p-14">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-primary-foreground/20 flex items-center justify-center text-2xl shadow-md">🏨</div>
-            <div className="font-extrabold text-xl">لوحة إدارة الفندق</div>
+          <div className="flex items-center justify-center">
+            <img 
+              src="/logo.png" 
+              alt="Logo" 
+              className="h-12 w-12 rounded-xl bg-primary-foreground/20 object-contain p-2 shadow-md"
+            />
           </div>
           <div>
-            <div className="text-4xl lg:text-5xl font-extrabold leading-snug mb-4">أهلاً بك مجدداً</div>
-            <p className="text-base lg:text-lg opacity-90 max-w-md">أدر الغرف والحجوزات والعملاء بسهولة مع واجهة احترافية وسريعة الاستجابة.</p>
-            <div className="mt-8 grid grid-cols-2 gap-4 max-w-lg">
+            <div className="text-4xl lg:text-5xl font-extrabold leading-snug mb-4 text-center">شقق نوفا الفندقيه</div>
+            <div className="mt-8 grid grid-cols-2 gap-4 max-w-lg text-center mx-auto">
               <div className="rounded-xl bg-primary-foreground/10 p-4 border border-primary-foreground/10">
                 <div className="text-2xl mb-1">⚡</div>
                 <div className="font-semibold">سرعة</div>
@@ -116,8 +118,12 @@ export default function LoginPage() {
           <div className="w-full max-w-md">
             <Card className="border-border/40 shadow-2xl backdrop-blur-xl bg-card/95">
               <CardHeader className="text-center space-y-4 pb-6">
-                <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-4xl shadow-lg md:w-20 md:h-20 md:text-5xl">
-                  🏨
+                <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg md:w-20 md:h-20 p-2">
+                  <img 
+                    src="/logo.png" 
+                    alt="Logo" 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div>
                   <CardTitle className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">

@@ -1,11 +1,24 @@
 import { useState, useEffect } from 'react'
 import apiClient from '@/api/axios'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
+import {
+  Button,
+  TextField,
+  FormLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Stack,
+  Typography,
+  CircularProgress,
+  Grid,
+  Divider,
+  Box,
+} from '@mui/material'
 
 interface CreateRoomDialogProps {
   open: boolean
@@ -113,108 +126,156 @@ export default function CreateRoomDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
-        <DialogHeader>
-          <DialogTitle className="text-lg sm:text-xl">
-            {editingRoom ? 'تعديل غرفة' : 'إضافة غرفة جديدة'}
-          </DialogTitle>
-          <DialogDescription className="text-sm">
-            {editingRoom ? 'تحديث بيانات الغرفة' : 'إنشاء غرفة جديدة في الفندق'}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium">رقم الغرفة</Label>
-              <Input 
-                value={form.number} 
-                onChange={(e) => setForm({ ...form, number: e.target.value })} 
-                placeholder="مثل: 101, 201" 
-                required 
-                className="h-11"
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}>
+        {editingRoom ? 'تعديل غرفة' : 'إضافة غرفة جديدة'}
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {editingRoom ? 'تحديث بيانات الغرفة' : 'إنشاء غرفة جديدة في الفندق'}
+        </Typography>
+        <form onSubmit={handleSubmit}>
+          <Stack spacing={3}>
+            {/* Basic Information Section */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+                المعلومات الأساسية
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="رقم الغرفة"
+                    value={form.number}
+                    onChange={(e) => setForm({ ...form, number: e.target.value })}
+                    placeholder="مثل: 101, 201"
+                    required
+                    size="small"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="عدد الأسرة"
+                    value={form.beds}
+                    onChange={(e) => setForm({ ...form, beds: e.target.value })}
+                    inputProps={{ min: 1, max: 10 }}
+                    required
+                    size="small"
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            <Divider />
+
+            {/* Location & Classification Section */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+                الموقع والتصنيف
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6} md={4}>
+                  <FormControl fullWidth size="small" required sx={{ minWidth: 120 }}>
+                    <InputLabel id="floor-select-label">الدور</InputLabel>
+                    <Select
+                      labelId="floor-select-label"
+                      value={form.floor_id}
+                      onChange={(e) => setForm({ ...form, floor_id: e.target.value })}
+                      label="الدور"
+                    >
+                      {floors.map((floor: any) => (
+                        <MenuItem key={floor.id} value={String(floor.id)}>
+                          الدور {floor.number} {floor.name ? `- ${floor.name}` : ''}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <FormControl fullWidth size="small" required sx={{ minWidth: 120 }}>
+                    <InputLabel id="room-type-select-label">نوع الغرفة</InputLabel>
+                    <Select
+                      labelId="room-type-select-label"
+                      value={form.room_type_id}
+                      onChange={(e) => setForm({ ...form, room_type_id: e.target.value })}
+                      label="نوع الغرفة"
+                    >
+                      {roomTypes.map((type: any) => (
+                        <MenuItem key={type.id} value={String(type.id)}>
+                          {type.name} ({type.code})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} sm={6} md={4}>
+                  <FormControl fullWidth size="small" required sx={{ minWidth: 120 }}>
+                    <InputLabel id="room-status-select-label">حالة الغرفة</InputLabel>
+                    <Select
+                      labelId="room-status-select-label"
+                      value={form.room_status_id}
+                      onChange={(e) => setForm({ ...form, room_status_id: e.target.value })}
+                      label="حالة الغرفة"
+                    >
+                      {roomStatuses.map((status: any) => (
+                        <MenuItem key={status.id} value={String(status.id)}>
+                          {status.name} ({status.code})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+
+            <Divider />
+
+            {/* Additional Notes Section */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+                ملاحظات إضافية
+              </Typography>
+              <TextField
+                fullWidth
+                label="ملاحظات"
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="أضف ملاحظات إضافية حول الغرفة..."
+                multiline
+                rows={3}
+                size="small"
               />
-            </div>
-            <div>
-              <Label className="text-sm font-medium">عدد الأسرة</Label>
-              <Input 
-                type="number" 
-                min={1} 
-                max={10} 
-                value={form.beds} 
-                onChange={(e) => setForm({ ...form, beds: e.target.value })} 
-                required 
-                className="h-11"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium">الدور</Label>
-              <Select value={form.floor_id} onValueChange={(v: string) => setForm({ ...form, floor_id: v })} required>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="اختر الدور" />
-                </SelectTrigger>
-                <SelectContent>
-                  {floors.map((floor: any) => (
-                    <SelectItem key={floor.id} value={String(floor.id)}>
-                      الدور {floor.number} {floor.name ? `- ${floor.name}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm font-medium">نوع الغرفة</Label>
-              <Select value={form.room_type_id} onValueChange={(v: string) => setForm({ ...form, room_type_id: v })} required>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="اختر النوع" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roomTypes.map((type: any) => (
-                    <SelectItem key={type.id} value={String(type.id)}>
-                      {type.name} ({type.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium">حالة الغرفة</Label>
-              <Select value={form.room_status_id} onValueChange={(v: string) => setForm({ ...form, room_status_id: v })} required>
-                <SelectTrigger className="h-11">
-                  <SelectValue placeholder="اختر الحالة" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roomStatuses.map((status: any) => (
-                    <SelectItem key={status.id} value={String(status.id)}>
-                      {status.name} ({status.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="sm:col-span-2">
-              <Label className="text-sm font-medium">ملاحظات</Label>
-              <Textarea 
-                value={form.notes} 
-                onChange={(e) => setForm({ ...form, notes: e.target.value })} 
-                placeholder="أضف ملاحظات..." 
-                rows={3} 
-                className="resize-none"
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={handleClose} className="w-full sm:w-auto h-11">
+            </Box>
+          </Stack>
+          <DialogActions sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: 1, pt: 3 }}>
+            <Button
+              type="button"
+              variant="outlined"
+              onClick={handleClose}
+              fullWidth={false}
+              sx={{ width: { xs: '100%', sm: 'auto' }, height: 44 }}
+            >
               إلغاء
             </Button>
-            <Button type="submit" disabled={loading} className="w-full sm:w-auto h-11">
-              {loading ? 'جارٍ الحفظ...' : (editingRoom ? 'تحديث' : 'إنشاء')}
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={loading}
+              fullWidth={false}
+              sx={{ width: { xs: '100%', sm: 'auto' }, height: 44 }}
+            >
+              {loading ? (
+                <>
+                  <CircularProgress size={16} sx={{ mr: 1 }} />
+                  جارٍ الحفظ...
+                </>
+              ) : (
+                editingRoom ? 'تحديث' : 'إنشاء'
+              )}
             </Button>
-          </DialogFooter>
+          </DialogActions>
         </form>
       </DialogContent>
     </Dialog>

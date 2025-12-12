@@ -1,12 +1,27 @@
 import { useState, useEffect } from 'react'
 import apiClient from '@/api/axios'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Alert,
+  Box,
+  Typography,
+  CircularProgress,
+} from '@mui/material'
+import {
+  CheckCircle as CheckCircleIcon,
+  AccessTime as ClockIcon,
+  HowToReg as UserCheckIcon,
+} from '@mui/icons-material'
 import dayjs from 'dayjs'
-import { CheckCircle, Clock, UserCheck } from 'lucide-react'
 
 interface Reservation {
   id: number
@@ -38,9 +53,9 @@ interface RoomReservationsDialogProps {
 }
 
 const statusConfig = {
-  pending: { label: 'في الانتظار', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock },
-  confirmed: { label: 'مؤكد', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: CheckCircle },
-  checked_in: { label: 'تم تسجيل الوصول', color: 'bg-green-100 text-green-800 border-green-200', icon: UserCheck },
+  pending: { label: 'في الانتظار', color: 'warning', icon: ClockIcon },
+  confirmed: { label: 'مؤكد', color: 'info', icon: CheckCircleIcon },
+  checked_in: { label: 'تم تسجيل الوصول', color: 'success', icon: UserCheckIcon },
 }
 
 export default function RoomReservationsDialog({
@@ -107,88 +122,99 @@ export default function RoomReservationsDialog({
     if (!config) return null
     const Icon = config.icon
     return (
-      <Badge className={`${config.color} border`}>
-        <Icon className="size-3 mr-1" />
-        {config.label}
-      </Badge>
+      <Chip
+        icon={<Icon sx={{ fontSize: 12 }} />}
+        label={config.label}
+        color={config.color as any}
+        size="small"
+        variant="outlined"
+      />
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-0">
-        <DialogHeader>
-          <DialogTitle className="text-lg sm:text-xl">
-            الحجوزات النشطة - غرفة {roomNumber}
-          </DialogTitle>
-        </DialogHeader>
-        
+    <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="lg" fullWidth>
+      <DialogTitle sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}>
+        الحجوزات النشطة - غرفة {roomNumber}
+      </DialogTitle>
+      <DialogContent>
         {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
           </Alert>
         )}
 
         {loading ? (
-          <div className="text-center py-8">جارٍ التحميل...</div>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
         ) : reservations.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>لا توجد حجوزات نشطة لهذه الغرفة</p>
-          </div>
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography color="text.secondary">لا توجد حجوزات نشطة لهذه الغرفة</Typography>
+          </Box>
         ) : (
-          <div className="overflow-x-auto">
+          <Box sx={{ overflowX: 'auto' }}>
             <Table>
-              <TableHeader>
+              <TableHead>
                 <TableRow>
-                  <TableHead className="text-center">رقم الحجز</TableHead>
-                  <TableHead className="text-center">العميل</TableHead>
-                  <TableHead className="text-center">تاريخ الوصول</TableHead>
-                  <TableHead className="text-center">تاريخ المغادرة</TableHead>
-                  <TableHead className="text-center">عدد الضيوف</TableHead>
-                  <TableHead className="text-center">الحالة</TableHead>
-                  <TableHead className="text-center">الأيام المتبقية</TableHead>
+                  <TableCell align="center">رقم الحجز</TableCell>
+                  <TableCell align="center">العميل</TableCell>
+                  <TableCell align="center">تاريخ الوصول</TableCell>
+                  <TableCell align="center">تاريخ المغادرة</TableCell>
+                  <TableCell align="center">عدد الضيوف</TableCell>
+                  <TableCell align="center">الحالة</TableCell>
+                  <TableCell align="center">الأيام المتبقية</TableCell>
                 </TableRow>
-              </TableHeader>
+              </TableHead>
               <TableBody>
-                {reservations.map((reservation) => (
-                  <TableRow key={reservation.id}>
-                    <TableCell className="font-medium text-center">#{reservation.id}</TableCell>
-                    <TableCell className="text-center">
-                      <div>
-                        <div className="font-medium">{reservation.customer.name}</div>
-                        {reservation.customer.phone && (
-                          <div className="text-sm text-muted-foreground">
-                            {reservation.customer.phone}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">{formatDate(reservation.check_in_date)}</TableCell>
-                    <TableCell className="text-center">{formatDate(reservation.check_out_date)}</TableCell>
-                    <TableCell className="text-center">{reservation.guest_count}</TableCell>
-                    <TableCell className="text-center">{getStatusBadge(reservation.status)}</TableCell>
-                    <TableCell className="text-center">
-                      {(() => {
-                        const daysRemaining = getDaysRemaining(reservation.check_out_date)
-                        return (
-                          <Badge variant="outline" className={daysRemaining <= 1 ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-blue-50 text-blue-700 border-blue-200'}>
-                            {daysRemaining === 0 ? 'اليوم' : daysRemaining === 1 ? 'يوم واحد' : `${daysRemaining} أيام`}
-                          </Badge>
-                        )
-                      })()}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {reservations.map((reservation) => {
+                  const daysRemaining = getDaysRemaining(reservation.check_out_date)
+                  return (
+                    <TableRow key={reservation.id}>
+                      <TableCell align="center" sx={{ fontWeight: 600 }}>
+                        #{reservation.id}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {reservation.customer.name}
+                          </Typography>
+                          {reservation.customer.phone && (
+                            <Typography variant="caption" color="text.secondary">
+                              {reservation.customer.phone}
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">{formatDate(reservation.check_in_date)}</TableCell>
+                      <TableCell align="center">{formatDate(reservation.check_out_date)}</TableCell>
+                      <TableCell align="center">{reservation.guest_count}</TableCell>
+                      <TableCell align="center">{getStatusBadge(reservation.status)}</TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={daysRemaining === 0 ? 'اليوم' : daysRemaining === 1 ? 'يوم واحد' : `${daysRemaining} أيام`}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            bgcolor: daysRemaining <= 1 ? 'orange.50' : 'blue.50',
+                            color: daysRemaining <= 1 ? 'orange.700' : 'blue.700',
+                            borderColor: daysRemaining <= 1 ? 'orange.200' : 'blue.200',
+                          }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
-          </div>
+          </Box>
         )}
 
-        <div className="flex justify-end pt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="h-11">
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 2 }}>
+          <Button variant="outlined" onClick={() => onOpenChange(false)} sx={{ height: 44 }}>
             إغلاق
           </Button>
-        </div>
+        </Box>
       </DialogContent>
     </Dialog>
   )

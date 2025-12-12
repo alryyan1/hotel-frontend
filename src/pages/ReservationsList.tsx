@@ -1,14 +1,47 @@
 import { useEffect, useState } from 'react'
 import apiClient from '../api/axios'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { PageHeader } from '@/components/ui/page-header'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Filter, Eye, Edit, Trash2, CheckCircle, XCircle, Clock, UserCheck, UserX, Loader2 } from 'lucide-react'
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  IconButton,
+  InputAdornment,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  CircularProgress,
+  Alert,
+  Stack,
+} from '@mui/material'
+import {
+  Search as SearchIcon,
+  Visibility as VisibilityIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  AccessTime as AccessTimeIcon,
+  HowToReg as PersonCheckIcon,
+  PersonRemove as PersonOffIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+} from '@mui/icons-material'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
 
@@ -19,6 +52,8 @@ interface Reservation {
   check_out_date: string
   guest_count: number
   status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled'
+  total_amount?: number
+  paid_amount?: number
   notes?: string
   created_at: string
   updated_at: string
@@ -42,23 +77,24 @@ interface Reservation {
 }
 
 const statusConfig = {
-  pending: { label: 'في الانتظار', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock },
-  confirmed: { label: 'مؤكد', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: CheckCircle },
-  checked_in: { label: 'تم تسجيل الوصول', color: 'bg-green-100 text-green-800 border-green-200', icon: UserCheck },
-  checked_out: { label: 'تم تسجيل المغادرة', color: 'bg-gray-100 text-gray-800 border-gray-200', icon: UserX },
-  cancelled: { label: 'ملغي', color: 'bg-red-100 text-red-800 border-red-200', icon: XCircle },
+  pending: { label: 'في الانتظار', color: 'warning', icon: AccessTimeIcon },
+  confirmed: { label: 'مؤكد', color: 'info', icon: CheckCircleIcon },
+  checked_in: { label: 'تم تسجيل الوصول', color: 'success', icon: PersonCheckIcon },
+  checked_out: { label: 'تم تسجيل المغادرة', color: 'default', icon: PersonOffIcon },
+  cancelled: { label: 'ملغي', color: 'error', icon: CancelIcon },
 }
 
 export default function ReservationsList() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(false)
-  const [actionLoading, setActionLoading] = useState<Record<number, string>>({}) // Track loading per reservation: { reservationId: 'actionType' }
+  const [actionLoading, setActionLoading] = useState<Record<number, string>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [openDetails, setOpenDetails] = useState(false)
   const [openConfirm, setOpenConfirm] = useState(false)
   const [actionType, setActionType] = useState<'confirm' | 'checkin' | 'checkout' | 'cancel' | 'delete'>('confirm')
+  const [customerBalance, setCustomerBalance] = useState<number | null>(null)
 
   useEffect(() => {
     fetchReservations()
@@ -77,11 +113,39 @@ export default function ReservationsList() {
     }
   }
 
+  // Check if payment is complete
+  const isPaymentComplete = (reservation: Reservation): boolean => {
+    if (!reservation.total_amount || reservation.total_amount === 0) {
+      return true
+    }
+    const paid = reservation.paid_amount || 0
+    return paid >= reservation.total_amount
+  }
+
+  // Get customer balance
+  const getCustomerBalance = async (customerId: number): Promise<number> => {
+    try {
+      const { data } = await apiClient.get(`/customers/${customerId}/balance`)
+      return data.balance || 0
+    } catch (err) {
+      console.error('Failed to fetch customer balance', err)
+      return 0
+    }
+  }
+
   const handleAction = async (reservation: Reservation, action: 'confirm' | 'checkin' | 'checkout' | 'cancel' | 'delete', skipDialog: boolean = false) => {
     // Show dialog for checkout and cancel actions
     if (!skipDialog && (action === 'checkout' || action === 'cancel' || action === 'delete')) {
       setSelectedReservation(reservation)
       setActionType(action)
+      // Fetch customer balance for checkout
+      if (action === 'checkout') {
+        getCustomerBalance(reservation.customer_id).then(balance => {
+          setCustomerBalance(balance)
+        })
+      } else {
+        setCustomerBalance(null)
+      }
       setOpenConfirm(true)
       return
     }
@@ -97,7 +161,6 @@ export default function ReservationsList() {
           updatedReservation = data
           toast.success('تم تأكيد الحجز بنجاح')
           
-          // Handle SMS result
           if (data.sms_result) {
             if (data.sms_result.success) {
               toast.success('تم إرسال رسالة تأكيد الحجز بنجاح', { 
@@ -118,6 +181,37 @@ export default function ReservationsList() {
           toast.success('تم تسجيل الوصول بنجاح')
           break
         case 'checkout':
+          // Check customer balance before checkout
+          const customerBalance = await getCustomerBalance(reservation.customer_id)
+          if (customerBalance !== 0) {
+            toast.error(
+              `لا يمكن تسجيل المغادرة: يجب تسويه الحسابات    (${customerBalance.toLocaleString()} ريال)`,
+              { 
+                position: 'top-right',
+                duration: 7000 
+              }
+            )
+            setActionLoading(prev => {
+              const newState = { ...prev }
+              delete newState[reservation.id]
+              return newState
+            })
+            return
+          }
+          
+          // Show warning toast if payment is not complete for this reservation
+          if (!isPaymentComplete(reservation)) {
+            const totalAmount = reservation.total_amount || 0
+            const paidAmount = reservation.paid_amount || 0
+            const remaining = totalAmount - paidAmount
+            toast.warning(
+              `تم تسجيل المغادرة مع تحذير: المبلغ المتبقي ${remaining.toLocaleString()} ريال`,
+              { 
+                position: 'top-right',
+                duration: 6000 
+              }
+            )
+          }
           const checkoutData = await apiClient.post(`/reservations/${reservation.id}/check-out`)
           updatedReservation = checkoutData.data
           toast.success('تم تسجيل المغادرة بنجاح')
@@ -129,7 +223,6 @@ export default function ReservationsList() {
           break
         case 'delete':
           await apiClient.delete(`/reservations/${reservation.id}`)
-          // Remove reservation from list
           setReservations(prev => prev.filter(r => r.id !== reservation.id))
           setOpenConfirm(false)
           setSelectedReservation(null)
@@ -138,7 +231,15 @@ export default function ReservationsList() {
       
       // Update reservation in list
       if (updatedReservation) {
-        setReservations(prev => prev.map(r => r.id === reservation.id ? updatedReservation! : r))
+        setReservations(prev => prev.map(r => {
+          if (r.id === reservation.id) {
+            return {
+              ...updatedReservation,
+              rooms: updatedReservation.rooms || r.rooms || []
+            }
+          }
+          return r
+        }))
       }
       
       setOpenConfirm(false)
@@ -156,9 +257,25 @@ export default function ReservationsList() {
 
   const handleDialogAction = async () => {
     if (!selectedReservation) return
+    
+    // For checkout, check customer balance before proceeding
+    if (actionType === 'checkout') {
+      const customerBalance = await getCustomerBalance(selectedReservation.customer_id)
+      if (customerBalance !== 0) {
+        toast.error(
+          `لا يمكن تسجيل المغادرة: يجب تسويه الحسابات    (${customerBalance.toLocaleString()} ريال)`,
+          { 
+            position: 'top-right',
+            duration: 7000 
+          }
+        )
+        setOpenConfirm(false)
+        return
+      }
+    }
+    
     await handleAction(selectedReservation, actionType, true)
   }
-
 
   const filteredReservations = reservations.filter(reservation => {
     const matchesSearch = 
@@ -172,23 +289,21 @@ export default function ReservationsList() {
     return matchesSearch && matchesStatus
   })
 
-  const getStatusBadge = (status: Reservation['status']) => {
+  const getStatusChip = (status: Reservation['status']) => {
     const config = statusConfig[status]
     const Icon = config.icon
     return (
-      <Badge className={`${config.color} border`}>
-        <Icon className="size-3 mr-1" />
-        {config.label}
-      </Badge>
+      <Chip
+        icon={<Icon />}
+        label={config.label}
+        color={config.color as any}
+        size="small"
+      />
     )
   }
 
   const formatDate = (dateString: string) => {
     return dayjs(dateString).format('DD/MM/YYYY')
-  }
-
-  const formatDateWithTime = (dateString: string) => {
-    return dayjs(dateString).format('DD/MM/YYYY HH:mm')
   }
 
   const getRelativeDate = (dateString: string) => {
@@ -217,17 +332,14 @@ export default function ReservationsList() {
       buttons.push(
         <Button
           key="confirm"
-          size="sm"
-          variant="outline"
+          size="small"
+          variant="outlined"
           onClick={() => handleAction(reservation, 'confirm', true)}
           disabled={isLoading}
-          className="text-blue-600 hover:text-blue-700"
+          color="info"
+          startIcon={isLoading && currentAction === 'confirm' ? <CircularProgress size={16} /> : undefined}
         >
-          {currentAction === 'confirm' ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            'تأكيد'
-          )}
+          تأكيد
         </Button>
       )
     }
@@ -236,17 +348,14 @@ export default function ReservationsList() {
       buttons.push(
         <Button
           key="checkin"
-          size="sm"
-          variant="outline"
+          size="small"
+          variant="outlined"
           onClick={() => handleAction(reservation, 'checkin', true)}
           disabled={isLoading}
-          className="text-green-600 hover:text-green-700"
+          color="success"
+          startIcon={isLoading && currentAction === 'checkin' ? <CircularProgress size={16} /> : undefined}
         >
-          {currentAction === 'checkin' ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            'تسجيل الوصول'
-          )}
+          تسجيل الوصول
         </Button>
       )
     }
@@ -255,17 +364,14 @@ export default function ReservationsList() {
       buttons.push(
         <Button
           key="checkout"
-          size="sm"
-          variant="outline"
+          size="small"
+          variant="outlined"
           onClick={() => handleAction(reservation, 'checkout', false)}
           disabled={isLoading}
-          className="text-gray-600 hover:text-gray-700"
+          color="default"
+          startIcon={isLoading && currentAction === 'checkout' ? <CircularProgress size={16} /> : undefined}
         >
-          {currentAction === 'checkout' ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            'تسجيل المغادرة'
-          )}
+          تسجيل المغادرة
         </Button>
       )
     }
@@ -274,17 +380,14 @@ export default function ReservationsList() {
       buttons.push(
         <Button
           key="cancel"
-          size="sm"
-          variant="outline"
+          size="small"
+          variant="outlined"
           onClick={() => handleAction(reservation, 'cancel', false)}
           disabled={isLoading}
-          className="text-red-600 hover:text-red-700"
+          color="error"
+          startIcon={isLoading && currentAction === 'cancel' ? <CircularProgress size={16} /> : undefined}
         >
-          {currentAction === 'cancel' ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            'إلغاء'
-          )}
+          إلغاء
         </Button>
       )
     }
@@ -293,220 +396,291 @@ export default function ReservationsList() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* <PageHeader
-        title="قائمة الحجوزات"
-        description="عرض وإدارة جميع الحجوزات"
-        icon="📋"
-      /> */}
-
-      <Card className="border-border/40 shadow-lg">
-    
+    <Box sx={{ p: 3 }}>
+      {/* Search and Filter Card */}
+      <Card sx={{ mb: 3 }}>
         <CardContent>
-          <div className="grid grid-cols-12 gap-4">
-            <div className="col-span-12 md:col-span-8">
-              <div className="relative">
-                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground size-4" />
-                <Input
-                  placeholder="البحث بالعميل، الهاتف،   أو رقم الغرفة..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pr-10"
-                />
-              </div>
-            </div>
-            <div className="col-span-12 md:col-span-4">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="فلترة بالحالة" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">جميع الحالات</SelectItem>
-                  <SelectItem value="pending">في الانتظار</SelectItem>
-                  <SelectItem value="confirmed">مؤكد</SelectItem>
-                  <SelectItem value="checked_in">تم تسجيل الوصول</SelectItem>
-                  <SelectItem value="checked_out">تم تسجيل المغادرة</SelectItem>
-                  <SelectItem value="cancelled">ملغي</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={8}>
+              <TextField
+                fullWidth
+                placeholder="البحث بالعميل، الهاتف، أو رقم الغرفة..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>فلترة بالحالة</InputLabel>
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  label="فلترة بالحالة"
+                >
+                  <MenuItem value="all">جميع الحالات</MenuItem>
+                  <MenuItem value="pending">في الانتظار</MenuItem>
+                  <MenuItem value="confirmed">مؤكد</MenuItem>
+                  <MenuItem value="checked_in">تم تسجيل الوصول</MenuItem>
+                  <MenuItem value="checked_out">تم تسجيل المغادرة</MenuItem>
+                  <MenuItem value="cancelled">ملغي</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
         </CardContent>
       </Card>
 
-      <Card className="border-border/40 shadow-lg">
-        <CardHeader>
-          <CardTitle>الحجوزات ({filteredReservations.length})</CardTitle>
-        </CardHeader>
+      {/* Reservations Table Card */}
+      <Card>
+        <CardHeader 
+          title={
+            <Typography variant="h6" component="div">
+              الحجوزات ({filteredReservations.length})
+            </Typography>
+          }
+        />
         <CardContent>
           {loading && reservations.length === 0 ? (
-            <div className="text-center py-8">جارٍ التحميل...</div>
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
           ) : (
-            <div className="overflow-x-auto">
+            <TableContainer component={Paper} variant="outlined">
               <Table>
-                <TableHeader>
+                <TableHead>
                   <TableRow>
-                    <TableHead className='text-center'>رقم الحجز</TableHead>
-                    <TableHead className='text-center'>العميل</TableHead>
-                    <TableHead className='text-center'>الغرف</TableHead>
-                    <TableHead className='text-center'>تاريخ الوصول</TableHead>
-                    <TableHead className='text-center'>تاريخ المغادرة</TableHead>
-                    <TableHead className='text-center'>عدد الضيوف</TableHead>
-                    <TableHead className='text-center'>الحالة</TableHead>
-                    <TableHead className='text-center'>الإجراءات</TableHead>
+                    <TableCell align="center">رقم الحجز</TableCell>
+                    <TableCell align="center">العميل</TableCell>
+                    <TableCell align="center">الغرف</TableCell>
+                    <TableCell align="center">تاريخ الوصول</TableCell>
+                    <TableCell align="center">تاريخ المغادرة</TableCell>
+                    <TableCell align="center">عدد الضيوف</TableCell>
+                    <TableCell align="center">الحالة</TableCell>
+                    <TableCell align="center">الإجراءات</TableCell>
                   </TableRow>
-                </TableHeader>
+                </TableHead>
                 <TableBody>
                   {filteredReservations.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        لا توجد حجوزات
+                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                        <Typography color="text.secondary">لا توجد حجوزات</Typography>
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredReservations.map((reservation) => (
-                    <TableRow key={reservation.id}>
-                      <TableCell className="font-medium text-center">#{reservation.id}</TableCell>
-                      <TableCell className="text-center">
-                        <div>
-                          <div className="font-medium">{reservation.customer?.name || 'غير محدد'}</div>
-                          <div className="text-sm text-muted-foreground">
+                      <TableRow key={reservation.id} hover>
+                        <TableCell align="center">
+                          <Typography fontWeight="medium">#{reservation.id}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography fontWeight="medium">
+                            {reservation.customer?.name || 'غير محدد'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
                             {reservation.customer?.phone || reservation.customer?.email || '-'}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex flex-wrap gap-1">
-                          {reservation.rooms.map((room) => (
-                            <Badge key={room.id} variant="outline" className="text-xs">
-                              غرفة {room.number}
-                            </Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div>
-                          <div className="font-medium">{formatDate(reservation.check_in_date)}</div>
-                          <div className="text-xs text-muted-foreground">{getRelativeDate(reservation.check_in_date)}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div>
-                          <div className="font-medium">{formatDate(reservation.check_out_date)}</div>
-                          <div className="text-xs text-muted-foreground">{getRelativeDate(reservation.check_out_date)}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">{reservation.guest_count}</TableCell>
-                      <TableCell className="text-center">{getStatusBadge(reservation.status)}</TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedReservation(reservation)
-                              setOpenDetails(true)
-                            }}
-                          >
-                            <Eye className="size-4" />
-                          </Button>
-                          {getActionButtons(reservation)}
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap">
+                            {reservation.rooms?.map((room) => (
+                              <Chip
+                                key={room.id}
+                                label={`غرفة ${room.number}`}
+                                size="small"
+                                variant="outlined"
+                              />
+                            )) || <Typography variant="caption" color="text.secondary">-</Typography>}
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography fontWeight="medium">
+                            {formatDate(reservation.check_in_date)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {getRelativeDate(reservation.check_in_date)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography fontWeight="medium">
+                            {formatDate(reservation.check_out_date)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {getRelativeDate(reservation.check_out_date)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">{reservation.guest_count}</TableCell>
+                        <TableCell align="center">
+                          {getStatusChip(reservation.status)}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={1} justifyContent="center">
+                            <IconButton
+                              size="small"
+                              onClick={() => {
+                                setSelectedReservation(reservation)
+                                setOpenDetails(true)
+                              }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                            {getActionButtons(reservation)}
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
                     ))
                   )}
                 </TableBody>
               </Table>
-            </div>
+            </TableContainer>
           )}
         </CardContent>
       </Card>
 
       {/* Details Dialog */}
-      <Dialog open={openDetails} onOpenChange={setOpenDetails}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>تفاصيل الحجز #{selectedReservation?.id}</DialogTitle>
-          </DialogHeader>
+      <Dialog
+        open={openDetails}
+        onClose={() => setOpenDetails(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>تفاصيل الحجز #{selectedReservation?.id}</DialogTitle>
+        <DialogContent>
           {selectedReservation && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">العميل</label>
-                  <p className="font-medium">{selectedReservation.customer?.name || 'غير محدد'}</p>
-                  <p className="text-sm text-muted-foreground">{selectedReservation.customer?.phone || '-'}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">الحالة</label>
-                  <div className="mt-1">{getStatusBadge(selectedReservation.status)}</div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">تاريخ الوصول</label>
-                  <p className="font-medium">{formatDate(selectedReservation.check_in_date)}</p>
-                  <p className="text-sm text-muted-foreground">{getRelativeDate(selectedReservation.check_in_date)}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">تاريخ المغادرة</label>
-                  <p className="font-medium">{formatDate(selectedReservation.check_out_date)}</p>
-                  <p className="text-sm text-muted-foreground">{getRelativeDate(selectedReservation.check_out_date)}</p>
-                </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">الغرف</label>
-                <div className="mt-2 space-y-2">
-                  {selectedReservation.rooms.map((room) => (
-                    <div key={room.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">غرفة {room.number}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {room.floor ? `الدور ${room.floor.number}` : 'الدور غير محدد'} • {room.type?.name || 'نوع غير محدد'} • {room.type?.capacity || 0} ضيوف
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">العميل</Typography>
+                <Typography fontWeight="medium">
+                  {selectedReservation.customer?.name || 'غير محدد'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {selectedReservation.customer?.phone || '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">الحالة</Typography>
+                <Box sx={{ mt: 1 }}>
+                  {getStatusChip(selectedReservation.status)}
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">تاريخ الوصول</Typography>
+                <Typography fontWeight="medium">
+                  {formatDate(selectedReservation.check_in_date)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {getRelativeDate(selectedReservation.check_in_date)}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">تاريخ المغادرة</Typography>
+                <Typography fontWeight="medium">
+                  {formatDate(selectedReservation.check_out_date)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {getRelativeDate(selectedReservation.check_out_date)}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary">الغرف</Typography>
+                <Box sx={{ mt: 1 }}>
+                  {selectedReservation.rooms?.map((room) => (
+                    <Paper key={room.id} sx={{ p: 2, mb: 1 }}>
+                      <Typography fontWeight="medium">غرفة {room.number}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {room.floor ? `الدور ${room.floor.number}` : 'الدور غير محدد'} • {room.type?.name || 'نوع غير محدد'} • {room.type?.capacity || 0} ضيوف
+                      </Typography>
+                    </Paper>
+                  )) || <Typography variant="body2" color="text.secondary">لا توجد غرف</Typography>}
+                </Box>
+              </Grid>
               {selectedReservation.notes && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">ملاحظات</label>
-                  <p className="mt-1 p-3 bg-muted rounded-lg">{selectedReservation.notes}</p>
-                </div>
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary">ملاحظات</Typography>
+                  <Paper sx={{ p: 2, mt: 1, bgcolor: 'grey.100' }}>
+                    <Typography variant="body2">{selectedReservation.notes}</Typography>
+                  </Paper>
+                </Grid>
               )}
-            </div>
+            </Grid>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenDetails(false)}>إغلاق</Button>
-          </DialogFooter>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDetails(false)}>إغلاق</Button>
+        </DialogActions>
       </Dialog>
 
       {/* Confirmation Dialog */}
-      <Dialog open={openConfirm} onOpenChange={setOpenConfirm}>
+      <Dialog
+        open={openConfirm}
+        onClose={() => setOpenConfirm(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>تأكيد العملية</DialogTitle>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>تأكيد العملية</DialogTitle>
-            <DialogDescription>
-              هل أنت متأكد من تنفيذ هذا الإجراء؟ لا يمكن التراجع عن بعض العمليات.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenConfirm(false)}>إلغاء</Button>
-            <Button onClick={handleDialogAction} disabled={selectedReservation ? actionLoading[selectedReservation.id] !== undefined : false}>
-              {selectedReservation && actionLoading[selectedReservation.id] ? (
-                <>
-                  <Loader2 className="size-4 mr-2 animate-spin" />
-                  جارٍ التنفيذ...
-                </>
-              ) : (
-                'تأكيد'
+          {actionType === 'checkout' && selectedReservation ? (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {customerBalance !== null && customerBalance !== 0 && (
+                <Alert severity="error">
+                  <Typography variant="subtitle2" gutterBottom>
+                    ❌ خطأ: لا يمكن تسجيل المغادرة!
+                  </Typography>
+                  <Typography variant="body2">
+                يجب تسويه الحسابات اولا <strong>{customerBalance.toLocaleString()} </strong>
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    يرجى تسوية رصيد العميل أولاً قبل تسجيل المغادرة.
+                  </Typography>
+                </Alert>
               )}
-            </Button>
-          </DialogFooter>
+              {customerBalance === 0 && !isPaymentComplete(selectedReservation) && (
+                <Alert severity="warning">
+                  <Typography variant="subtitle2" gutterBottom>
+                    ⚠️ تحذير: الحساب غير مدفوع بالكامل!
+                  </Typography>
+                  <Typography variant="body2">
+                    المبلغ الإجمالي: <strong>{selectedReservation.total_amount?.toLocaleString() || 0} ريال</strong>
+                  </Typography>
+                  <Typography variant="body2">
+                    المبلغ المدفوع: <strong>{selectedReservation.paid_amount?.toLocaleString() || 0} ريال</strong>
+                  </Typography>
+                  <Typography variant="body2" color="error">
+                    المبلغ المتبقي: <strong>{(selectedReservation.total_amount || 0) - (selectedReservation.paid_amount || 0)} ريال</strong>
+                  </Typography>
+                </Alert>
+              )}
+              {customerBalance === 0 && isPaymentComplete(selectedReservation) && (
+                <Typography>هل أنت متأكد من تسجيل المغادرة؟</Typography>
+              )}
+            </Stack>
+          ) : (
+            <Typography>هل أنت متأكد من تنفيذ هذا الإجراء؟ لا يمكن التراجع عن بعض العمليات.</Typography>
+          )}
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenConfirm(false)}>إلغاء</Button>
+          <Button
+            onClick={handleDialogAction}
+            variant="contained"
+            disabled={
+              selectedReservation ? (
+                actionLoading[selectedReservation.id] !== undefined || 
+                (actionType === 'checkout' && customerBalance !== null && customerBalance !== 0)
+              ) : false
+            }
+            startIcon={selectedReservation && actionLoading[selectedReservation.id] ? <CircularProgress size={16} /> : undefined}
+          >
+            {selectedReservation && actionLoading[selectedReservation.id] ? 'جارٍ التنفيذ...' : 'تأكيد'}
+          </Button>
+        </DialogActions>
       </Dialog>
-    </div>
+    </Box>
   )
 }
