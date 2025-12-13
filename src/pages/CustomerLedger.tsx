@@ -17,6 +17,15 @@ import {
   TableRow,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import {
   ArrowBack as ArrowLeftIcon,
@@ -28,7 +37,6 @@ import {
   AttachMoney as DollarSignIcon,
 } from '@mui/icons-material'
 import { toast } from 'sonner'
-import CreatePaymentDialog from '@/components/dialogs/CreatePaymentDialog'
 import dayjs from 'dayjs'
 
 interface Reservation {
@@ -526,14 +534,79 @@ export default function CustomerLedger() {
       </Card>
 
 
-      <CreatePaymentDialog
-        open={openPaymentDialog}
-        onOpenChange={setOpenPaymentDialog}
-        paymentForm={paymentForm}
-        onPaymentFormChange={setPaymentForm}
-        onCreatePayment={handleCreatePayment}
-        loading={loading}
-      />
+      <Dialog 
+        open={openPaymentDialog} 
+        onClose={() => setOpenPaymentDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>إضافة دفعة</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            تسجيل دفعة جديدة للعميل
+          </Typography>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <FormControl fullWidth>
+                <InputLabel>طريقة الدفع</InputLabel>
+                <Select
+                  value={paymentForm.method}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
+                  label="طريقة الدفع"
+                >
+                  <MenuItem value="cash">نقدي</MenuItem>
+                  <MenuItem value="bankak">بنكاك</MenuItem>
+                  <MenuItem value="Ocash">أوكاش</MenuItem>
+                  <MenuItem value="fawri">فوري</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                type="number"
+                label="المبلغ"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                inputProps={{ step: '0.01', min: '0.01' }}
+                placeholder="0.00"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                label="الرقم المرجعي (اختياري)"
+                value={paymentForm.reference}
+                onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
+                placeholder="سيتم إنشاؤه تلقائياً"
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="ملاحظات (اختياري)"
+                value={paymentForm.notes}
+                onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                placeholder="ملاحظات إضافية..."
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenPaymentDialog(false)} variant="outlined">
+            إلغاء
+          </Button>
+          <Button 
+            onClick={handleCreatePayment} 
+            disabled={loading || !paymentForm.method || !paymentForm.amount || parseFloat(paymentForm.amount) <= 0}
+            variant="contained"
+          >
+            {loading ? <CircularProgress size={16} /> : 'حفظ'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

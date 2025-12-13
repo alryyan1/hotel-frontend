@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft, DollarSign, Package, ShoppingCart, ArrowDownCircle, Sparkles } from 'lucide-react'
 import NotificationBell from '@/components/NotificationBell'
+import apiClient from '../api/axios'
 
 const drawerWidth = 220
 
@@ -29,6 +30,8 @@ export default function MainLayout() {
   const [open, setOpen] = useState(true)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [logoUrl, setLogoUrl] = useState<string>('/logo.png')
+  const [logoError, setLogoError] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -51,6 +54,25 @@ export default function MainLayout() {
     handleResize()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Fetch hotel logo
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const { data } = await apiClient.get('/settings/hotel')
+        if (data?.logo_url) {
+          setLogoUrl(data.logo_url)
+        } else if (data?.logo_path) {
+          const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1:8000'
+          setLogoUrl(`${baseUrl}/storage/${data.logo_path}`)
+        }
+      } catch (e) {
+        // Use default logo if fetch fails
+        console.error('Failed to fetch logo', e)
+      }
+    }
+    fetchLogo()
   }, [])
 
   function handleLogout() {
@@ -106,10 +128,23 @@ export default function MainLayout() {
           >
             {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </Button>
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-md">
-              🏨
-            </div>
+          <div 
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate('/')}
+            title="الانتقال إلى لوحة التحكم"
+          >
+            {!logoError ? (
+              <img 
+                src={logoUrl} 
+                alt="Logo" 
+                className="h-8 w-8 rounded-lg object-contain shadow-md"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-md">
+                🏨
+              </div>
+            )}
             <div>
               <div className="font-bold text-base leading-none">نظام إدارة الفنادق</div>
               <div className="text-xs text-muted-foreground hidden sm:block">{currentPage}</div>

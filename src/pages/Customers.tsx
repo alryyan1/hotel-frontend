@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import apiClient from '../api/axios'
 import {
   Box,
@@ -27,6 +27,7 @@ import {
   IconButton,
   InputAdornment,
   CircularProgress,
+  Pagination,
 } from '@mui/material'
 import {
   Search as SearchIcon,
@@ -41,6 +42,8 @@ import {
   Upload as UploadIcon,
   Download as DownloadIcon,
   Close as CloseIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material'
 import { toast } from 'sonner'
 import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
@@ -60,11 +63,19 @@ interface Customer {
   updated_at: string
 }
 
+interface PaginationMeta {
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
 export default function Customers() {
   const navigate = useNavigate()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [openCreate, setOpenCreate] = useState(false)
   const [openEdit, setOpenEdit] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -78,32 +89,96 @@ export default function Customers() {
   })
   const [uploadingDocument, setUploadingDocument] = useState<number | null>(null)
   const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({})
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
+  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta>({
+    current_page: 1,
+    last_page: 1,
+    per_page: 20,
+    total: 0
+  })
 
+  // Debounce search term - wait 500ms after user stops typing
   useEffect(() => {
-    fetchCustomers()
-  }, [])
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 500)
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [searchTerm])
 
-  const fetchCustomers = async () => {
+  // Reset to page 1 when debounced search term changes (but not on initial mount)
+  const prevDebouncedSearchRef = useRef<string>('')
+  useEffect(() => {
+    if (prevDebouncedSearchRef.current !== '' && prevDebouncedSearchRef.current !== debouncedSearchTerm && currentPage !== 1) {
+      setCurrentPage(1)
+    }
+    prevDebouncedSearchRef.current = debouncedSearchTerm
+  }, [debouncedSearchTerm, currentPage])
+
+  const fetchCustomers = useCallback(async () => {
     try {
       setLoading(true)
-      const { data } = await apiClient.get('/customers')
-      setCustomers(data?.data || data)
+      const { data } = await apiClient.get('/customers', {
+        params: {
+          page: currentPage,
+          per_page: perPage,
+          ...(debouncedSearchTerm && { search: debouncedSearchTerm })
+        }
+      })
+      
+      // Handle Laravel pagination response
+      if (data.data && Array.isArray(data.data)) {
+        setCustomers(data.data)
+        setPaginationMeta({
+          current_page: data.current_page || 1,
+          last_page: data.last_page || 1,
+          per_page: data.per_page || 20,
+          total: data.total || 0
+        })
+      } else if (Array.isArray(data)) {
+        // Fallback for non-paginated response
+        setCustomers(data)
+        setPaginationMeta({
+          current_page: 1,
+          last_page: 1,
+          per_page: data.length,
+          total: data.length
+        })
+      }
     } catch (e) {
       console.error('Failed to fetch customers', e)
+      toast.error('فشل في تحميل العملاء')
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, perPage, debouncedSearchTerm])
+
+  // Fetch customers when page, perPage, or debounced search term changes
+  useEffect(() => {
+    fetchCustomers()
+  }, [fetchCustomers])
 
   const handleCreateCustomer = async () => {
     try {
       setLoading(true)
       const payload = { ...customerForm }
       const { data } = await apiClient.post('/customers', payload)
-      setCustomers(prev => [data, ...prev])
       setOpenCreate(false)
       setCustomerForm({ name: '', phone: '', national_id: '', address: '', date_of_birth: '', gender: '' })
       toast.success('تم إنشاء العميل بنجاح')
+      // Refresh the list - go to first page to show the new customer
+      setCurrentPage(1)
+      await fetchCustomers()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل إنشاء العميل')
     } finally {
@@ -123,6 +198,8 @@ export default function Customers() {
       setSelectedCustomer(null)
       setCustomerForm({ name: '', phone: '', national_id: '', address: '', date_of_birth: '', gender: '' })
       toast.success('تم تحديث العميل بنجاح')
+      // Refresh to ensure data is up to date
+      await fetchCustomers()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل تحديث العميل')
     } finally {
@@ -136,8 +213,9 @@ export default function Customers() {
     try {
       setLoading(true)
       await apiClient.delete(`/customers/${customer.id}`)
-      setCustomers(prev => prev.filter(c => c.id !== customer.id))
       toast.success('تم حذف العميل بنجاح')
+      // Refresh the list
+      await fetchCustomers()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل حذف العميل')
     } finally {
@@ -158,11 +236,8 @@ export default function Customers() {
     setOpenEdit(true)
   }
 
-  const filteredCustomers = customers.filter(customer =>
-    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.phone?.includes(searchTerm) ||
-    customer.national_id?.includes(searchTerm)
-  )
+  // Search is now handled server-side, so we just use the customers from the API
+  const filteredCustomers = customers
 
   const formatDate = (dateString: string) => {
     return dayjs(dateString).format('DD/MM/YYYY')
@@ -262,16 +337,9 @@ export default function Customers() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 1 }}>
       {/* Page Header */}
-      <Box>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-          👥 إدارة العملاء
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          إدارة بيانات العملاء وحجوزاتهم
-        </Typography>
-      </Box>
+  
 
       <Card sx={{ boxShadow: 3 }}>
         <CardHeader
@@ -279,7 +347,7 @@ export default function Customers() {
             <Stack direction="row" spacing={1} alignItems="center">
               <PeopleIcon color="primary" />
               <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                قائمة العملاء ({filteredCustomers.length})
+                قائمة العملاء ({paginationMeta.total})
               </Typography>
             </Stack>
           }
@@ -326,7 +394,26 @@ export default function Customers() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredCustomers.map((customer) => (
+                {loading && customers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <CircularProgress />
+                    </TableCell>
+                  </TableRow>
+                ) : filteredCustomers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <PersonIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} color="action" />
+                      <Typography variant="body1" color="text.secondary" display="block">
+                        لا يوجد عملاء
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }} display="block">
+                        {searchTerm ? 'لا توجد نتائج للبحث' : 'ابدأ بإضافة عميل جديد'}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredCustomers.map((customer) => (
                   <TableRow key={customer.id}>
                     <TableCell align="center" sx={{ fontWeight: 500 }}>
                       {customer.name}
@@ -452,20 +539,70 @@ export default function Customers() {
                       </Stack>
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </Box>
 
-          {filteredCustomers.length === 0 && (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <PersonIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} color="action" />
-              <Typography variant="body1" color="text.secondary">
-                لا يوجد عملاء
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                ابدأ بإضافة عميل جديد
-              </Typography>
+          {!loading && filteredCustomers.length > 0 && (
+            <Box sx={{ mt: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="body2" color="text.secondary">
+                  عرض:
+                </Typography>
+                <FormControl size="small" sx={{ minWidth: 80 }}>
+                  <Select
+                    value={perPage}
+                    onChange={(e) => {
+                      setPerPage(Number(e.target.value))
+                      setCurrentPage(1)
+                    }}
+                    sx={{ '& .MuiSelect-select': { py: 1 } }}
+                  >
+                    {[10, 20, 50, 100].map((value) => (
+                      <MenuItem key={value} value={value}>
+                        {value}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                  من أصل {paginationMeta.total}
+                </Typography>
+              </Stack>
+              
+              <Stack direction="row" spacing={1} alignItems="center">
+                <IconButton
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={paginationMeta.current_page === 1}
+                  size="small"
+                  sx={{ border: 1, borderColor: 'divider' }}
+                >
+                  <ChevronRightIcon />
+                </IconButton>
+                
+                <Pagination
+                  count={paginationMeta.last_page}
+                  page={paginationMeta.current_page}
+                  onChange={(_, page) => setCurrentPage(page)}
+                  color="primary"
+                  size="medium"
+                  showFirstButton
+                  showLastButton
+                  siblingCount={1}
+                  boundaryCount={1}
+                />
+                
+                <IconButton
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, paginationMeta.last_page))}
+                  disabled={paginationMeta.current_page === paginationMeta.last_page}
+                  size="small"
+                  sx={{ border: 1, borderColor: 'divider' }}
+                >
+                  <ChevronLeftIcon />
+                </IconButton>
+              </Stack>
             </Box>
           )}
         </CardContent>

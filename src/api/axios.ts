@@ -31,8 +31,8 @@ apiClient.interceptors.response.use(
     (response: AxiosResponse) => {
         return response
     },
-    (error: AxiosError<ErrorResponse>) => {
-        const { response, request, message } = error
+    async (error: AxiosError<ErrorResponse | Blob>) => {
+        const { response, request, message, config } = error
 
         // Network error (no response received)
         if (!response) {
@@ -46,11 +46,32 @@ apiClient.interceptors.response.use(
         let errorMessage = 'An unexpected error occurred'
         let errorDescription = ''
 
-        // Handle different HTTP status codes
+        // If response is a blob (like Excel export), handle it differently
+        if (config?.responseType === 'blob' && data instanceof Blob) {
+            // Try to parse error message from blob
+            try {
+                const errorText = await (data as Blob).text()
+                const errorData = JSON.parse(errorText)
+                errorMessage = 'Export Error'
+                errorDescription = errorData?.message || errorData?.error || 'Failed to export file'
+            } catch {
+                // If parsing fails, use generic error
+                errorMessage = 'Export Error'
+                errorDescription = 'Failed to export file'
+            }
+            
+            toast.error(errorMessage, {
+                description: errorDescription,
+                duration: 5000,
+            })
+            return Promise.reject(error)
+        }
+
+        // Handle different HTTP status codes for JSON responses
         switch (status) {
             case 400:
                 errorMessage = 'Bad Request'
-                errorDescription = data?.message || data?.error || 'Invalid request data'
+                errorDescription = (data as ErrorResponse)?.message || (data as ErrorResponse)?.error || 'Invalid request data'
                 break
             
             case 401:
@@ -74,11 +95,11 @@ apiClient.interceptors.response.use(
             case 422:
                 errorMessage = 'Validation Error'
                 // Handle Laravel validation errors
-                if (data?.errors) {
-                    const validationErrors = Object.values(data.errors).flat()
+                if ((data as ErrorResponse)?.errors) {
+                    const validationErrors = Object.values((data as ErrorResponse).errors!).flat()
                     errorDescription = validationErrors.join(', ')
                 } else {
-                    errorDescription = data?.message || data?.error || 'Validation failed'
+                    errorDescription = (data as ErrorResponse)?.message || (data as ErrorResponse)?.error || 'Validation failed'
                 }
                 break
             
@@ -104,7 +125,7 @@ apiClient.interceptors.response.use(
             
             default:
                 errorMessage = `Error ${status}`
-                errorDescription = data?.message || data?.error || message || 'An unexpected error occurred'
+                errorDescription = (data as ErrorResponse)?.message || (data as ErrorResponse)?.error || message || 'An unexpected error occurred'
         }
 
         // Show error toast

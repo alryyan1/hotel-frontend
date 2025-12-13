@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import apiClient from '../api/axios'
 import {
   Box,
@@ -30,6 +30,7 @@ import {
   CircularProgress,
   Alert,
   Stack,
+  Autocomplete,
 } from '@mui/material'
 import {
   Search as SearchIcon,
@@ -41,6 +42,9 @@ import {
   PersonRemove as PersonOffIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  CalendarToday as CalendarIcon,
+  Clear as ClearIcon,
+  FileDownload as FileDownloadIcon,
 } from '@mui/icons-material'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
@@ -76,6 +80,13 @@ interface Reservation {
   }>
 }
 
+interface Customer {
+  id: number
+  name: string
+  phone?: string
+  national_id?: string
+}
+
 const statusConfig = {
   pending: { label: 'في الانتظار', color: 'warning', icon: AccessTimeIcon },
   confirmed: { label: 'مؤكد', color: 'info', icon: CheckCircleIcon },
@@ -87,23 +98,91 @@ const statusConfig = {
 export default function ReservationsList() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(false)
+  const [exportLoading, setExportLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<Record<number, string>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [dateFromFilter, setDateFromFilter] = useState<string>('')
+  const [dateToFilter, setDateToFilter] = useState<string>('')
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [openDetails, setOpenDetails] = useState(false)
   const [openConfirm, setOpenConfirm] = useState(false)
   const [actionType, setActionType] = useState<'confirm' | 'checkin' | 'checkout' | 'cancel' | 'delete'>('confirm')
   const [customerBalance, setCustomerBalance] = useState<number | null>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Debounce search term
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+    
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchReservations()
+    }, 500) // Wait 500ms after user stops typing
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [searchTerm])
+
+  // Fetch customers list
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        setLoadingCustomers(true)
+        const { data } = await apiClient.get('/customers', {
+          params: {
+            per_page: 100 // Get more customers for autocomplete
+          }
+        })
+        const customersData = data.data || data
+        setCustomers(Array.isArray(customersData) ? customersData : [])
+      } catch (e) {
+        console.error('Failed to fetch customers', e)
+      } finally {
+        setLoadingCustomers(false)
+      }
+    }
+    fetchCustomers()
+  }, [])
+
+  // Fetch immediately for status, date, and customer filters
   useEffect(() => {
     fetchReservations()
-  }, [])
+  }, [statusFilter, dateFromFilter, dateToFilter, selectedCustomer])
 
   const fetchReservations = async () => {
     try {
       setLoading(true)
-      const { data } = await apiClient.get('/reservations')
+      const params: any = {}
+      
+      if (searchTerm) {
+        params.search = searchTerm
+      }
+      
+      if (statusFilter && statusFilter !== 'all') {
+        params.status = statusFilter
+      }
+      
+      if (dateFromFilter) {
+        params.date_from = dateFromFilter
+      }
+      
+      if (dateToFilter) {
+        params.date_to = dateToFilter
+      }
+      
+      if (selectedCustomer) {
+        params.customer_id = selectedCustomer.id
+      }
+      
+      const { data } = await apiClient.get('/reservations', { params })
       setReservations(data.data || data)
     } catch (e) {
       console.error('Failed to fetch reservations', e)
@@ -277,17 +356,124 @@ export default function ReservationsList() {
     await handleAction(selectedReservation, actionType, true)
   }
 
-  const filteredReservations = reservations.filter(reservation => {
-    const matchesSearch = 
-      (reservation.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      (reservation.customer?.phone?.includes(searchTerm) || false) ||
-      (reservation.customer?.email?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      (reservation.rooms?.some(room => room.number.includes(searchTerm)) || false)
-    
-    const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter
-    
-    return matchesSearch && matchesStatus
-  })
+  // Filtering is now done on the backend, so we just use the reservations directly
+  const filteredReservations = reservations
+
+  const clearDateFilters = () => {
+    setDateFromFilter('')
+    setDateToFilter('')
+  }
+
+  const clearCustomerFilter = () => {
+    setSelectedCustomer(null)
+  }
+
+  const handleExportExcel = async () => {
+    try {
+      setExportLoading(true)
+      
+      // Build query parameters from current filters
+      const params: any = {}
+      
+      if (searchTerm) {
+        params.search = searchTerm
+      }
+      
+      if (statusFilter && statusFilter !== 'all') {
+        params.status = statusFilter
+      }
+      
+      if (selectedCustomer) {
+        params.customer_id = selectedCustomer.id
+      }
+      
+      if (dateFromFilter) {
+        params.date_from = dateFromFilter
+      }
+      
+      if (dateToFilter) {
+        params.date_to = dateToFilter
+      }
+
+      // Use axios to get the file with proper authentication
+      const response = await apiClient.get('/reservations/export/excel', {
+        params: params,
+        responseType: 'blob',
+      })
+
+      // Check if response is actually an error (blob might contain error JSON)
+      if (response.data instanceof Blob) {
+        // Check content type from response headers
+        const contentType = response.headers['content-type'] || ''
+        
+        if (contentType.includes('application/json') || response.data.type === 'application/json') {
+          // Response is an error, read it as text
+          const errorText = await response.data.text()
+          try {
+            const errorData = JSON.parse(errorText)
+            toast.error(errorData?.message || 'فشل في تصدير الملف')
+            return
+          } catch {
+            toast.error('فشل في تصدير الملف')
+            return
+          }
+        }
+      }
+
+      // Create blob and download
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      })
+      
+      if (blob.size === 0) {
+        toast.error('الملف فارغ')
+        return
+      }
+
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const filename = `reservations_export_${new Date().toISOString().split('T')[0]}.xlsx`
+      link.setAttribute('download', filename)
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      
+      // Trigger download
+      try {
+        link.click()
+        // Clean up after a short delay
+        setTimeout(() => {
+          document.body.removeChild(link)
+          window.URL.revokeObjectURL(url)
+        }, 100)
+      } catch (downloadError) {
+        console.error('Download error:', downloadError)
+        // Fallback: open in new window
+        window.open(url, '_blank')
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+      }
+      
+      toast.success('تم تصدير الملف بنجاح')
+    } catch (err: any) {
+      console.error('Failed to export Excel', err)
+      
+      // If error response is a blob, try to parse it
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const errorText = await err.response.data.text()
+          const errorData = JSON.parse(errorText)
+          toast.error(errorData?.message || 'فشل في تصدير الملف')
+        } catch {
+          toast.error(err?.response?.data?.message || err?.message || 'فشل في تصدير الملف')
+        }
+      } else {
+        toast.error(err?.response?.data?.message || err?.message || 'فشل في تصدير الملف')
+      }
+    } finally {
+      setExportLoading(false)
+    }
+  }
 
   const getStatusChip = (status: Reservation['status']) => {
     const config = statusConfig[status]
@@ -400,8 +586,8 @@ export default function ReservationsList() {
       {/* Search and Filter Card */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={8}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, flexWrap: 'wrap' }}>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 200px' }, minWidth: { xs: '100%', md: '200px' } }}>
               <TextField
                 fullWidth
                 placeholder="البحث بالعميل، الهاتف، أو رقم الغرفة..."
@@ -415,8 +601,58 @@ export default function ReservationsList() {
                   ),
                 }}
               />
-            </Grid>
-            <Grid item xs={12} md={4}>
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 auto' }, minWidth: { xs: '100%', md: '300px' } }}>
+              <Autocomplete
+                fullWidth
+                options={customers}
+                getOptionLabel={(option) => {
+                  if (typeof option === 'string') return option
+                  return `${option.name}${option.phone ? ` - ${option.phone}` : ''}`
+                }}
+                value={selectedCustomer}
+                onChange={(_, newValue) => {
+                  setSelectedCustomer(newValue)
+                }}
+                loading={loadingCustomers}
+                sx={{ width: '100%' }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    fullWidth
+                    label="فلترة بالعميل"
+                    placeholder="اختر عميل..."
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingCustomers ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props} key={option.id}>
+                    <Box>
+                      <Typography variant="body2" fontWeight="medium">
+                        {option.name}
+                      </Typography>
+                      {option.phone && (
+                        <Typography variant="caption" color="text.secondary">
+                          {option.phone}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                )}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                noOptionsText="لا يوجد عملاء"
+                clearOnEscape
+              />
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 180px' }, minWidth: { xs: '100%', md: '180px' } }}>
               <FormControl fullWidth>
                 <InputLabel>فلترة بالحالة</InputLabel>
                 <Select
@@ -432,8 +668,96 @@ export default function ReservationsList() {
                   <MenuItem value="cancelled">ملغي</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-          </Grid>
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 200px' }, minWidth: { xs: '100%', md: '200px' } }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  fullWidth
+                  type="date"
+                  label="من تاريخ"
+                  value={dateFromFilter}
+                  onChange={(e) => setDateFromFilter(e.target.value)}
+                  InputLabelProps={{
+                    shrink: true,
+                  }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <CalendarIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                {(dateFromFilter || dateToFilter) && (
+                  <IconButton
+                    size="small"
+                    onClick={clearDateFilters}
+                    color="error"
+                    title="مسح فلترة التاريخ"
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Stack>
+            </Box>
+            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 200px' }, minWidth: { xs: '100%', md: '200px' } }}>
+              <TextField
+                fullWidth
+                type="date"
+                label="إلى تاريخ"
+                value={dateToFilter}
+                onChange={(e) => setDateToFilter(e.target.value)}
+                InputLabelProps={{
+                  shrink: true,
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <CalendarIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
+          </Box>
+          {(dateFromFilter || dateToFilter || selectedCustomer) && (
+            <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {(dateFromFilter || dateToFilter) && (
+                <Box sx={{ p: 1.5, bgcolor: 'info.light', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CalendarIcon fontSize="small" color="info" />
+                  <Typography variant="body2" color="info.dark">
+                    {dateFromFilter && dateToFilter 
+                      ? `عرض الحجوزات من ${dayjs(dateFromFilter).format('DD/MM/YYYY')} إلى ${dayjs(dateToFilter).format('DD/MM/YYYY')}`
+                      : dateFromFilter 
+                        ? `عرض الحجوزات من ${dayjs(dateFromFilter).format('DD/MM/YYYY')}`
+                        : `عرض الحجوزات حتى ${dayjs(dateToFilter).format('DD/MM/YYYY')}`
+                    }
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={clearDateFilters}
+                    sx={{ ml: 1 }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
+              {selectedCustomer && (
+                <Box sx={{ p: 1.5, bgcolor: 'primary.light', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" color="primary.dark">
+                    العميل: {selectedCustomer.name}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={clearCustomerFilter}
+                    sx={{ ml: 1 }}
+                  >
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              )}
+            </Box>
+          )}
         </CardContent>
       </Card>
 
@@ -444,6 +768,17 @@ export default function ReservationsList() {
             <Typography variant="h6" component="div">
               الحجوزات ({filteredReservations.length})
             </Typography>
+          }
+          action={
+            <Button
+              variant="outlined"
+              startIcon={exportLoading ? <CircularProgress size={16} /> : <FileDownloadIcon />}
+              onClick={handleExportExcel}
+              disabled={loading || exportLoading || filteredReservations.length === 0}
+              sx={{ boxShadow: 1 }}
+            >
+              {exportLoading ? 'جارٍ التصدير...' : 'تصدير Excel'}
+            </Button>
           }
         />
         <CardContent>
