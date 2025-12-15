@@ -16,8 +16,8 @@ interface LoginFormData {
 export default function LoginPage() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState<LoginFormData>({
-    username: 'admin',
-    password: 'password'
+    username: '',
+    password: ''
   })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -55,7 +55,7 @@ export default function LoginPage() {
       navigate('/reservations-list', { replace: true })
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'فشل تسجيل الدخول'
-      toast.error(message)
+    //  toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -151,9 +151,9 @@ export default function LoginPage() {
                         value={formData.username}
                         onChange={handleInputChange('username')}
                         required
-                        autoComplete="username"
+                        autoComplete="off"
                         className="pl-10 h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                        placeholder="admin"
+                        placeholder="أدخل اسم المستخدم"
                         disabled={loading}
                       />
                     </div>
@@ -182,9 +182,9 @@ export default function LoginPage() {
                         value={formData.password}
                         onChange={handleInputChange('password')}
                         required
-                        autoComplete="current-password"
+                        autoComplete="off"
                         className="pl-10 pr-10 h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                        placeholder="••••••••"
+                        placeholder="أدخل كلمة المرور"
                         disabled={loading}
                       />
                       <button

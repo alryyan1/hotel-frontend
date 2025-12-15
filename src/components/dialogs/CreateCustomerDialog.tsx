@@ -177,7 +177,6 @@ export default function CreateCustomerDialog({
             />
           </Box>
 
-          <Divider sx={{ my: 1 }} />
 
           {/* Contact Information Section */}
           <Box>
@@ -194,8 +193,7 @@ export default function CreateCustomerDialog({
             >
               معلومات الاتصال
             </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+            <Stack direction="row" spacing={2}>
                 <TextField
                   label="رقم الهاتف"
                   value={customerForm.phone}
@@ -215,8 +213,6 @@ export default function CreateCustomerDialog({
                     },
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
                 <TextField
                   label="الرقم الوطني"
                   value={customerForm.national_id}
@@ -236,14 +232,12 @@ export default function CreateCustomerDialog({
                     },
                   }}
                 />
-              </Grid>
-            </Grid>
+            </Stack>
           </Box>
 
-          <Divider sx={{ my: 1 }} />
 
           {/* Address Section */}
-          <Box>
+          {/* <Box>
             <Typography 
               variant="subtitle2" 
               sx={{ 
@@ -278,9 +272,8 @@ export default function CreateCustomerDialog({
                 },
               }}
             />
-          </Box>
+          </Box> */}
 
-          <Divider sx={{ my: 1 }} />
 
           {/* Additional Information Section */}
           <Box>
@@ -297,8 +290,7 @@ export default function CreateCustomerDialog({
             >
               معلومات إضافية
             </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+            <Stack direction="row" spacing={2}>
                 <TextField
                   label="تاريخ الميلاد"
                   type="date"
@@ -322,8 +314,6 @@ export default function CreateCustomerDialog({
                     },
                   }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
                 <FormControl fullWidth size="medium">
                   <InputLabel>النوع</InputLabel>
                   <Select
@@ -351,8 +341,7 @@ export default function CreateCustomerDialog({
                     </MenuItem>
                   </Select>
                 </FormControl>
-              </Grid>
-            </Grid>
+            </Stack>
           </Box>
         </Box>
       </DialogContent>

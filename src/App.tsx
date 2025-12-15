@@ -26,6 +26,7 @@ import Inventory from './pages/Inventory';
 import InventoryOrders from './pages/InventoryOrders';
 import InventoryReceipts from './pages/InventoryReceipts';
 import CleaningNotifications from './pages/CleaningNotifications';
+import PublicReservations from './pages/PublicReservations';
 import MainLayout from './layouts/MainLayout';
 import { Toaster } from './components/ui/sonner';
 
@@ -62,6 +63,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/book" element={<PublicReservations />} />
             <Route element={token ? <MainLayout /> : <Navigate to="/login" replace />}>
               <Route index element={<Dashboard />} />
               <Route path="rooms" element={<Rooms />} />

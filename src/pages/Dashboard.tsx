@@ -79,21 +79,42 @@ export default function Dashboard() {
         ? (roomsData[0]?.rooms ? roomsData.flatMap((group: any) => group.rooms || []) : roomsData)
         : []
       
+      // Process reservations data first to check room occupancy
+      const reservationsData = reservationsRes.data?.data || reservationsRes.data || []
+      const allReservations = Array.isArray(reservationsData) ? reservationsData : []
+      
+      // Create a set of room IDs that are occupied (have reservations with status !== 'checked_out')
+      const occupiedRoomIds = new Set<number>()
+      allReservations.forEach((reservation: any) => {
+        // If reservation status is not 'checked_out', mark all its rooms as occupied
+        if (reservation.status && reservation.status !== 'checked_out') {
+          if (reservation.rooms && Array.isArray(reservation.rooms)) {
+            reservation.rooms.forEach((room: any) => {
+              const roomId = room.id || room.room_id
+              if (roomId) {
+                occupiedRoomIds.add(roomId)
+              }
+            })
+          }
+        }
+      })
+      
       const totalRooms = allRooms.length
-      const occupiedRooms = allRooms.filter((r: any) => 
-        r.status?.name?.toLowerCase().includes('مشغول') || 
-        r.status?.name?.toLowerCase().includes('occupied')
-      ).length
+      // Check if room is occupied by reservation OR by room status
+      const occupiedRooms = allRooms.filter((r: any) => {
+        const roomId = r.id
+        const isOccupiedByReservation = occupiedRoomIds.has(roomId)
+        const isOccupiedByStatus = r.status?.name?.toLowerCase().includes('مشغول') || 
+          r.status?.name?.toLowerCase().includes('occupied')
+        return isOccupiedByReservation || isOccupiedByStatus
+      }).length
       const maintenanceRooms = allRooms.filter((r: any) => 
         r.status?.name?.toLowerCase().includes('صيانة') || 
         r.status?.name?.toLowerCase().includes('maintenance')
       ).length
       const availableRooms = totalRooms - occupiedRooms - maintenanceRooms
 
-      // Process reservations data
-      const reservationsData = reservationsRes.data?.data || reservationsRes.data || []
-      const allReservations = Array.isArray(reservationsData) ? reservationsData : []
-      
+      // Process reservations data (already processed above, using allReservations)
       const totalReservations = allReservations.length
       const activeReservations = allReservations.filter((r: any) => 
         r.status === 'checked_in' || r.status === 'confirmed'
@@ -207,9 +228,9 @@ export default function Dashboard() {
   }
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ar-SA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'SAR',
+      currency: 'SDG',
       minimumFractionDigits: 0
     }).format(amount)
   }
@@ -296,22 +317,10 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="لوحة التحكم"
-        description="نظرة عامة على إشغالات الغرف والحجوزات والإيرادات"
-        icon="📊"
-        action={
-          <button
-            onClick={fetchDashboardData}
-            className="px-4 py-2 text-sm font-medium bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-          >
-            تحديث
-          </button>
-        }
-      />
+     
 
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-1">
         <StatCard
           title="إجمالي الغرف"
           value={stats?.totalRooms || 0}

@@ -106,12 +106,12 @@ export default function CustomerLedger() {
   const [loading, setLoading] = useState(false)
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false)
   const [paymentForm, setPaymentForm] = useState({
-    method: '',
+    method: 'cash',
     amount: '',
     notes: '',
     reference: ''
   })
-
+ 
   useEffect(() => {
     if (id) {
       fetchCustomer()
@@ -149,7 +149,7 @@ export default function CustomerLedger() {
       console.error('Failed to fetch room types', err)
     }
   }
-
+ console.log("roomTypes",roomTypes,roomTypes[1])
   const fetchReservations = async () => {
     try {
       setLoading(true)
@@ -215,13 +215,14 @@ export default function CustomerLedger() {
         const roomNames: string[] = []
 
         reservation.rooms.forEach((room) => {
-          const basePrice = room.type?.base_price || roomTypes[room.room_type_id]?.base_price || 0
-          const roomDebit = days * basePrice
-          totalDebit += roomDebit
+          const basePrice = Number(room.type?.base_price || roomTypes[room.room_type_id]?.base_price || 0)
+          const roomDebit = days * (isNaN(basePrice) ? 0 : basePrice)
+          totalDebit += (isNaN(roomDebit) ? 0 : roomDebit)
           roomNames.push(`غرفة ${room.number}`)
         })
 
-        runningBalance += totalDebit
+        const validDebit = isNaN(totalDebit) ? 0 : totalDebit
+        runningBalance += validDebit
 
         entries.push({
           id: reservation.id,
@@ -230,13 +231,15 @@ export default function CustomerLedger() {
           description: `حجز #${reservation.id} - ${roomNames.join(', ')}`,
           rooms: roomNames.join(', '),
           days,
-          debit: totalDebit,
+          debit: validDebit,
           credit: 0,
           balance: runningBalance
         })
       } else {
         const payment = entry.data as Payment
-        runningBalance -= payment.amount
+        const paymentAmount = Number(payment.amount) || 0
+        const validCredit = isNaN(paymentAmount) ? 0 : paymentAmount
+        runningBalance -= validCredit
 
         const methodLabels: Record<string, string> = {
           cash: 'نقدي',
@@ -252,7 +255,7 @@ export default function CustomerLedger() {
           description: `دفعة - ${payment.reference}`,
           paymentMethod: methodLabels[payment.method] || payment.method,
           debit: 0,
-          credit: payment.amount,
+          credit: validCredit,
           balance: runningBalance
         })
       }
@@ -293,10 +296,10 @@ export default function CustomerLedger() {
       await apiClient.post('/payments', payload)
       toast.success('تم إضافة الدفعة بنجاح')
       setOpenPaymentDialog(false)
-      setPaymentForm({ method: '', amount: '', notes: '', reference: '' })
+      setPaymentForm({ method: 'cash', amount: '', notes: '', reference: '' })
       await fetchPayments()
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل في إضافة الدفعة')
+      // toast.error(err?.response?.data?.message || 'فشل في إضافة الدفعة')
     } finally {
       setLoading(false)
     }
@@ -343,16 +346,103 @@ export default function CustomerLedger() {
     }
   }
 
+  const handleInvoiceClick = async (reservationId: number) => {
+    try {
+      setLoading(true)
+      
+      const response = await apiClient.get(`/reservations/${reservationId}/invoice/pdf`, {
+        responseType: 'blob'
+      })
+
+      // Create a blob from the response
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob)
+      
+      // Open PDF in a new tab
+      const newWindow = window.open(url, '_blank')
+      
+      if (!newWindow) {
+        toast.error('يرجى السماح بالنوافذ المنبثقة لعرض PDF')
+        window.URL.revokeObjectURL(url)
+        return
+      }
+      
+      // Clean up the URL after the window is closed or after a delay
+      newWindow.addEventListener('load', () => {
+        // Revoke URL after a delay to ensure the PDF loads
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url)
+        }, 1000)
+      })
+      
+      toast.success('تم فتح الفاتورة في نافذة جديدة')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في فتح الفاتورة')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePaymentInvoiceClick = async (paymentId: number) => {
+    try {
+      setLoading(true)
+      
+      const response = await apiClient.get(`/payments/${paymentId}/invoice/pdf`, {
+        responseType: 'blob'
+      })
+
+      // Create a blob from the response
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob)
+      
+      // Open PDF in a new tab
+      const newWindow = window.open(url, '_blank')
+      
+      if (!newWindow) {
+        toast.error('يرجى السماح بالنوافذ المنبثقة لعرض PDF')
+        window.URL.revokeObjectURL(url)
+        return
+      }
+      
+      // Clean up the URL after the window is closed or after a delay
+      newWindow.addEventListener('load', () => {
+        // Revoke URL after a delay to ensure the PDF loads
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url)
+        }, 1000)
+      })
+      
+      toast.success('تم فتح إيصال الدفع في نافذة جديدة')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في فتح إيصال الدفع')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const formatDate = (dateString: string) => {
     return dayjs(dateString).format('DD/MM/YYYY')
   }
 
   const formatCurrency = (amount: number) => {
+    if (isNaN(amount) || amount === null || amount === undefined) {
+      return '0'
+    }
     return new Intl.NumberFormat('en-US').format(amount)
   }
 
-  const totalDebit = ledgerEntries.reduce((sum, entry) => sum + entry.debit, 0)
-  const totalCredit = ledgerEntries.reduce((sum, entry) => sum + entry.credit, 0)
+  const totalDebit = ledgerEntries.reduce((sum, entry) => {
+    const debit = Number(entry.debit) || 0
+    return sum + (isNaN(debit) ? 0 : debit)
+  }, 0)
+  const totalCredit = ledgerEntries.reduce((sum, entry) => {
+    const credit = Number(entry.credit) || 0
+    return sum + (isNaN(credit) ? 0 : credit)
+  }, 0)
   const finalBalance = totalDebit - totalCredit
 
   return (
@@ -380,7 +470,15 @@ export default function CustomerLedger() {
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={() => setOpenPaymentDialog(true)}
+              onClick={() => {
+                setPaymentForm({
+                  method: 'cash',
+                  amount: finalBalance > 0 ? finalBalance.toString() : '',
+                  notes: '',
+                  reference: ''
+                })
+                setOpenPaymentDialog(true)
+              }}
               sx={{ boxShadow: 2 }}
             >
               إضافة دفعة
@@ -425,7 +523,7 @@ export default function CustomerLedger() {
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                   الرصيد النهائي
                 </Typography>
-                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                <Typography variant="h6" sx={{ color: 'primary.main' }}>
                   {formatCurrency(finalBalance)}
                 </Typography>
               </Grid>
@@ -439,7 +537,7 @@ export default function CustomerLedger() {
           title={
             <Stack direction="row" spacing={1} alignItems="center">
               <FileTextIcon color="primary" />
-              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              <Typography variant="h6" sx={{}}>
                 كشف الحساب
               </Typography>
             </Stack>
@@ -465,28 +563,59 @@ export default function CustomerLedger() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>التاريخ</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>الوصف</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>الغرف / طريقة الدفع</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>عدد الأيام</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>مدين</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>دائن</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>الرصيد</TableCell>
+                    <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>التاريخ</TableCell>
+                    <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>الوصف</TableCell>
+                    <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>الغرف / طريقة الدفع</TableCell>
+                    <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>عدد الأيام</TableCell>
+                    <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>مدين</TableCell>
+                    <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>دائن</TableCell>
+                    <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>الرصيد</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {ledgerEntries.map((entry, index) => (
                     <TableRow key={`${entry.type}-${entry.id}`}>
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
-                          <CalendarIcon sx={{ fontSize: 14 }} color="action" />
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                           {entry.date}
-                        </Stack>
                       </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 500 }}>
-                        {entry.description}
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center" >
+                        {entry.type === 'reservation' ? (
+                          <Typography
+                            component="span"
+                            onClick={() => handleInvoiceClick(entry.id)}
+                            sx={{
+                              cursor: 'pointer',
+                              color: 'primary.main',
+                              textDecoration: 'underline',
+                              '&:hover': {
+                                color: 'primary.dark',
+                                textDecoration: 'underline',
+                              },
+                            }}
+                          >
+                            {entry.description}
+                          </Typography>
+                        ) : entry.type === 'payment' ? (
+                          <Typography
+                            component="span"
+                            onClick={() => handlePaymentInvoiceClick(entry.id)}
+                            sx={{
+                              cursor: 'pointer',
+                              color: 'primary.main',
+                              textDecoration: 'underline',
+                              '&:hover': {
+                                color: 'primary.dark',
+                                textDecoration: 'underline',
+                              },
+                            }}
+                          >
+                            {entry.description}
+                          </Typography>
+                        ) : (
+                          entry.description
+                        )}
                       </TableCell>
-                      <TableCell align="center">
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.type === 'reservation' ? (
                           <Chip label={entry.rooms} variant="outlined" size="small" />
                         ) : (
@@ -498,31 +627,31 @@ export default function CustomerLedger() {
                           />
                         )}
                       </TableCell>
-                      <TableCell align="center">
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.days || '-'}
                       </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600, color: 'success.main' }}>
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center"  color="success.main">
                         {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
                       </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 600, color: 'error.main' }}>
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center"  color="error.main">
                         {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
                       </TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }}   align="center" >
                         {formatCurrency(entry.balance)}
                       </TableCell>
                     </TableRow>
                   ))}
-                  <TableRow sx={{ bgcolor: 'action.hover', fontWeight: 'bold' }}>
-                    <TableCell colSpan={4} align="center" sx={{ fontWeight: 'bold' }}>
+                  <TableRow sx={{ bgcolor: 'action.hover',}}>
+                    <TableCell colSpan={4} align="center" className='text-2xl' sx={{}}>
                       الإجمالي
                     </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                    <TableCell align="center" className='text-2xl' sx={{ color: 'success.main',fontSize: '1.4rem' }}>
                       {formatCurrency(totalDebit)}
                     </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold', color: 'error.main' }}>
+                    <TableCell align="center" className='text-2xl' sx={{ color: 'error.main',fontSize: '1.4rem' }}>
                       {formatCurrency(totalCredit)}
                     </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+                    <TableCell align="center" sx={{fontSize: '1.4rem' }}>
                       {formatCurrency(finalBalance)}
                     </TableCell>
                   </TableRow>
@@ -536,7 +665,10 @@ export default function CustomerLedger() {
 
       <Dialog 
         open={openPaymentDialog} 
-        onClose={() => setOpenPaymentDialog(false)}
+        onClose={() => {
+          setOpenPaymentDialog(false)
+          setPaymentForm({ method: 'cash', amount: '', notes: '', reference: '' })
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -595,7 +727,13 @@ export default function CustomerLedger() {
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenPaymentDialog(false)} variant="outlined">
+          <Button 
+            onClick={() => {
+              setOpenPaymentDialog(false)
+              setPaymentForm({ method: 'cash', amount: '', notes: '', reference: '' })
+            }} 
+            variant="outlined"
+          >
             إلغاء
           </Button>
           <Button 

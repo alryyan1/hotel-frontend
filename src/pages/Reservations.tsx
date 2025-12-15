@@ -41,7 +41,7 @@ export default function Reservations() {
 
   useEffect(() => {
     fetchRoomTypes()
-    fetchCustomers()
+    fetchAllCustomers()
   }, [])
 
   const fetchRoomTypes = async () => {
@@ -56,6 +56,14 @@ export default function Reservations() {
   const fetchCustomers = async () => {
     try {
       const { data } = await apiClient.get('/customers')
+      setCustomers(data?.data || data)
+    } catch (e) {
+      console.error('Failed to fetch customers', e)
+    }
+  }
+  const fetchAllCustomers = async () => {
+    try {
+      const { data } = await apiClient.get('/customers/all')
       setCustomers(data?.data || data)
     } catch (e) {
       console.error('Failed to fetch customers', e)
@@ -166,7 +174,7 @@ export default function Reservations() {
       setCustomerForm({ name: '', phone: '', national_id: '', address: '', date_of_birth: '', gender: '' })
       toast.success('تم إنشاء العميل')
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل إنشاء العميل')
+      // toast.error(err?.response?.data?.message || 'فشل إنشاء العميل')
     } finally {
       setLoading(false)
     }
@@ -363,7 +371,7 @@ export default function Reservations() {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 borderRadius: 2,
-                                bgcolor: 'primary.light',
+                                // bgcolor: 'primary.light',
                                 color: 'primary.main',
                                 fontWeight: 'bold',
                                 fontSize: '1.125rem',

@@ -1,23 +1,34 @@
 import { useEffect, useState } from 'react'
 import apiClient from '../api/axios'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Plus, Edit, Trash2, Package, Search, Filter, AlertTriangle, ShoppingCart, ArrowDownCircle, History } from 'lucide-react'
-import { Chip } from '@mui/material'
 import {
-  Dialog as MuiDialog,
-  DialogTitle as MuiDialogTitle,
-  DialogContent as MuiDialogContent,
-  DialogActions as MuiDialogActions,
-  Button as MuiButton,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   TextField,
   Box,
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+  Stack,
+  Grid,
+  CircularProgress,
+  Autocomplete,
+  IconButton,
+  Tooltip
 } from '@mui/material'
 import CreateInventoryItemDialog from '@/components/dialogs/CreateInventoryItemDialog'
 import UpdateStockDialog from '@/components/dialogs/UpdateStockDialog'
@@ -39,7 +50,7 @@ export default function Inventory() {
   const [editingItem, setEditingItem] = useState<any>(null)
   const [selectedItemForStock, setSelectedItemForStock] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterCategory, setFilterCategory] = useState('')
+  const [filterCategory, setFilterCategory] = useState<any>(null)
   const [filterStockStatus, setFilterStockStatus] = useState('')
   const [openFiltersDialog, setOpenFiltersDialog] = useState(false)
   const [categories, setCategories] = useState<any[]>([])
@@ -97,7 +108,7 @@ export default function Inventory() {
 
     if (filterCategory) {
       filtered = filtered.filter((item: any) => 
-        item.category_id?.toString() === filterCategory || item.category?.id?.toString() === filterCategory
+        item.category_id?.toString() === filterCategory.id?.toString() || item.category?.id?.toString() === filterCategory.id?.toString()
       )
     }
 
@@ -185,7 +196,7 @@ export default function Inventory() {
 
   const clearFilters = () => {
     setSearchTerm('')
-    setFilterCategory('')
+    setFilterCategory(null)
     setFilterStockStatus('')
   }
 
@@ -194,85 +205,80 @@ export default function Inventory() {
   ).length
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 }, p: 3 }}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">إدارة المخزون</h1>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
+        <Box>
           {lowStockCount > 0 && (
-            <p className="text-sm text-warning mt-1 flex items-center gap-1">
-              <AlertTriangle className="size-4" />
+            <Typography variant="body2" sx={{ color: 'warning.main', display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
+              <AlertTriangle size={16} />
               {lowStockCount} عنصر يحتاج إلى إعادة تموين
-            </p>
+            </Typography>
           )}
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: { xs: '100%', sm: 'auto' } }}>
           <Button 
             onClick={() => {
               setEditingItem(null)
               setOpenDialog(true)
             }} 
-            className="w-full sm:w-auto h-11 shadow-md"
+            variant="contained"
+            startIcon={<Plus size={16} />}
+            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
           >
-            <Plus className="size-4 mr-2" />
             إضافة عنصر جديد
           </Button>
           <Button 
             onClick={() => setOpenOrderDialog(true)} 
-            variant="outline"
-            className="w-full sm:w-auto h-11 shadow-md"
+            variant="outlined"
+            startIcon={<ShoppingCart size={16} />}
+            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
           >
-            <ShoppingCart className="size-4 mr-2" />
             إنشاء طلب
           </Button>
           <Button 
             onClick={() => setOpenReceiptDialog(true)} 
-            variant="outline"
-            className="w-full sm:w-auto h-11 shadow-md"
+            variant="outlined"
+            startIcon={<ArrowDownCircle size={16} />}
+            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
           >
-            <ArrowDownCircle className="size-4 mr-2" />
             إنشاء وارد
           </Button>
-        </div>
-      </div>
+        </Stack>
+      </Stack>
 
       {/* Action Bar */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="text-sm text-muted-foreground font-medium">
-            <span className="text-foreground font-bold">{filteredInventory.length}</span> من أصل <span className="text-foreground font-bold">{inventory.length}</span> عنصر
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button variant="outline" onClick={() => setOpenFiltersDialog(true)} className="h-9 w-full sm:w-auto">
-              <Filter className="size-4 mr-2" />
-              الفلاتر
-            </Button>
-          </div>
-        </div>
+      <Stack spacing={2}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+            <Typography component="span" sx={{ color: 'text.primary', fontWeight: 'bold' }}>{filteredInventory.length}</Typography> من أصل <Typography component="span" sx={{ color: 'text.primary', fontWeight: 'bold' }}>{inventory.length}</Typography> عنصر
+          </Typography>
+          <Button variant="outlined" onClick={() => setOpenFiltersDialog(true)} sx={{ height: 36, width: { xs: '100%', sm: 'auto' } }} startIcon={<Filter size={16} />}>
+            الفلاتر
+          </Button>
+        </Stack>
         {/* Search Bar */}
-        <div className="w-full">
-          <TextField
-            fullWidth
-            placeholder="ابحث في اسم العنصر، الفئة..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: <Search className="size-4 mr-2 text-muted-foreground" />,
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: '8px',
-                backgroundColor: 'background.paper',
-              }
-            }}
-          />
-        </div>
-      </div>
+        <TextField
+          fullWidth
+          placeholder="ابحث في اسم العنصر، الفئة..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, color: 'text.secondary' }}><Search size={16} /></Box>,
+          }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: '8px',
+              backgroundColor: 'background.paper',
+            }
+          }}
+        />
+      </Stack>
 
       {/* Filters Dialog */}
-      <MuiDialog open={openFiltersDialog} onClose={() => setOpenFiltersDialog(false)} maxWidth="sm" fullWidth>
-        <MuiDialogTitle>الفلاتر والبحث</MuiDialogTitle>
-        <MuiDialogContent>
+      <Dialog open={openFiltersDialog} onClose={() => setOpenFiltersDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>الفلاتر والبحث</DialogTitle>
+        <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             <TextField
               label="البحث"
@@ -281,22 +287,21 @@ export default function Inventory() {
               fullWidth
               placeholder="ابحث في الاسم، الكود، الوصف..."
               InputProps={{
-                startAdornment: <Search className="size-4 mr-2" />
+                startAdornment: <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}><Search size={16} /></Box>
               }}
             />
-            <FormControl fullWidth>
-              <InputLabel>الفئة</InputLabel>
-              <Select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                label="الفئة"
-              >
-                <MenuItem value="">جميع الفئات</MenuItem>
-                {categories.map((cat: any) => (
-                  <MenuItem key={cat.id} value={cat.id.toString()}>{cat.name}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={categories}
+              getOptionLabel={(option: any) => option.name || ''}
+              value={filterCategory}
+              onChange={(_, newValue) => setFilterCategory(newValue)}
+              renderInput={(params) => (
+                <TextField {...params} label="الفئة" placeholder="اختر الفئة" />
+              )}
+              fullWidth
+              isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
+              noOptionsText="لا توجد فئات"
+            />
             <FormControl fullWidth>
               <InputLabel>حالة المخزون</InputLabel>
               <Select
@@ -311,172 +316,184 @@ export default function Inventory() {
               </Select>
             </FormControl>
           </Box>
-        </MuiDialogContent>
-        <MuiDialogActions>
-          <MuiButton variant="outlined" onClick={clearFilters}>مسح الفلاتر</MuiButton>
-          <MuiButton variant="contained" onClick={() => setOpenFiltersDialog(false)}>تطبيق</MuiButton>
-        </MuiDialogActions>
-      </MuiDialog>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={clearFilters}>مسح الفلاتر</Button>
+          <Button variant="contained" onClick={() => setOpenFiltersDialog(false)}>تطبيق</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Inventory Table/Cards */}
-      <Card className="border-border/40 shadow-lg">
-        <CardContent className="p-4 sm:p-6">
+      <Card sx={{ boxShadow: 3 }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           {loading ? (
-            <div className="text-center py-12">
-              <div className="text-5xl mb-3 opacity-50">📦</div>
-              <p className="text-muted-foreground">جارٍ التحميل...</p>
-            </div>
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <Typography variant="h2" sx={{ mb: 2, opacity: 0.5 }}>📦</Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>جارٍ التحميل...</Typography>
+            </Box>
           ) : filteredInventory.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-5xl mb-3 opacity-50">📦</div>
-              <p className="text-muted-foreground font-medium">لا توجد عناصر</p>
-              <p className="text-sm text-muted-foreground mt-2">
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <Typography variant="h2" sx={{ mb: 2, opacity: 0.5 }}>📦</Typography>
+              <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>لا توجد عناصر</Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
                 {searchTerm || filterCategory || filterStockStatus
                   ? 'لم يتم العثور على عناصر تطابق معايير البحث'
                   : 'ابدأ بإضافة عنصر جديد'}
-              </p>
+              </Typography>
               {!(searchTerm || filterCategory || filterStockStatus) && (
-                <Button onClick={() => {
-                  setEditingItem(null)
-                  setOpenDialog(true)
-                }} size="lg" className="mt-4 shadow-md">
+                <Button 
+                  onClick={() => {
+                    setEditingItem(null)
+                    setOpenDialog(true)
+                  }} 
+                  variant="contained"
+                  size="large"
+                  sx={{ mt: 2, boxShadow: 2 }}
+                >
                   إضافة عنصر جديد
                 </Button>
               )}
-            </div>
+            </Box>
           ) : (
             <>
               {/* Mobile Card Layout */}
-              <div className="block lg:hidden space-y-3">
+              <Box sx={{ display: { xs: 'block', lg: 'none' }, '& > *': { mb: 2 } }}>
                 {filteredInventory.map((item: any) => (
-                  <Card key={item.id} className="border-border/40 hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-lg font-bold text-foreground">{item.name}</span>
-                            <Chip 
-                              label={getStockStatusLabel(item)} 
-                              color={getStockStatusColor(item)} 
-                              size="small"
-                            />
-                          </div>
-                          <div className="space-y-1 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">الكمية:</span>
-                              <span className="font-bold text-primary">
-                                {parseFloat(item.quantity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                            {item.category && (
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">الفئة:</span>
-                                <span>{item.category.name || item.category}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleOpenHistoryDialog(item)} 
-                          className="flex-1 h-9 text-sm"
-                        >
-                          <History className="w-4 h-4 mr-2" />
-                          التاريخ
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => openStockUpdateDialog(item)} 
-                          className="flex-1 h-9 text-sm"
-                        >
-                          <Package className="w-4 h-4 mr-2" />
-                          تعديل المخزون
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => handleEdit(item)} 
-                          className="flex-1 h-9 text-sm"
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          تعديل
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => handleDelete(item.id)} 
-                          className="flex-1 h-9 text-sm"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          حذف
-                        </Button>
-                      </div>
+                  <Card key={item.id} sx={{ border: '1px solid', borderColor: 'divider', '&:hover': { boxShadow: 2 }, transition: 'box-shadow 0.2s' }}>
+                    <CardContent sx={{ p: 2 }}>
+                      <Stack spacing={2}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                          <Box sx={{ flex: 1 }}>
+                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{item.name}</Typography>
+                              <Chip 
+                                label={getStockStatusLabel(item)} 
+                                color={getStockStatusColor(item)} 
+                                size="small"
+                              />
+                            </Stack>
+                            <Stack spacing={0.5}>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>الكمية:</Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                                  {parseFloat(item.quantity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </Typography>
+                              </Stack>
+                              {item.category && (
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>الفئة:</Typography>
+                                  <Typography variant="body2">{item.category.name || item.category}</Typography>
+                                </Stack>
+                              )}
+                            </Stack>
+                          </Box>
+                        </Stack>
+                        
+                        <Stack direction="row" spacing={1} flexWrap="wrap">
+                          <Button 
+                            variant="outlined" 
+                            size="small" 
+                            onClick={() => handleOpenHistoryDialog(item)} 
+                            startIcon={<History size={16} />}
+                            sx={{ flex: 1, minWidth: '120px' }}
+                          >
+                            التاريخ
+                          </Button>
+                          <Button 
+                            variant="outlined" 
+                            size="small" 
+                            onClick={() => openStockUpdateDialog(item)} 
+                            startIcon={<Package size={16} />}
+                            sx={{ flex: 1, minWidth: '120px' }}
+                          >
+                            المخزون
+                          </Button>
+                          <Button 
+                            variant="outlined" 
+                            size="small" 
+                            onClick={() => handleEdit(item)} 
+                            startIcon={<Edit size={16} />}
+                            sx={{ flex: 1, minWidth: '120px' }}
+                          >
+                            تعديل
+                          </Button>
+                          <Button 
+                            variant="contained" 
+                            color="error"
+                            size="small" 
+                            onClick={() => handleDelete(item.id)} 
+                            startIcon={<Trash2 size={16} />}
+                            sx={{ flex: 1, minWidth: '120px' }}
+                          >
+                            حذف
+                          </Button>
+                        </Stack>
+                      </Stack>
                     </CardContent>
                   </Card>
                 ))}
-              </div>
+              </Box>
 
               {/* Desktop Table Layout */}
-              <div className="hidden lg:block overflow-x-auto rounded-lg border border-border/40">
+              <Box sx={{ display: { xs: 'none', lg: 'block' }, overflowX: 'auto', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                 <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30 hover:bg-muted/30">
-                      <TableHead className="font-bold text-center">الاسم</TableHead>
-                      <TableHead className="font-bold text-center">الفئة</TableHead>
-                      <TableHead className="font-bold text-center">الكمية</TableHead>
-                      <TableHead className="font-bold text-center">الحد الأدنى</TableHead>
-                      <TableHead className="font-bold text-center">الحالة</TableHead>
-                      <TableHead className="font-bold text-center">إجراءات</TableHead>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.hover' } }}>
+                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الاسم</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الفئة</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الكمية</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الحد الأدنى</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الحالة</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>إجراءات</TableCell>
                     </TableRow>
-                  </TableHeader>
+                  </TableHead>
                   <TableBody>
                     {filteredInventory.map((item: any) => (
-                      <TableRow key={item.id} className="hover:bg-muted/20 transition-colors">
-                        <TableCell className="font-medium text-center">{item.name || '-'}</TableCell>
-                        <TableCell className="text-center">{item.category?.name || '-'}</TableCell>
-                        <TableCell className="text-center font-bold">
+                      <TableRow key={item.id} sx={{ '&:hover': { bgcolor: 'action.hover' }, transition: 'background-color 0.2s' }}>
+                        <TableCell sx={{ fontWeight: 500, textAlign: 'center' }}>{item.name || '-'}</TableCell>
+                        <TableCell sx={{ textAlign: 'center' }}>{item.category?.name || '-'}</TableCell>
+                        <TableCell sx={{ textAlign: 'center', fontWeight: 'bold' }}>
                           {parseFloat(item.quantity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell sx={{ textAlign: 'center' }}>
                           {parseFloat(item.minimum_stock || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell sx={{ textAlign: 'center' }}>
                           <Chip 
                             label={getStockStatusLabel(item)} 
                             color={getStockStatusColor(item)} 
                             size="small"
                           />
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex gap-2 justify-center">
-                            <Button variant="outline" size="sm" onClick={() => handleOpenHistoryDialog(item)}>
-                              <History className="w-4 h-4 mr-2" />
-                              التاريخ
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => openStockUpdateDialog(item)}>
-                              <Package className="w-4 h-4 mr-2" />
-                              المخزون
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(item)}>
-                              <Edit className="w-4 h-4 mr-2" />
-                              تعديل
-                            </Button>
-                            <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id)}>
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              حذف
-                            </Button>
-                          </div>
+                        <TableCell sx={{ textAlign: 'center' }}>
+                          <Stack direction="row" spacing={1} justifyContent="center">
+                            <Tooltip title="التاريخ">
+                              <IconButton size="small" onClick={() => handleOpenHistoryDialog(item)} color="primary">
+                                <History size={16} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="المخزون">
+                              <IconButton size="small" onClick={() => openStockUpdateDialog(item)} color="primary">
+                                <Package size={16} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="تعديل">
+                              <IconButton size="small" onClick={() => handleEdit(item)} color="primary">
+                                <Edit size={16} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="حذف">
+                              <IconButton size="small" onClick={() => handleDelete(item.id)} color="error">
+                                <Trash2 size={16} />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+              </Box>
             </>
           )}
         </CardContent>
@@ -534,6 +551,6 @@ export default function Inventory() {
         }}
         inventoryItem={selectedItemForHistory}
       />
-    </div>
+    </Box>
   )
 }

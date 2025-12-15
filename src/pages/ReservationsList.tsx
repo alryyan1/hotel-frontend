@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import apiClient from '../api/axios'
 import {
   Box,
@@ -96,6 +97,7 @@ const statusConfig = {
 }
 
 export default function ReservationsList() {
+  const navigate = useNavigate()
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
@@ -264,7 +266,7 @@ export default function ReservationsList() {
           const customerBalance = await getCustomerBalance(reservation.customer_id)
           if (customerBalance !== 0) {
             toast.error(
-              `لا يمكن تسجيل المغادرة: يجب تسويه الحسابات    (${customerBalance.toLocaleString()} ريال)`,
+              `لا يمكن تسجيل المغادرة: يجب تسويه الحسابات    (${customerBalance.toLocaleString()} )`,
               { 
                 position: 'top-right',
                 duration: 7000 
@@ -284,7 +286,7 @@ export default function ReservationsList() {
             const paidAmount = reservation.paid_amount || 0
             const remaining = totalAmount - paidAmount
             toast.warning(
-              `تم تسجيل المغادرة مع تحذير: المبلغ المتبقي ${remaining.toLocaleString()} ريال`,
+              `تم تسجيل المغادرة مع تحذير: المبلغ المتبقي ${remaining.toLocaleString()} `,
               { 
                 position: 'top-right',
                 duration: 6000 
@@ -342,7 +344,7 @@ export default function ReservationsList() {
       const customerBalance = await getCustomerBalance(selectedReservation.customer_id)
       if (customerBalance !== 0) {
         toast.error(
-          `لا يمكن تسجيل المغادرة: يجب تسويه الحسابات    (${customerBalance.toLocaleString()} ريال)`,
+          `لا يمكن تسجيل المغادرة: يجب تسويه الحسابات    (${customerBalance.toLocaleString()} )`,
           { 
             position: 'top-right',
             duration: 7000 
@@ -680,13 +682,7 @@ export default function ReservationsList() {
                   InputLabelProps={{
                     shrink: true,
                   }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <CalendarIcon fontSize="small" />
-                      </InputAdornment>
-                    ),
-                  }}
+                 
                 />
                 {(dateFromFilter || dateToFilter) && (
                   <IconButton
@@ -710,13 +706,7 @@ export default function ReservationsList() {
                 InputLabelProps={{
                   shrink: true,
                 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <CalendarIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
+              
               />
             </Box>
           </Box>
@@ -724,7 +714,6 @@ export default function ReservationsList() {
             <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {(dateFromFilter || dateToFilter) && (
                 <Box sx={{ p: 1.5, bgcolor: 'info.light', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CalendarIcon fontSize="small" color="info" />
                   <Typography variant="body2" color="info.dark">
                     {dateFromFilter && dateToFilter 
                       ? `عرض الحجوزات من ${dayjs(dateFromFilter).format('DD/MM/YYYY')} إلى ${dayjs(dateToFilter).format('DD/MM/YYYY')}`
@@ -738,7 +727,7 @@ export default function ReservationsList() {
                     onClick={clearDateFilters}
                     sx={{ ml: 1 }}
                   >
-                    <ClearIcon fontSize="small" />
+                    {/* <ClearIcon fontSize="small" /> */}
                   </IconButton>
                 </Box>
               )}
@@ -856,15 +845,6 @@ export default function ReservationsList() {
                         </TableCell>
                         <TableCell align="center">
                           <Stack direction="row" spacing={1} justifyContent="center">
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                setSelectedReservation(reservation)
-                                setOpenDetails(true)
-                              }}
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
                             {getActionButtons(reservation)}
                           </Stack>
                         </TableCell>
@@ -973,6 +953,18 @@ export default function ReservationsList() {
                   <Typography variant="body2" sx={{ mt: 1 }}>
                     يرجى تسوية رصيد العميل أولاً قبل تسجيل المغادرة.
                   </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    onClick={() => {
+                      setOpenConfirm(false)
+                      navigate(`/customers/${selectedReservation.customer_id}/ledger`)
+                    }}
+                    sx={{ mt: 2 }}
+                  >
+                    الانتقال إلى دفتر الحسابات
+                  </Button>
                 </Alert>
               )}
               {customerBalance === 0 && !isPaymentComplete(selectedReservation) && (
@@ -981,13 +973,13 @@ export default function ReservationsList() {
                     ⚠️ تحذير: الحساب غير مدفوع بالكامل!
                   </Typography>
                   <Typography variant="body2">
-                    المبلغ الإجمالي: <strong>{selectedReservation.total_amount?.toLocaleString() || 0} ريال</strong>
+                    المبلغ الإجمالي: <strong>{selectedReservation.total_amount?.toLocaleString() || 0} </strong>
                   </Typography>
                   <Typography variant="body2">
-                    المبلغ المدفوع: <strong>{selectedReservation.paid_amount?.toLocaleString() || 0} ريال</strong>
+                    المبلغ المدفوع: <strong>{selectedReservation.paid_amount?.toLocaleString() || 0} </strong>
                   </Typography>
                   <Typography variant="body2" color="error">
-                    المبلغ المتبقي: <strong>{(selectedReservation.total_amount || 0) - (selectedReservation.paid_amount || 0)} ريال</strong>
+                    المبلغ المتبقي: <strong>{(selectedReservation.total_amount || 0) - (selectedReservation.paid_amount || 0)} </strong>
                   </Typography>
                 </Alert>
               )}

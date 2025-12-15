@@ -1,4 +1,4 @@
-const host = '127.0.0.1'
+const host = '192.168.100.174'
 const schema = 'http'
 const projectFolder = 'hotel-backend'
 const port = 8000
