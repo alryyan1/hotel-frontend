@@ -21,9 +21,16 @@ import { toast } from 'sonner'
 import CreateReservationDialog from '@/components/dialogs/CreateReservationDialog'
 import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
 
+const getDateNDaysFromToday = (days: number): string => {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  const [isoDate] = date.toISOString().split('T')
+  return isoDate ?? ''
+}
+
 export default function Reservations() {
-  const [checkIn, setCheckIn] = useState<string>('')
-  const [checkOut, setCheckOut] = useState<string>('')
+  const [checkIn, setCheckIn] = useState<string>(() => getDateNDaysFromToday(1))
+  const [checkOut, setCheckOut] = useState<string>(() => getDateNDaysFromToday(2))
   const [guestCount, setGuestCount] = useState<number>(1)
   const [roomTypeId, setRoomTypeId] = useState<string>('')
   const [availableRooms, setAvailableRooms] = useState<any[]>([])

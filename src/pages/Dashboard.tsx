@@ -320,26 +320,19 @@ export default function Dashboard() {
      
 
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-1">
-        <StatCard
-          title="إجمالي الغرف"
-          value={stats?.totalRooms || 0}
-          icon={BedDouble}
-          subtitle={`${stats?.availableRooms || 0} متاحة`}
-          className="bg-blue-50 dark:bg-blue-950/20"
-        />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
         <StatCard
           title="الحجوزات النشطة"
           value={stats?.activeReservations || 0}
           icon={CalendarCheck2}
-          subtitle={`${stats?.pendingReservations || 0} في الانتظار`}
+          subtitle={`إجمالي الحجوزات: ${stats?.totalReservations || 0}`}
           className="bg-green-50 dark:bg-green-950/20"
         />
         <StatCard
           title="معدل الإشغال"
           value={`${stats?.occupancyRate.toFixed(1) || 0}%`}
           icon={TrendingUp}
-          subtitle={`${stats?.occupiedRooms || 0} غرفة مشغولة`}
+          subtitle={`${stats?.occupiedRooms || 0} غرفة مشغولة من ${stats?.totalRooms || 0}`}
           className="bg-orange-50 dark:bg-orange-950/20"
         />
         <StatCard
@@ -352,7 +345,7 @@ export default function Dashboard() {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-border/40 shadow-lg">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -365,22 +358,6 @@ export default function Dashboard() {
                 )}
               </div>
               <Users className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/40 shadow-lg">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-1">إجمالي الحجوزات</p>
-                {loading ? (
-                  <Skeleton className="h-6 w-16" />
-                ) : (
-                  <h3 className="text-xl font-bold">{stats?.totalReservations || 0}</h3>
-                )}
-              </div>
-              <Activity className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -474,168 +451,99 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Room Status Overview */}
-        <Card className="border-border/40 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BedDouble className="h-5 w-5" />
-              حالة الغرف
-            </CardTitle>
-            <CardDescription>نظرة عامة على حالة جميع الغرف</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-green-500 text-white">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">متاحة</p>
-                      <p className="text-sm text-muted-foreground">جاهزة للاستخدام</p>
-                    </div>
+      {/* Room Status Overview in a single row */}
+      <Card className="border-border/40 shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BedDouble className="h-5 w-5" />
+            حالة الغرف
+          </CardTitle>
+          <CardDescription>نظرة عامة سريعة على حالة جميع الغرف</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="flex items-center justify-between p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-500 text-white">
+                    <CheckCircle2 className="h-4 w-4" />
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-green-600">{stats?.roomStatusBreakdown.available || 0}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {stats?.totalRooms ? Math.round((stats.roomStatusBreakdown.available / stats.totalRooms) * 100) : 0}%
-                    </p>
+                  <div>
+                    <p className="font-semibold">متاحة</p>
+                    <p className="text-sm text-muted-foreground">جاهزة للاستخدام</p>
                   </div>
                 </div>
-
-                <div className="flex items-center justify-between p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-blue-500 text-white">
-                      <Users className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">مشغولة</p>
-                      <p className="text-sm text-muted-foreground">ضيوف حالياً</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">{stats?.roomStatusBreakdown.occupied || 0}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {stats?.totalRooms ? Math.round((stats.roomStatusBreakdown.occupied / stats.totalRooms) * 100) : 0}%
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-orange-500 text-white">
-                      <AlertCircle className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">قيد الصيانة</p>
-                      <p className="text-sm text-muted-foreground">غير متاحة</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-orange-600">{stats?.roomStatusBreakdown.maintenance || 0}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {stats?.totalRooms ? Math.round((stats.roomStatusBreakdown.maintenance / stats.totalRooms) * 100) : 0}%
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-purple-500 text-white">
-                      <Activity className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">قيد التنظيف</p>
-                      <p className="text-sm text-muted-foreground">تحت التنظيف</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-purple-600">{stats?.roomStatusBreakdown.cleaning || 0}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {stats?.totalRooms ? Math.round((stats.roomStatusBreakdown.cleaning / stats.totalRooms) * 100) : 0}%
-                    </p>
-                  </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-600">{stats?.roomStatusBreakdown.available || 0}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.totalRooms ? Math.round((stats.roomStatusBreakdown.available / stats.totalRooms) * 100) : 0}%
+                  </p>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Recent Reservations */}
-        <Card className="border-border/40 shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              الحجوزات الأخيرة
-            </CardTitle>
-            <CardDescription>آخر 5 حجوزات تم إنشاؤها</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Skeleton key={i} className="h-20 w-full" />
-                ))}
-              </div>
-            ) : stats?.recentReservations && stats.recentReservations.length > 0 ? (
-              <div className="space-y-3">
-                {stats.recentReservations.map((reservation: any) => (
-                  <div
-                    key={reservation.id}
-                    className="p-4 rounded-lg border border-border/40 hover:bg-accent/50 transition-colors cursor-pointer"
-                    onClick={() => navigate('/reservations-list')}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold">
-                            {reservation.customer?.name || 'عميل غير محدد'}
-                          </p>
-                          {getStatusBadge(reservation.status)}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {reservation.rooms?.map((r: any) => `غرفة ${r.number}`).join(', ') || 'لا توجد غرف'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <CalendarCheck2 className="h-3 w-3" />
-                        {formatDate(reservation.check_in_date)}
-                      </span>
-                      {reservation.total_amount && (
-                        <span className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          {formatCurrency(reservation.total_amount)}
-                        </span>
-                      )}
-                    </div>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-500 text-white">
+                    <Users className="h-4 w-4" />
                   </div>
-                ))}
-                <button
-                  onClick={() => navigate('/reservations-list')}
-                  className="w-full mt-4 py-2 text-sm font-medium text-primary hover:bg-accent rounded-lg transition-colors"
-                >
-                  عرض جميع الحجوزات →
-                </button>
+                  <div>
+                    <p className="font-semibold">مشغولة</p>
+                    <p className="text-sm text-muted-foreground">ضيوف حالياً</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-blue-600">{stats?.roomStatusBreakdown.occupied || 0}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.totalRooms ? Math.round((stats.roomStatusBreakdown.occupied / stats.totalRooms) * 100) : 0}%
+                  </p>
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <CalendarCheck2 className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <p className="text-muted-foreground">لا توجد حجوزات حديثة</p>
+
+              <div className="flex items-center justify-between p-4 rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-orange-500 text-white">
+                    <AlertCircle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">قيد الصيانة</p>
+                    <p className="text-sm text-muted-foreground">غير متاحة</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-orange-600">{stats?.roomStatusBreakdown.maintenance || 0}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.totalRooms ? Math.round((stats.roomStatusBreakdown.maintenance / stats.totalRooms) * 100) : 0}%
+                  </p>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+              <div className="flex items-center justify-between p-4 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-500 text-white">
+                    <Activity className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">قيد التنظيف</p>
+                    <p className="text-sm text-muted-foreground">تحت التنظيف</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-purple-600">{stats?.roomStatusBreakdown.cleaning || 0}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {stats?.totalRooms ? Math.round((stats.roomStatusBreakdown.cleaning / stats.totalRooms) * 100) : 0}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <Card className="border-border/40 shadow-lg">

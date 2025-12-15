@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import apiClient from '@/api/axios'
 import {
   Button,
@@ -41,6 +42,7 @@ export default function CreateRoomDialog({
   onSuccess,
   onError
 }: CreateRoomDialogProps) {
+  const navigate = useNavigate()
   const [form, setForm] = useState({
     number: '',
     floor_id: '',
@@ -211,21 +213,31 @@ export default function CreateRoomDialog({
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
-                  <FormControl fullWidth size="small" required sx={{ minWidth: 120 }}>
-                    <InputLabel id="room-status-select-label">حالة الغرفة</InputLabel>
-                    <Select
-                      labelId="room-status-select-label"
-                      value={form.room_status_id}
-                      onChange={(e) => setForm({ ...form, room_status_id: e.target.value })}
-                      label="حالة الغرفة"
+                  <Stack spacing={1}>
+                    <FormControl fullWidth size="small" required sx={{ minWidth: 120 }}>
+                      <InputLabel id="room-status-select-label">حالة الغرفة</InputLabel>
+                      <Select
+                        labelId="room-status-select-label"
+                        value={form.room_status_id}
+                        onChange={(e) => setForm({ ...form, room_status_id: e.target.value })}
+                        label="حالة الغرفة"
+                      >
+                        {roomStatuses.map((status: any) => (
+                          <MenuItem key={status.id} value={String(status.id)}>
+                            {status.name} ({status.code})
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => navigate('/room-statuses')}
+                      sx={{ alignSelf: 'flex-start' }}
                     >
-                      {roomStatuses.map((status: any) => (
-                        <MenuItem key={status.id} value={String(status.id)}>
-                          {status.name} ({status.code})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                      إضافة حالة جديدة
+                    </Button>
+                  </Stack>
                 </Grid>
               </Grid>
             </Box>

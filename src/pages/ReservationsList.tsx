@@ -102,10 +102,9 @@ export default function ReservationsList() {
   const [loading, setLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<Record<number, string>>({})
-  const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [dateFromFilter, setDateFromFilter] = useState<string>('')
-  const [dateToFilter, setDateToFilter] = useState<string>('')
+  // Single date filter based on reservation creation date (created_at)
+  const [createdAtFilter, setCreatedAtFilter] = useState<string>('')
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loadingCustomers, setLoadingCustomers] = useState(false)
@@ -114,24 +113,6 @@ export default function ReservationsList() {
   const [openConfirm, setOpenConfirm] = useState(false)
   const [actionType, setActionType] = useState<'confirm' | 'checkin' | 'checkout' | 'cancel' | 'delete'>('confirm')
   const [customerBalance, setCustomerBalance] = useState<number | null>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  // Debounce search term
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-    
-    searchTimeoutRef.current = setTimeout(() => {
-      fetchReservations()
-    }, 500) // Wait 500ms after user stops typing
-    
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
-  }, [searchTerm])
 
   // Fetch customers list
   useEffect(() => {
@@ -157,29 +138,22 @@ export default function ReservationsList() {
   // Fetch immediately for status, date, and customer filters
   useEffect(() => {
     fetchReservations()
-  }, [statusFilter, dateFromFilter, dateToFilter, selectedCustomer])
+  }, [statusFilter, createdAtFilter, selectedCustomer])
 
   const fetchReservations = async () => {
     try {
       setLoading(true)
       const params: any = {}
-      
-      if (searchTerm) {
-        params.search = searchTerm
-      }
-      
+
       if (statusFilter && statusFilter !== 'all') {
         params.status = statusFilter
       }
-      
-      if (dateFromFilter) {
-        params.date_from = dateFromFilter
+
+      // Filter by reservation creation date (created_at)
+      if (createdAtFilter) {
+        params.created_at_date = createdAtFilter
       }
-      
-      if (dateToFilter) {
-        params.date_to = dateToFilter
-      }
-      
+
       if (selectedCustomer) {
         params.customer_id = selectedCustomer.id
       }
@@ -361,9 +335,8 @@ export default function ReservationsList() {
   // Filtering is now done on the backend, so we just use the reservations directly
   const filteredReservations = reservations
 
-  const clearDateFilters = () => {
-    setDateFromFilter('')
-    setDateToFilter('')
+  const clearDateFilter = () => {
+    setCreatedAtFilter('')
   }
 
   const clearCustomerFilter = () => {
@@ -376,11 +349,7 @@ export default function ReservationsList() {
       
       // Build query parameters from current filters
       const params: any = {}
-      
-      if (searchTerm) {
-        params.search = searchTerm
-      }
-      
+
       if (statusFilter && statusFilter !== 'all') {
         params.status = statusFilter
       }
@@ -388,13 +357,9 @@ export default function ReservationsList() {
       if (selectedCustomer) {
         params.customer_id = selectedCustomer.id
       }
-      
-      if (dateFromFilter) {
-        params.date_from = dateFromFilter
-      }
-      
-      if (dateToFilter) {
-        params.date_to = dateToFilter
+
+      if (createdAtFilter) {
+        params.created_at_date = createdAtFilter
       }
 
       // Use axios to get the file with proper authentication
@@ -556,7 +521,7 @@ export default function ReservationsList() {
           variant="outlined"
           onClick={() => handleAction(reservation, 'checkout', false)}
           disabled={isLoading}
-          color="default"
+          color="inherit"
           startIcon={isLoading && currentAction === 'checkout' ? <CircularProgress size={16} /> : undefined}
         >
           تسجيل المغادرة
@@ -589,21 +554,7 @@ export default function ReservationsList() {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, flexWrap: 'wrap' }}>
-            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 200px' }, minWidth: { xs: '100%', md: '200px' } }}>
-              <TextField
-                fullWidth
-                placeholder="البحث بالعميل، الهاتف، أو رقم الغرفة..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
+            {/* Customer autocomplete filter */}
             <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 auto' }, minWidth: { xs: '100%', md: '300px' } }}>
               <Autocomplete
                 fullWidth
@@ -671,63 +622,46 @@ export default function ReservationsList() {
                 </Select>
               </FormControl>
             </Box>
-            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 200px' }, minWidth: { xs: '100%', md: '200px' } }}>
+            {/* Single date filter based on reservation creation date */}
+            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 220px' }, minWidth: { xs: '100%', md: '220px' } }}>
               <Stack direction="row" spacing={1} alignItems="center">
                 <TextField
                   fullWidth
                   type="date"
-                  label="من تاريخ"
-                  value={dateFromFilter}
-                  onChange={(e) => setDateFromFilter(e.target.value)}
+                  label="تاريخ إنشاء الحجز"
+                  value={createdAtFilter}
+                  onChange={(e) => setCreatedAtFilter(e.target.value)}
                   InputLabelProps={{
                     shrink: true,
                   }}
                  
                 />
-                {(dateFromFilter || dateToFilter) && (
+                {createdAtFilter && (
                   <IconButton
                     size="small"
-                    onClick={clearDateFilters}
+                    onClick={clearDateFilter}
                     color="error"
-                    title="مسح فلترة التاريخ"
+                    title="مسح فلترة تاريخ الإنشاء"
                   >
                     <ClearIcon fontSize="small" />
                   </IconButton>
                 )}
               </Stack>
             </Box>
-            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 200px' }, minWidth: { xs: '100%', md: '200px' } }}>
-              <TextField
-                fullWidth
-                type="date"
-                label="إلى تاريخ"
-                value={dateToFilter}
-                onChange={(e) => setDateToFilter(e.target.value)}
-                InputLabelProps={{
-                  shrink: true,
-                }}
-              
-              />
-            </Box>
           </Box>
-          {(dateFromFilter || dateToFilter || selectedCustomer) && (
+          {(createdAtFilter || selectedCustomer) && (
             <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {(dateFromFilter || dateToFilter) && (
+              {createdAtFilter && (
                 <Box sx={{ p: 1.5, bgcolor: 'info.light', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="body2" color="info.dark">
-                    {dateFromFilter && dateToFilter 
-                      ? `عرض الحجوزات من ${dayjs(dateFromFilter).format('DD/MM/YYYY')} إلى ${dayjs(dateToFilter).format('DD/MM/YYYY')}`
-                      : dateFromFilter 
-                        ? `عرض الحجوزات من ${dayjs(dateFromFilter).format('DD/MM/YYYY')}`
-                        : `عرض الحجوزات حتى ${dayjs(dateToFilter).format('DD/MM/YYYY')}`
-                    }
+                    {`عرض الحجوزات بتاريخ الإنشاء ${dayjs(createdAtFilter).format('DD/MM/YYYY')}`}
                   </Typography>
                   <IconButton
                     size="small"
-                    onClick={clearDateFilters}
+                    onClick={clearDateFilter}
                     sx={{ ml: 1 }}
                   >
-                    {/* <ClearIcon fontSize="small" /> */}
+                    <ClearIcon fontSize="small" />
                   </IconButton>
                 </Box>
               )}
