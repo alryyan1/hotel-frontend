@@ -2,6 +2,13 @@
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
+
+html,
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
 :root {
   font-family: Tajawal, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -9,7 +16,7 @@
 
   color-scheme: light;
   color: #213547;
-  background-color: #ffffff;
+  background-color: hsl(var(--background));
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;

@@ -27,6 +27,7 @@ import InventoryOrders from './pages/InventoryOrders';
 import InventoryReceipts from './pages/InventoryReceipts';
 import CleaningNotifications from './pages/CleaningNotifications';
 import PublicReservations from './pages/PublicReservations';
+import Accountant from './pages/Accountant';
 import MainLayout from './layouts/MainLayout';
 import { Toaster } from './components/ui/sonner';
 
@@ -79,6 +80,7 @@ function App() {
               <Route path="inventory-orders" element={<InventoryOrders />} />
               <Route path="inventory-receipts" element={<InventoryReceipts />} />
               <Route path="cleaning-notifications" element={<CleaningNotifications />} />
+              <Route path="accountant" element={<Accountant />} />
               <Route path="users" element={<Users />} />
               <Route path="settings" element={<Settings />} />
             </Route>

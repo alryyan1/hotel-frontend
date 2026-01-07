@@ -1,249 +1,470 @@
-import { useState, useEffect } from 'react'
-import type React from 'react'
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Home, BedDouble, Building2, Tags, ListChecks, CalendarCheck2, List, Users as UsersIcon, Shield, Settings, LogOut, Menu, X, ChevronLeft, DollarSign, Package, ShoppingCart, ArrowDownCircle, Sparkles } from 'lucide-react'
-import NotificationBell from '@/components/NotificationBell'
-import apiClient from '../api/axios'
+import { useState, useEffect } from "react";
+import type React from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import {
+  Sidebar,
+  Menu,
+  MenuItem,
+  SubMenu,
+} from "react-pro-sidebar";
+import {
+  Home,
+  BedDouble,
+  Building2,
+  Tags,
+  CalendarCheck2,
+  List,
+  Users as UsersIcon,
+  Shield,
+  Settings,
+  LogOut,
+  Menu as MenuIcon,
+  X,
+  DollarSign,
+  Package,
+  ShoppingCart,
+  ArrowDownCircle,
+  Sparkles,
+  Calculator,
+  ChevronRight,
+} from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
+import apiClient from "../api/axios";
 
-const drawerWidth = 220
+const drawerWidth = 250;
 
-const navItems: Array<{ to: string; label: string; icon: React.ReactNode }> = [
-  { to: '/reservations', label: 'إنشاء حجز', icon: <CalendarCheck2 className="size-5" /> },
-  { to: '/reservations-list', label: 'قائمة الحجوزات', icon: <List className="size-5" /> },
-  { to: '/customers', label: 'العملاء', icon: <UsersIcon className="size-5" /> },
-  { to: '/rooms', label: 'الغرف', icon: <BedDouble className="size-5" /> },
-  { to: '/room-types', label: 'أنواع الغرف', icon: <Tags className="size-5" /> },
-  { to: '/floors', label: 'الطوابق', icon: <Building2 className="size-5" /> },
-  // { to: '/room-statuses', label: 'حالات الغرف', icon: <ListChecks className="size-5" /> },
-  { to: '/costs', label: 'المصاريف', icon: <DollarSign className="size-5" /> },
-  { to: '/inventory', label: 'المخزون', icon: <Package className="size-5" /> },
-  { to: '/inventory-orders', label: 'طلبات المخزون', icon: <ShoppingCart className="size-5" /> },
-  { to: '/inventory-receipts', label: 'واردات المخزون', icon: <ArrowDownCircle className="size-5" /> },
-  { to: '/cleaning-notifications', label: 'تنبيهات النظافة', icon: <Sparkles className="size-5" /> },
-  { to: '/users', label: 'المستخدمين', icon: <Shield className="size-5" /> },
-  { to: '/settings', label: 'الإعدادات', icon: <Settings className="size-5" /> },
-]
+// Navigation groups structure
+const navigationGroups = [
+  {
+    title: "الحجوزات",
+    icon: <CalendarCheck2 className="size-5" />,
+    items: [
+      {
+        to: "/reservations",
+        label: "إنشاء حجز",
+        icon: <CalendarCheck2 className="size-5" />,
+      },
+      {
+        to: "/reservations-list",
+        label: "قائمة الحجوزات",
+        icon: <List className="size-5" />,
+      },
+    ],
+  },
+  {
+    title: "العملاء",
+    icon: <UsersIcon className="size-5" />,
+    items: [
+      {
+        to: "/customers",
+        label: "العملاء",
+        icon: <UsersIcon className="size-5" />,
+      },
+    ],
+  },
+  {
+    title: "إدارة الغرف",
+    icon: <BedDouble className="size-5" />,
+    items: [
+      { to: "/rooms", label: "الغرف", icon: <BedDouble className="size-5" /> },
+      {
+        to: "/room-types",
+        label: "أنواع الغرف",
+        icon: <Tags className="size-5" />,
+      },
+      { to: "/floors", label: "الطوابق", icon: <Building2 className="size-5" /> },
+    ],
+  },
+  {
+    title: "المالية",
+    icon: <DollarSign className="size-5" />,
+    items: [
+      { to: "/costs", label: "المصاريف", icon: <DollarSign className="size-5" /> },
+      {
+        to: "/accountant",
+        label: "الحسابات",
+        icon: <Calculator className="size-5" />,
+      },
+    ],
+  },
+  {
+    title: "المخزون",
+    icon: <Package className="size-5" />,
+    items: [
+      { to: "/inventory", label: "المخزون", icon: <Package className="size-5" /> },
+      {
+        to: "/inventory-orders",
+        label: "طلبات المخزون",
+        icon: <ShoppingCart className="size-5" />,
+      },
+      {
+        to: "/inventory-receipts",
+        label: "واردات المخزون",
+        icon: <ArrowDownCircle className="size-5" />,
+      },
+    ],
+  },
+  {
+    title: "العمليات",
+    icon: <Sparkles className="size-5" />,
+    items: [
+      {
+        to: "/cleaning-notifications",
+        label: "تنبيهات النظافة",
+        icon: <Sparkles className="size-5" />,
+      },
+    ],
+  },
+  {
+    title: "الإدارة",
+    icon: <Shield className="size-5" />,
+    items: [
+      { to: "/users", label: "المستخدمين", icon: <Shield className="size-5" /> },
+      {
+        to: "/settings",
+        label: "الإعدادات",
+        icon: <Settings className="size-5" />,
+      },
+    ],
+  },
+];
 
 export default function MainLayout() {
-  const [open, setOpen] = useState(true)
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [logoUrl, setLogoUrl] = useState<string>('/logo.png')
-  const [logoError, setLogoError] = useState(false)
-  const navigate = useNavigate()
-  const location = useLocation()
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string>("/logo.png");
+  const [logoError, setLogoError] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Close mobile sidebar on route change
   useEffect(() => {
-    setMobileOpen(false)
-  }, [location.pathname])
+    setMobileOpen(false);
+  }, [location.pathname]);
 
-  // Responsive: close sidebar on mobile by default
+  // Responsive: handle mobile/desktop
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 768
-      setIsMobile(mobile)
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
       if (mobile) {
-        setOpen(false)
+        setCollapsed(true);
+        setMobileOpen(false);
       } else {
-        setOpen(true)
+        setCollapsed(false);
       }
-    }
-    handleResize()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Fetch hotel logo
   useEffect(() => {
     const fetchLogo = async () => {
       try {
-        const { data } = await apiClient.get('/settings/hotel')
+        const { data } = await apiClient.get("/settings/hotel");
         if (data?.logo_url) {
-          setLogoUrl(data.logo_url)
+          setLogoUrl(data.logo_url);
         } else if (data?.logo_path) {
-          const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1:8000'
-          setLogoUrl(`${baseUrl}/storage/${data.logo_path}`)
+          const baseUrl =
+            (import.meta as any).env?.VITE_API_BASE?.replace("/api", "") ||
+            "http://127.0.0.1:8000";
+          setLogoUrl(`${baseUrl}/storage/${data.logo_path}`);
         }
       } catch (e) {
-        // Use default logo if fetch fails
-        console.error('Failed to fetch logo', e)
+        console.error("Failed to fetch logo", e);
       }
-    }
-    fetchLogo()
-  }, [])
+    };
+    fetchLogo();
+  }, []);
 
   function handleLogout() {
-    localStorage.removeItem('token')
-    navigate('/login', { replace: true })
+    localStorage.removeItem("token");
+    navigate("/login", { replace: true });
   }
 
-  const currentPage = navItems.find(item => item.to === location.pathname)?.label || 'لوحة التحكم'
+  const toggleSidebar = () => {
+    if (window.innerWidth < 768) {
+      setMobileOpen(!mobileOpen);
+    } else {
+      setCollapsed(!collapsed);
+    }
+  };
+
+  // Get current page label
+  const getCurrentPageLabel = () => {
+    for (const group of navigationGroups) {
+      const item = group.items.find((item) => item.to === location.pathname);
+      if (item) return item.label;
+    }
+    return "لوحة التحكم";
+  };
 
   return (
     <>
       <style>{`
-        @keyframes gradient {
-          0% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-          100% {
-            background-position: 0% 50%;
-          }
+        .pro-sidebar {
+          direction: rtl;
+          border-left: 1px solid hsl(var(--border));
         }
-        .animated-gradient-bg {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: linear-gradient(-45deg, #e3f2fd, #f1f8e9, #fff3e0, #fce4ec, #e8eaf6);
-          background-size: 400% 400%;
-          animation: gradient 15s ease infinite;
-          z-index: -1;
+        .pro-sidebar-inner {
+          background: hsl(var(--card) / 0.95) !important;
+          backdrop-filter: blur(12px);
+        }
+        .pro-menu-item {
+          color: hsl(var(--foreground)) !important;
+          font-weight: 600 !important;
+        }
+        .pro-menu-item.active {
+          background: linear-gradient(to left, hsl(var(--primary)), hsl(var(--primary) / 0.8)) !important;
+          color: hsl(var(--primary-foreground)) !important;
+        }
+        .pro-menu-item:hover {
+          background: hsl(var(--accent) / 0.8) !important;
+        }
+        .pro-sub-menu-content {
+          background: hsl(var(--muted) / 0.5) !important;
+        }
+        .pro-sub-menu > .pro-inner-item {
+          font-weight: 600 !important;
+        }
+        .pro-sidebar .pro-menu .pro-menu-item > .pro-inner-item {
+          padding: 0.75rem 1rem !important;
+          border-radius: 0.75rem !important;
+          margin: 0.25rem 0.5rem !important;
+        }
+        .pro-sidebar .pro-menu .pro-menu-item > .pro-inner-item > .pro-icon-wrapper {
+          margin-right: 0.75rem !important;
+          margin-left: 0 !important;
+        }
+        .pro-sidebar .pro-menu .pro-menu-item > .pro-inner-item > .pro-item-content {
+          margin-right: 0 !important;
+        }
+        .pro-sidebar .pro-menu .pro-sub-menu .pro-inner-list-item {
+          padding-right: 1.5rem !important;
+          padding-left: 0 !important;
+        }
+        .pro-sidebar .pro-menu .pro-sub-menu > .pro-inner-item {
+          padding: 0.75rem 1rem !important;
+          border-radius: 0.75rem !important;
+          margin: 0.25rem 0.5rem !important;
+        }
+        .pro-sidebar .pro-menu .pro-sub-menu > .pro-inner-item > .pro-icon-wrapper {
+          margin-right: 0.75rem !important;
+          margin-left: 0 !important;
+        }
+        .pro-sidebar .pro-menu .pro-sub-menu .pro-arrow-wrapper {
+          right: auto !important;
+          left: 1rem !important;
+        }
+        .pro-sidebar.collapsed .pro-menu .pro-menu-item > .pro-inner-item > .pro-item-content {
+          display: none !important;
+        }
+        .pro-sidebar.collapsed .pro-menu .pro-sub-menu > .pro-inner-item > .pro-item-content {
+          display: none !important;
+        }
+        .pro-sidebar .pro-menu {
+          padding: 0.5rem 0 !important;
         }
       `}</style>
-      <div className="animated-gradient-bg" />
-      <div className="min-h-screen" style={{ position: 'relative', zIndex: 1 }}>
-      {/* Top bar - Modern glassmorphism */}
-      <header className="w-full top-0 inset-x-0 z-40 border-b border-border/40 bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 shadow-sm">
-        <div className="flex items-center gap-3 px-4 h-16">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-10 w-10 p-0 hover:bg-accent transition-all duration-200" 
-            onClick={() => {
-              if (window.innerWidth < 768) {
-                setMobileOpen(!mobileOpen)
-              } else {
-                setOpen(!open)
-              }
-            }} 
-            aria-label="Toggle sidebar"
-          >
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-          </Button>
-          <div 
-            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => navigate('/')}
-            title="الانتقال إلى لوحة التحكم"
-          >
-            {!logoError ? (
-              <img 
-                src={logoUrl} 
-                alt="Logo" 
-                className="h-8 w-8 rounded-lg object-contain shadow-md"
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-md">
-                🏨
+      <div className="min-h-screen bg-background" style={{ position: "relative", zIndex: 1 }}>
+        {/* Top bar */}
+        <header className="w-full top-0 inset-x-0 z-40 border-b border-border/40 bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 shadow-sm">
+          <div className="flex items-center gap-3 px-4 h-16">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10 w-10 p-0 hover:bg-accent transition-all duration-200"
+              onClick={toggleSidebar}
+              aria-label="Toggle sidebar"
+            >
+              {mobileOpen || (!collapsed && !isMobile) ? (
+                <X className="size-5" />
+              ) : (
+                <MenuIcon className="size-5" />
+              )}
+            </Button>
+            <div
+              className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+              onClick={() => navigate("/")}
+              title="الانتقال إلى لوحة التحكم"
+            >
+              {!logoError ? (
+                <img
+                  src={logoUrl}
+                  alt="Logo"
+                  className="h-8 w-8 rounded-lg object-contain shadow-md"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-md">
+                  🏨
+                </div>
+              )}
+              <div>
+                <div className="font-bold text-base leading-none">
+                  نظام إدارة الفنادق
+                </div>
+                <div className="text-xs text-muted-foreground hidden sm:block">
+                  {getCurrentPageLabel()}
+                </div>
               </div>
-            )}
-            <div>
-              <div className="font-bold text-base leading-none">نظام إدارة الفنادق</div>
-              <div className="text-xs text-muted-foreground hidden sm:block">{currentPage}</div>
+            </div>
+            <div className="ms-auto flex items-center gap-2">
+              <NotificationBell />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
+                onClick={handleLogout}
+              >
+                <LogOut className="size-4" />
+                <span className="hidden sm:inline">تسجيل الخروج</span>
+              </Button>
             </div>
           </div>
-          <div className="ms-auto flex items-center gap-2">
-            <NotificationBell />
-            <Button variant="ghost" size="sm" className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-all duration-200" onClick={handleLogout}>
-              <LogOut className="size-4" />
-              <span className="hidden sm:inline">تسجيل الخروج</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Mobile Overlay */}
-      {mobileOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm transition-opacity"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+        {/* Mobile Overlay */}
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm transition-opacity"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
 
-      {/* Sidebar - Modern with smooth animations */}
-      <div className=' flex gap-1'>
-          <aside
-        className={`fixed top-16 right-0 border-e border-border/40 bg-card/95 backdrop-blur-xl shadow-xl transition-all duration-300 ease-in-out z-30 ${
-          mobileOpen ? 'translate-x-0' : window.innerWidth < 768 && !open ? 'translate-x-full' : ''
-        }`}
-        style={{ 
-          width: open || mobileOpen ? drawerWidth : 72,
-          height: 'calc(100vh - 4rem)',
-          overflowY: 'auto',
-          overflowX: 'hidden'
-        }}
-        aria-label="الشريط الجانبي"
-      >
-        <TooltipProvider>
-          <nav className="h-full overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" role="navigation">
-            <ul className="px-3 space-y-1">
-              {navItems.map((item, index) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    className={({ isActive }: { isActive: boolean }) => [
-                      'group flex items-center gap-3 rounded-xl px-1 py-1 text-sm font-bold transition-all duration-200',
-                      'hover:shadow-md hover:scale-[1.02] active:scale-[0.98]',
-                      isActive
-                        ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/20'
-                        : 'hover:bg-accent/80 text-muted-foreground hover:text-foreground',
-                    ].join(' ')}
+        {/* Sidebar */}
+        <div className="flex">
+          <Sidebar
+            collapsed={isMobile ? !mobileOpen : collapsed}
+            toggled={isMobile ? mobileOpen : !collapsed}
+            onToggle={toggleSidebar}
+            breakPoint="md"
+            width={`${drawerWidth}px`}
+            rtl={true}
+            rootStyles={{
+              position: "fixed",
+              top: "4rem",
+              right: 0,
+              height: "calc(100vh - 4rem)",
+              zIndex: 30,
+            }}
+            className={isMobile && !mobileOpen ? "hidden" : ""}
+          >
+            <div style={{ padding: "1rem", borderBottom: "1px solid hsl(var(--border))" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {!logoError ? (
+                  <img
+                    src={logoUrl}
+                    alt="Logo"
+                    className="h-10 w-10 rounded-lg object-contain"
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground font-bold text-sm">
+                    🏨
+                  </div>
+                )}
+              </div>
+            </div>
+            <Menu
+              menuItemStyles={{
+                button: {
+                  "&:hover": {
+                    backgroundColor: "hsl(var(--accent))",
+                    color: "hsl(var(--accent-foreground))",
+                  },
+                  "&.active": {
+                    backgroundColor: "hsl(var(--primary))",
+                    color: "hsl(var(--primary-foreground))",
+                  },
+                },
+              }}
+            >
+              {navigationGroups.map((group) => {
+                // If group has only one item, render as MenuItem
+                if (group.items.length === 1) {
+                  const item = group.items[0];
+                  if (!item) return null;
+                  const isActive = location.pathname === item.to;
+                  return (
+                    <MenuItem
+                      key={item.to}
+                      icon={item.icon}
+                      active={isActive}
+                      onClick={() => {
+                        navigate(item.to);
+                        if (isMobile) setMobileOpen(false);
+                      }}
+                    >
+                      {item.label}
+                    </MenuItem>
+                  );
+                }
+                // Otherwise render as SubMenu
+                return (
+                  <SubMenu
+                    key={group.title}
+                    label={group.title}
+                    icon={group.icon}
+                    defaultOpen={
+                      group.items.some((item) => item && item.to === location.pathname)
+                    }
                   >
-                    <Tooltip delayDuration={300}>
-                      <TooltipTrigger asChild>
-                        <span className={`inline-flex h-9 w-9 items-center justify-center rounded-lg transition-all ${
-                          location.pathname === item.to 
-                            ? 'bg-primary-foreground/20 text-primary-foreground' 
-                            : 'bg-accent/50 text-foreground/70 group-hover:bg-accent group-hover:text-foreground'
-                        }`}>
-                          {item.icon}
-                        </span>
-                      </TooltipTrigger>
-                      {!open && !mobileOpen && (
-                        <TooltipContent side="right" className="px-3 py-2 text-sm font-bold">
+                    {group.items.map((item) => {
+                      if (!item) return null;
+                      const isActive = location.pathname === item.to;
+                      return (
+                        <MenuItem
+                          key={item.to}
+                          icon={item.icon}
+                          active={isActive}
+                          onClick={() => {
+                            navigate(item.to);
+                            if (isMobile) setMobileOpen(false);
+                          }}
+                        >
                           {item.label}
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                    <span className={(open || mobileOpen) ? 'whitespace-nowrap flex-1 text-black' : 'sr-only'}>{item.label}</span>
-                    {(open || mobileOpen) && location.pathname === item.to && (
-                      <ChevronLeft className="size-4 opacity-70" />
-                    )}
-                  </NavLink>
-                  {/* Subtle divider between items */}
-                  {index < navItems.length - 1 && (
-                    <div className="mx-3 my-2 h-px bg-gradient-to-r from-transparent via-border/50 to-transparent" />
-                  )}
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </TooltipProvider>
-      </aside>
+                        </MenuItem>
+                      );
+                    })}
+                  </SubMenu>
+                );
+              })}
+            </Menu>
+            <div style={{ padding: "1rem", borderTop: "1px solid hsl(var(--border))", marginTop: "auto" }}>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2"
+                onClick={handleLogout}
+              >
+                <LogOut className="size-4" />
+                <span>تسجيل الخروج</span>
+              </Button>
+            </div>
+          </Sidebar>
 
-      {/* Main content - Modern with padding and max-width */}
-      <main
-        className="flex-1 transition-all duration-300 md:mr-0 "
-        style={{ 
-          marginRight: window.innerWidth >= 768 ? (open ? drawerWidth : 72) : 0
-        }}
-      >
-        <div className="container max-w-7xl p-1">
-          <Outlet />
+          {/* Main content */}
+          <main
+            className="flex-1 transition-all duration-300 flex justify-center"
+            style={{
+              marginRight:
+                window.innerWidth >= 768
+                  ? collapsed
+                    ? "80px"
+                    : `${drawerWidth}px`
+                  : 0,
+            }}
+          >
+            <div className="container max-w-7xl p-1 mx-auto w-full">
+              <Outlet />
+            </div>
+          </main>
         </div>
-      </main>
-      </div>
       </div>
     </>
-  )
+  );
 }
-
-

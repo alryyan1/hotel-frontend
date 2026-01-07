@@ -69,21 +69,9 @@ interface Customer {
   address?: string
 }
 
-interface Payment {
-  id: number
-  customer_id: number
-  reservation_id?: number
-  reference: string
-  method: 'cash' | 'bankak' | 'Ocash' | 'fawri'
-  amount: number
-  currency: string
-  status: string
-  notes?: string
-  created_at: string
-}
-
 interface LedgerEntry {
   id: number
+  reservation_id?: number
   type: 'reservation' | 'payment'
   date: string
   description: string
@@ -99,10 +87,8 @@ export default function CustomerLedger() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [customer, setCustomer] = useState<Customer | null>(null)
-  const [reservations, setReservations] = useState<Reservation[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
-  const [roomTypes, setRoomTypes] = useState<Record<number, { base_price: number; name: string }>>({})
+  const [finalBalance, setFinalBalance] = useState(0)
   const [loading, setLoading] = useState(false)
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false)
   const [paymentForm, setPaymentForm] = useState({
@@ -115,9 +101,7 @@ export default function CustomerLedger() {
   useEffect(() => {
     if (id) {
       fetchCustomer()
-      fetchRoomTypes()
-      fetchReservations()
-      fetchPayments()
+      fetchLedger()
     }
   }, [id])
 
@@ -133,142 +117,19 @@ export default function CustomerLedger() {
     }
   }
 
-  const fetchRoomTypes = async () => {
-    try {
-      const { data } = await apiClient.get('/room-types')
-      const typesMap: Record<number, { base_price: number; name: string }> = {}
-      const types = Array.isArray(data) ? data : (data?.data || [])
-      types.forEach((type: any) => {
-        typesMap[type.id] = {
-          base_price: type.base_price || 0,
-          name: type.name || ''
-        }
-      })
-      setRoomTypes(typesMap)
-    } catch (err) {
-      console.error('Failed to fetch room types', err)
-    }
-  }
- console.log("roomTypes",roomTypes,roomTypes[1])
-  const fetchReservations = async () => {
+  const fetchLedger = async () => {
     try {
       setLoading(true)
-      const { data } = await apiClient.get('/reservations')
-      const allReservations = data?.data || data
-      // Filter reservations for this customer
-      const customerReservations = allReservations.filter(
-        (r: Reservation) => r.customer_id === Number(id)
-      )
-      setReservations(customerReservations)
+      const { data } = await apiClient.get(`/customers/${id}/ledger`)
+      const ledgerData = data?.data || data
+      setLedgerEntries(ledgerData.ledger_entries || [])
+      setFinalBalance(ledgerData.final_balance || 0)
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل في جلب الحجوزات')
+      toast.error(err?.response?.data?.message || 'فشل في جلب كشف الحساب')
     } finally {
       setLoading(false)
     }
   }
-
-  const fetchPayments = async () => {
-    try {
-      const { data } = await apiClient.get(`/customers/${id}/payments`)
-      setPayments(Array.isArray(data) ? data : (data?.data || []))
-    } catch (err: any) {
-      console.error('Failed to fetch payments', err)
-    }
-  }
-
-  const calculateLedger = useCallback((reservationsData: Reservation[], paymentsData: Payment[]) => {
-    const entries: LedgerEntry[] = []
-    let runningBalance = 0
-
-    // Combine reservations and payments, then sort by date
-    const allEntries: Array<{ type: 'reservation' | 'payment', data: Reservation | Payment, date: string }> = []
-
-    // Add reservations
-    reservationsData.forEach((reservation) => {
-      allEntries.push({
-        type: 'reservation',
-        data: reservation,
-        date: reservation.check_in_date
-      })
-    })
-
-    // Add payments
-    paymentsData.forEach((payment) => {
-      allEntries.push({
-        type: 'payment',
-        data: payment,
-        date: payment.created_at
-      })
-    })
-
-    // Sort by date
-    allEntries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-
-    allEntries.forEach((entry) => {
-      if (entry.type === 'reservation') {
-        const reservation = entry.data as Reservation
-        const checkIn = dayjs(reservation.check_in_date)
-        const checkOut = dayjs(reservation.check_out_date)
-        const days = checkOut.diff(checkIn, 'day') || 1
-
-        let totalDebit = 0
-        const roomNames: string[] = []
-
-        reservation.rooms.forEach((room) => {
-          const basePrice = Number(room.type?.base_price || roomTypes[room.room_type_id]?.base_price || 0)
-          const roomDebit = days * (isNaN(basePrice) ? 0 : basePrice)
-          totalDebit += (isNaN(roomDebit) ? 0 : roomDebit)
-          roomNames.push(`غرفة ${room.number}`)
-        })
-
-        const validDebit = isNaN(totalDebit) ? 0 : totalDebit
-        runningBalance += validDebit
-
-        entries.push({
-          id: reservation.id,
-          type: 'reservation',
-          date: dayjs(reservation.check_in_date).format('DD/MM/YYYY'),
-          description: `حجز #${reservation.id} - ${roomNames.join(', ')}`,
-          rooms: roomNames.join(', '),
-          days,
-          debit: validDebit,
-          credit: 0,
-          balance: runningBalance
-        })
-      } else {
-        const payment = entry.data as Payment
-        const paymentAmount = Number(payment.amount) || 0
-        const validCredit = isNaN(paymentAmount) ? 0 : paymentAmount
-        runningBalance -= validCredit
-
-        const methodLabels: Record<string, string> = {
-          cash: 'نقدي',
-          bankak: 'بنكاك',
-          Ocash: 'أوكاش',
-          fawri: 'فوري'
-        }
-
-        entries.push({
-          id: payment.id,
-          type: 'payment',
-          date: dayjs(payment.created_at).format('DD/MM/YYYY'),
-          description: `دفعة - ${payment.reference}`,
-          paymentMethod: methodLabels[payment.method] || payment.method,
-          debit: 0,
-          credit: validCredit,
-          balance: runningBalance
-        })
-      }
-    })
-
-    setLedgerEntries(entries)
-  }, [roomTypes])
-
-  useEffect(() => {
-    if (Object.keys(roomTypes).length > 0) {
-      calculateLedger(reservations, payments)
-    }
-  }, [reservations, payments, roomTypes, calculateLedger])
 
   const handleCreatePayment = async () => {
     if (!id || !paymentForm.method || !paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
@@ -281,6 +142,7 @@ export default function CustomerLedger() {
       
       const payload: any = {
         customer_id: Number(id),
+        type: 'credit',
         method: paymentForm.method,
         amount: parseFloat(paymentForm.amount),
       }
@@ -293,11 +155,11 @@ export default function CustomerLedger() {
         payload.notes = paymentForm.notes
       }
 
-      await apiClient.post('/payments', payload)
+      await apiClient.post('/transactions', payload)
       toast.success('تم إضافة الدفعة بنجاح')
       setOpenPaymentDialog(false)
       setPaymentForm({ method: 'cash', amount: '', notes: '', reference: '' })
-      await fetchPayments()
+      await fetchLedger()
     } catch (err: any) {
       // toast.error(err?.response?.data?.message || 'فشل في إضافة الدفعة')
     } finally {
@@ -385,11 +247,11 @@ export default function CustomerLedger() {
     }
   }
 
-  const handlePaymentInvoiceClick = async (paymentId: number) => {
+  const handlePaymentInvoiceClick = async (transactionId: number) => {
     try {
       setLoading(true)
       
-      const response = await apiClient.get(`/payments/${paymentId}/invoice/pdf`, {
+      const response = await apiClient.get(`/transactions/${transactionId}/invoice/pdf`, {
         responseType: 'blob'
       })
 
@@ -443,7 +305,6 @@ export default function CustomerLedger() {
     const credit = Number(entry.credit) || 0
     return sum + (isNaN(credit) ? 0 : credit)
   }, 0)
-  const finalBalance = totalDebit - totalCredit
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
@@ -579,10 +440,10 @@ export default function CustomerLedger() {
                           {entry.date}
                       </TableCell>
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center" >
-                        {entry.type === 'reservation' ? (
+                        {entry.type === 'reservation' && entry.reservation_id ? (
                           <Typography
                             component="span"
-                            onClick={() => handleInvoiceClick(entry.id)}
+                            onClick={() => handleInvoiceClick(entry.reservation_id!)}
                             sx={{
                               cursor: 'pointer',
                               color: 'primary.main',
