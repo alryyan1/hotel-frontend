@@ -113,6 +113,8 @@ export default function ReservationsList() {
   const [openConfirm, setOpenConfirm] = useState(false)
   const [actionType, setActionType] = useState<'confirm' | 'checkin' | 'checkout' | 'cancel' | 'delete'>('confirm')
   const [customerBalance, setCustomerBalance] = useState<number | null>(null)
+  const [occupiedRoomsError, setOccupiedRoomsError] = useState<any>(null)
+  const [openOccupiedRoomsDialog, setOpenOccupiedRoomsDialog] = useState(false)
 
   // Fetch customers list
   useEffect(() => {
@@ -231,9 +233,29 @@ export default function ReservationsList() {
           }
           break
         case 'checkin':
-          const checkinData = await apiClient.post(`/reservations/${reservation.id}/check-in`)
-          updatedReservation = checkinData.data
-          toast.success('تم تسجيل الوصول بنجاح')
+          try {
+            const checkinData = await apiClient.post(`/reservations/${reservation.id}/check-in`)
+            updatedReservation = checkinData.data
+            toast.success('تم تسجيل الوصول بنجاح')
+          } catch (checkinErr: any) {
+            // Check if error contains occupied rooms information
+            if (checkinErr?.response?.data?.occupied_rooms && Array.isArray(checkinErr.response.data.occupied_rooms)) {
+              setOccupiedRoomsError({
+                reservationId: reservation.id,
+                occupiedRooms: checkinErr.response.data.occupied_rooms,
+              })
+              setOpenOccupiedRoomsDialog(true)
+              // Don't throw, just return early
+              setActionLoading(prev => {
+                const newState = { ...prev }
+                delete newState[reservation.id]
+                return newState
+              })
+              return
+            }
+            // Re-throw if it's a different error
+            throw checkinErr
+          }
           break
         case 'checkout':
           // Check customer balance before checkout
@@ -939,6 +961,96 @@ export default function ReservationsList() {
             startIcon={selectedReservation && actionLoading[selectedReservation.id] ? <CircularProgress size={16} /> : undefined}
           >
             {selectedReservation && actionLoading[selectedReservation.id] ? 'جارٍ التنفيذ...' : 'تأكيد'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Occupied Rooms Error Dialog */}
+      <Dialog
+        open={openOccupiedRoomsDialog}
+        onClose={() => {
+          setOpenOccupiedRoomsDialog(false)
+          setOccupiedRoomsError(null)
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 'bold' }}>
+          ⚠️ لا يمكن تسجيل الوصول
+        </DialogTitle>
+        <DialogContent>
+          {occupiedRoomsError && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                  بعض الغرف محجوزة حالياً من قبل حجوزات أخرى
+                </Typography>
+                <Typography variant="body2">
+                  لا يمكن تسجيل الوصول للحجز #{occupiedRoomsError.reservationId} لأن بعض الغرف المخصصة له محجوزة من قبل حجوزات أخرى.
+                </Typography>
+              </Alert>
+              
+              <Typography variant="h6" sx={{ mt: 3, mb: 2, fontWeight: 'bold' }}>
+                الغرف المحجوزة:
+              </Typography>
+              
+              <Stack spacing={2}>
+                {occupiedRoomsError.occupiedRooms.map((item: any, index: number) => (
+                  <Paper key={index} sx={{ p: 2, bgcolor: 'error.light', border: '1px solid', borderColor: 'error.main' }}>
+                    <Stack spacing={1}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'error.dark' }}>
+                        🏨 غرفة {item.room_number}
+                      </Typography>
+                      
+                      <Box sx={{ pl: 2, borderRight: '2px solid', borderColor: 'error.main' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 1 }}>
+                          محجوزة من قبل:
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>رقم الحجز:</strong> #{item.conflicting_reservation.id}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>العميل:</strong> {item.conflicting_reservation.customer_name}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>تاريخ الوصول:</strong> {dayjs(item.conflicting_reservation.check_in_date).format('DD/MM/YYYY')}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>تاريخ المغادرة:</strong> {dayjs(item.conflicting_reservation.check_out_date).format('DD/MM/YYYY')}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>الحالة:</strong>{' '}
+                          <Chip
+                            label={statusConfig[item.conflicting_reservation.status as keyof typeof statusConfig]?.label || item.conflicting_reservation.status}
+                            size="small"
+                            color={statusConfig[item.conflicting_reservation.status as keyof typeof statusConfig]?.color as any || 'default'}
+                            sx={{ ml: 1 }}
+                          />
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+              
+              <Alert severity="info" sx={{ mt: 3 }}>
+                <Typography variant="body2">
+                  يرجى الانتظار حتى يتم تسجيل مغادرة الحجوزات السابقة أو اختيار غرف أخرى.
+                </Typography>
+              </Alert>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setOpenOccupiedRoomsDialog(false)
+              setOccupiedRoomsError(null)
+            }}
+            variant="contained"
+            color="error"
+          >
+            إغلاق
           </Button>
         </DialogActions>
       </Dialog>
