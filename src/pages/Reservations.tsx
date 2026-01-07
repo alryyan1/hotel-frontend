@@ -541,14 +541,14 @@ export default function Reservations() {
                                   mt: 0.5,
                                 }}
                               >
-                                {room.rate || room.base_price || 0} $ / ليلة
+                                {(room.rate || room.base_price || 0).toLocaleString('en-US')} $ / ليلة
                               </Typography>
                               {room.total_price && (
                                 <Typography
                                   variant="caption"
                                   color="text.secondary"
                                 >
-                                  الإجمالي: {room.total_price.toFixed(2)} $
+                                  الإجمالي: {room.total_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $
                                 </Typography>
                               )}
                             </Box>
