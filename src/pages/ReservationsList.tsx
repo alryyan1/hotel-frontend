@@ -259,22 +259,7 @@ export default function ReservationsList() {
           break
         case 'checkout':
           // Check customer balance before checkout
-          const customerBalance = await getCustomerBalance(reservation.customer_id)
-          if (customerBalance !== 0) {
-            toast.error(
-              `لا يمكن تسجيل المغادرة: يجب تسويه الحسابات    (${customerBalance.toLocaleString()} )`,
-              { 
-                position: 'top-right',
-                duration: 7000 
-              }
-            )
-            setActionLoading(prev => {
-              const newState = { ...prev }
-              delete newState[reservation.id]
-              return newState
-            })
-            return
-          }
+       
           
           // Show warning toast if payment is not complete for this reservation
           if (!isPaymentComplete(reservation)) {
@@ -336,20 +321,7 @@ export default function ReservationsList() {
     if (!selectedReservation) return
     
     // For checkout, check customer balance before proceeding
-    if (actionType === 'checkout') {
-      const customerBalance = await getCustomerBalance(selectedReservation.customer_id)
-      if (customerBalance !== 0) {
-        toast.error(
-          `لا يمكن تسجيل المغادرة: يجب تسويه الحسابات    (${customerBalance.toLocaleString()} )`,
-          { 
-            position: 'top-right',
-            duration: 7000 
-          }
-        )
-        setOpenConfirm(false)
-        return
-      }
-    }
+   
     
     await handleAction(selectedReservation, actionType, true)
   }
@@ -901,10 +873,10 @@ export default function ReservationsList() {
               {customerBalance !== null && customerBalance !== 0 && (
                 <Alert severity="error">
                   <Typography variant="subtitle2" gutterBottom>
-                    ❌ خطأ: لا يمكن تسجيل المغادرة!
+                     تسجيل المغادرة!
                   </Typography>
                   <Typography variant="body2">
-                يجب تسويه الحسابات اولا <strong>{customerBalance.toLocaleString()} </strong>
+                تحذير تسويه يرجي الحساب  اولا <strong>{customerBalance.toLocaleString()} </strong>
                   </Typography>
                   <Typography variant="body2" sx={{ mt: 1 }}>
                     يرجى تسوية رصيد العميل أولاً قبل تسجيل المغادرة.
@@ -954,8 +926,7 @@ export default function ReservationsList() {
             variant="contained"
             disabled={
               selectedReservation ? (
-                actionLoading[selectedReservation.id] !== undefined || 
-                (actionType === 'checkout' && customerBalance !== null && customerBalance !== 0)
+                actionLoading[selectedReservation.id] !== undefined 
               ) : false
             }
             startIcon={selectedReservation && actionLoading[selectedReservation.id] ? <CircularProgress size={16} /> : undefined}

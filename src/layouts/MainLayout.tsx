@@ -1,13 +1,8 @@
 import { useState, useEffect } from "react";
 import type React from "react";
-import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Outlet, useNavigate, useLocation, NavLink } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  Sidebar,
-  Menu,
-  MenuItem,
-  SubMenu,
-} from "react-pro-sidebar";
+import { Sidebar, Menu, MenuItem, SubMenu } from "react-pro-sidebar";
 import {
   Home,
   BedDouble,
@@ -73,18 +68,31 @@ const navigationGroups = [
         label: "أنواع الغرف",
         icon: <Tags className="size-5" />,
       },
-      { to: "/floors", label: "الطوابق", icon: <Building2 className="size-5" /> },
+      {
+        to: "/floors",
+        label: "الطوابق",
+        icon: <Building2 className="size-5" />,
+      },
     ],
   },
   {
     title: "المالية",
     icon: <DollarSign className="size-5" />,
     items: [
-      { to: "/costs", label: "المصاريف", icon: <DollarSign className="size-5" /> },
+      {
+        to: "/costs",
+        label: "المصاريف",
+        icon: <DollarSign className="size-5" />,
+      },
       {
         to: "/accountant",
         label: "الحسابات",
         icon: <Calculator className="size-5" />,
+      },
+      {
+        to: "/monthly-report",
+        label: "التقرير الشهري",
+        icon: <List className="size-5" />,
       },
     ],
   },
@@ -92,7 +100,11 @@ const navigationGroups = [
     title: "المخزون",
     icon: <Package className="size-5" />,
     items: [
-      { to: "/inventory", label: "المخزون", icon: <Package className="size-5" /> },
+      {
+        to: "/inventory",
+        label: "المخزون",
+        icon: <Package className="size-5" />,
+      },
       {
         to: "/inventory-orders",
         label: "طلبات المخزون",
@@ -120,7 +132,11 @@ const navigationGroups = [
     title: "الإدارة",
     icon: <Shield className="size-5" />,
     items: [
-      { to: "/users", label: "المستخدمين", icon: <Shield className="size-5" /> },
+      {
+        to: "/users",
+        label: "المستخدمين",
+        icon: <Shield className="size-5" />,
+      },
       {
         to: "/settings",
         label: "الإعدادات",
@@ -205,72 +221,10 @@ export default function MainLayout() {
 
   return (
     <>
-      <style>{`
-        .pro-sidebar {
-          direction: rtl;
-          border-left: 1px solid hsl(var(--border));
-        }
-        .pro-sidebar-inner {
-          background: hsl(var(--card) / 0.95) !important;
-          backdrop-filter: blur(12px);
-        }
-        .pro-menu-item {
-          color: hsl(var(--foreground)) !important;
-          font-weight: 600 !important;
-        }
-        .pro-menu-item.active {
-          background: linear-gradient(to left, hsl(var(--primary)), hsl(var(--primary) / 0.8)) !important;
-          color: hsl(var(--primary-foreground)) !important;
-        }
-        .pro-menu-item:hover {
-          background: hsl(var(--accent) / 0.8) !important;
-        }
-        .pro-sub-menu-content {
-          background: hsl(var(--muted) / 0.5) !important;
-        }
-        .pro-sub-menu > .pro-inner-item {
-          font-weight: 600 !important;
-        }
-        .pro-sidebar .pro-menu .pro-menu-item > .pro-inner-item {
-          padding: 0.75rem 1rem !important;
-          border-radius: 0.75rem !important;
-          margin: 0.25rem 0.5rem !important;
-        }
-        .pro-sidebar .pro-menu .pro-menu-item > .pro-inner-item > .pro-icon-wrapper {
-          margin-right: 0.75rem !important;
-          margin-left: 0 !important;
-        }
-        .pro-sidebar .pro-menu .pro-menu-item > .pro-inner-item > .pro-item-content {
-          margin-right: 0 !important;
-        }
-        .pro-sidebar .pro-menu .pro-sub-menu .pro-inner-list-item {
-          padding-right: 1.5rem !important;
-          padding-left: 0 !important;
-        }
-        .pro-sidebar .pro-menu .pro-sub-menu > .pro-inner-item {
-          padding: 0.75rem 1rem !important;
-          border-radius: 0.75rem !important;
-          margin: 0.25rem 0.5rem !important;
-        }
-        .pro-sidebar .pro-menu .pro-sub-menu > .pro-inner-item > .pro-icon-wrapper {
-          margin-right: 0.75rem !important;
-          margin-left: 0 !important;
-        }
-        .pro-sidebar .pro-menu .pro-sub-menu .pro-arrow-wrapper {
-          right: auto !important;
-          left: 1rem !important;
-        }
-        .pro-sidebar.collapsed .pro-menu .pro-menu-item > .pro-inner-item > .pro-item-content {
-          display: none !important;
-        }
-        .pro-sidebar.collapsed .pro-menu .pro-sub-menu > .pro-inner-item > .pro-item-content {
-          display: none !important;
-        }
-        .pro-sidebar .pro-menu {
-          padding: 0.5rem 0 !important;
-        }
-      `}</style>
-      <div className="min-h-screen bg-background" style={{ position: "relative", zIndex: 1 }}>
+      <div
+        className="min-h-screen bg-background"
+        style={{ position: "relative", zIndex: 1 }}
+      >
         {/* Top bar */}
         <header className="w-full top-0 inset-x-0 z-40 border-b border-border/40 bg-card/95 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 shadow-sm">
           <div className="flex items-center gap-3 px-4 h-16">
@@ -354,8 +308,19 @@ export default function MainLayout() {
             }}
             className={isMobile && !mobileOpen ? "hidden" : ""}
           >
-            <div style={{ padding: "1rem", borderBottom: "1px solid hsl(var(--border))" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div
+              style={{
+                padding: "1rem",
+                borderBottom: "1px solid hsl(var(--border))",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 {!logoError ? (
                   <img
                     src={logoUrl}
@@ -372,16 +337,22 @@ export default function MainLayout() {
             </div>
             <Menu
               menuItemStyles={{
-                button: {
+                button: ({ active }) => ({
+                  backgroundColor: active
+                    ? "hsl(var(--primary))"
+                    : "transparent",
+                  color: active
+                    ? "hsl(var(--primary-foreground))"
+                    : "hsl(var(--foreground))",
                   "&:hover": {
-                    backgroundColor: "hsl(var(--accent))",
-                    color: "hsl(var(--accent-foreground))",
+                    backgroundColor: active
+                      ? "hsl(var(--primary) / 0.9)"
+                      : "hsl(var(--accent))",
+                    color: active
+                      ? "hsl(var(--primary-foreground))"
+                      : "hsl(var(--accent-foreground))",
                   },
-                  "&.active": {
-                    backgroundColor: "hsl(var(--primary))",
-                    color: "hsl(var(--primary-foreground))",
-                  },
-                },
+                }),
               }}
             >
               {navigationGroups.map((group) => {
@@ -389,14 +360,12 @@ export default function MainLayout() {
                 if (group.items.length === 1) {
                   const item = group.items[0];
                   if (!item) return null;
-                  const isActive = location.pathname === item.to;
                   return (
                     <MenuItem
                       key={item.to}
                       icon={item.icon}
-                      active={isActive}
+                      component={<NavLink to={item.to} />}
                       onClick={() => {
-                        navigate(item.to);
                         if (isMobile) setMobileOpen(false);
                       }}
                     >
@@ -410,20 +379,18 @@ export default function MainLayout() {
                     key={group.title}
                     label={group.title}
                     icon={group.icon}
-                    defaultOpen={
-                      group.items.some((item) => item && item.to === location.pathname)
-                    }
+                    defaultOpen={group.items.some(
+                      (item) => item && item.to === location.pathname,
+                    )}
                   >
                     {group.items.map((item) => {
                       if (!item) return null;
-                      const isActive = location.pathname === item.to;
                       return (
                         <MenuItem
                           key={item.to}
                           icon={item.icon}
-                          active={isActive}
+                          component={<NavLink to={item.to} />}
                           onClick={() => {
-                            navigate(item.to);
                             if (isMobile) setMobileOpen(false);
                           }}
                         >
@@ -435,7 +402,13 @@ export default function MainLayout() {
                 );
               })}
             </Menu>
-            <div style={{ padding: "1rem", borderTop: "1px solid hsl(var(--border))", marginTop: "auto" }}>
+            <div
+              style={{
+                padding: "1rem",
+                borderTop: "1px solid hsl(var(--border))",
+                marginTop: "auto",
+              }}
+            >
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-2"
