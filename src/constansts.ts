@@ -1,4 +1,4 @@
-const host = window.location.hostname
+const host = 'backend.nova-suits.com'
 const schema = 'https'
 const projectFolder = 'hotel-backend'
 const port = 8000
