@@ -1,11 +1,18 @@
-import { useEffect, useState } from 'react'
-import apiClient from '../api/axios'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { toast } from 'sonner'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Filter, ArrowDownCircle } from 'lucide-react'
-import dayjs from 'dayjs'
+import { useEffect, useState } from "react";
+import apiClient from "../api/axios";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Search, Filter, ArrowDownCircle, Printer } from "lucide-react";
+import dayjs from "dayjs";
 import {
   Dialog as MuiDialog,
   DialogTitle as MuiDialogTitle,
@@ -14,114 +21,149 @@ import {
   Button as MuiButton,
   TextField,
   Box,
-  Typography
-} from '@mui/material'
+  Typography,
+} from "@mui/material";
 
 export default function InventoryReceipts() {
-  const [receipts, setReceipts] = useState<any[]>([])
-  const [filteredReceipts, setFilteredReceipts] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [openReceiptDetails, setOpenReceiptDetails] = useState(false)
-  const [selectedReceipt, setSelectedReceipt] = useState<any>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [openFiltersDialog, setOpenFiltersDialog] = useState(false)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
-  const [supplierFilter, setSupplierFilter] = useState('')
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [filteredReceipts, setFilteredReceipts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [openReceiptDetails, setOpenReceiptDetails] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [openFiltersDialog, setOpenFiltersDialog] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("");
 
   useEffect(() => {
-    fetchReceipts()
-  }, [])
+    fetchReceipts();
+  }, []);
 
   useEffect(() => {
-    filterReceipts()
-  }, [receipts, searchTerm, dateFrom, dateTo, supplierFilter])
+    filterReceipts();
+  }, [receipts, searchTerm, dateFrom, dateTo, supplierFilter]);
 
   const fetchReceipts = async () => {
     try {
-      setLoading(true)
-      const { data } = await apiClient.get('/inventory-receipts')
-      const receiptsData = data?.data || data || []
-      setReceipts(receiptsData)
-      setFilteredReceipts(receiptsData)
+      setLoading(true);
+      const { data } = await apiClient.get("/inventory-receipts");
+      const receiptsData = data?.data || data || [];
+      setReceipts(receiptsData);
+      setFilteredReceipts(receiptsData);
     } catch (err: any) {
       if (err?.response?.status !== 404) {
-        toast.error(err?.response?.data?.message || 'فشل في تحميل الواردات')
+        toast.error(err?.response?.data?.message || "فشل في تحميل الواردات");
       } else {
-        setReceipts([])
-        setFilteredReceipts([])
+        setReceipts([]);
+        setFilteredReceipts([]);
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const filterReceipts = () => {
-    let filtered = [...receipts]
+    let filtered = [...receipts];
 
     if (searchTerm) {
-      filtered = filtered.filter((receipt: any) =>
-        (receipt.receipt_number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (receipt.notes || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (receipt.supplier || '').toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      filtered = filtered.filter(
+        (receipt: any) =>
+          (receipt.receipt_number || "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          (receipt.notes || "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          (receipt.supplier || "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()),
+      );
     }
 
     if (dateFrom) {
       filtered = filtered.filter((receipt: any) => {
-        const receiptDate = dayjs(receipt.receipt_date).format('YYYY-MM-DD')
-        return receiptDate >= dateFrom
-      })
+        const receiptDate = dayjs(receipt.receipt_date).format("YYYY-MM-DD");
+        return receiptDate >= dateFrom;
+      });
     }
 
     if (dateTo) {
       filtered = filtered.filter((receipt: any) => {
-        const receiptDate = dayjs(receipt.receipt_date).format('YYYY-MM-DD')
-        return receiptDate <= dateTo
-      })
+        const receiptDate = dayjs(receipt.receipt_date).format("YYYY-MM-DD");
+        return receiptDate <= dateTo;
+      });
     }
 
     if (supplierFilter) {
       filtered = filtered.filter((receipt: any) =>
-        (receipt.supplier || '').toLowerCase().includes(supplierFilter.toLowerCase())
-      )
+        (receipt.supplier || "")
+          .toLowerCase()
+          .includes(supplierFilter.toLowerCase()),
+      );
     }
 
     filtered.sort((a: any, b: any) => {
-      const dateA = dayjs(a.created_at)
-      const dateB = dayjs(b.created_at)
-      return dateB.isBefore(dateA) ? -1 : dateB.isAfter(dateA) ? 1 : 0
-    })
+      const dateA = dayjs(a.created_at);
+      const dateB = dayjs(b.created_at);
+      return dateB.isBefore(dateA) ? -1 : dateB.isAfter(dateA) ? 1 : 0;
+    });
 
-    setFilteredReceipts(filtered)
-  }
+    setFilteredReceipts(filtered);
+  };
 
   const handleViewDetails = (receipt: any) => {
-    setSelectedReceipt(receipt)
-    setOpenReceiptDetails(true)
-  }
+    setSelectedReceipt(receipt);
+    setOpenReceiptDetails(true);
+  };
 
   const handleDelete = async (receipt: any) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا الوارد؟ سيتم عكس الكميات في المخزون.')) return
+    if (
+      !window.confirm(
+        "هل أنت متأكد من حذف هذا الوارد؟ سيتم عكس الكميات في المخزون.",
+      )
+    )
+      return;
 
     try {
-      setLoading(true)
-      await apiClient.delete(`/inventory-receipts/${receipt.id}`)
-      toast.success('تم حذف الوارد بنجاح')
-      fetchReceipts()
+      setLoading(true);
+      await apiClient.delete(`/inventory-receipts/${receipt.id}`);
+      toast.success("تم حذف الوارد بنجاح");
+      fetchReceipts();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل حذف الوارد')
+      toast.error(err?.response?.data?.message || "فشل حذف الوارد");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
+
+  const handleExportPdf = async (receiptId: number) => {
+    try {
+      const response = await apiClient.get(
+        `/inventory-receipts/${receiptId}/pdf`,
+        {
+          responseType: "blob",
+        },
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `inventory_receipt_${receiptId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      toast.error("فشل في تصدير ملف PDF");
+    }
+  };
 
   const clearFilters = () => {
-    setSearchTerm('')
-    setDateFrom('')
-    setDateTo('')
-    setSupplierFilter('')
-  }
+    setSearchTerm("");
+    setDateFrom("");
+    setDateTo("");
+    setSupplierFilter("");
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -133,10 +175,19 @@ export default function InventoryReceipts() {
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="text-sm text-muted-foreground font-medium">
-          <span className="text-foreground font-bold">{filteredReceipts.length}</span> من أصل <span className="text-foreground font-bold">{receipts.length}</span> وارد
+          <span className="text-foreground font-bold">
+            {filteredReceipts.length}
+          </span>{" "}
+          من أصل{" "}
+          <span className="text-foreground font-bold">{receipts.length}</span>{" "}
+          وارد
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => setOpenFiltersDialog(true)} className="h-9 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            onClick={() => setOpenFiltersDialog(true)}
+            className="h-9 w-full sm:w-auto"
+          >
             <Filter className="size-4 mr-2" />
             الفلاتر والبحث
           </Button>
@@ -144,10 +195,15 @@ export default function InventoryReceipts() {
       </div>
 
       {/* Filters Dialog */}
-      <MuiDialog open={openFiltersDialog} onClose={() => setOpenFiltersDialog(false)} maxWidth="sm" fullWidth>
+      <MuiDialog
+        open={openFiltersDialog}
+        onClose={() => setOpenFiltersDialog(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <MuiDialogTitle>الفلاتر والبحث</MuiDialogTitle>
         <MuiDialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 1 }}>
             <TextField
               label="البحث"
               value={searchTerm}
@@ -155,7 +211,7 @@ export default function InventoryReceipts() {
               fullWidth
               placeholder="ابحث في رقم الوارد، المورد، الملاحظات..."
               InputProps={{
-                startAdornment: <Search className="size-4 mr-2" />
+                startAdornment: <Search className="size-4 mr-2" />,
               }}
             />
             <TextField
@@ -165,7 +221,13 @@ export default function InventoryReceipts() {
               fullWidth
               placeholder="ابحث في اسم المورد"
             />
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                gap: 2,
+              }}
+            >
               <TextField
                 label="من تاريخ"
                 type="date"
@@ -186,8 +248,15 @@ export default function InventoryReceipts() {
           </Box>
         </MuiDialogContent>
         <MuiDialogActions>
-          <MuiButton variant="outlined" onClick={clearFilters}>مسح الفلاتر</MuiButton>
-          <MuiButton variant="contained" onClick={() => setOpenFiltersDialog(false)}>تطبيق</MuiButton>
+          <MuiButton variant="outlined" onClick={clearFilters}>
+            مسح الفلاتر
+          </MuiButton>
+          <MuiButton
+            variant="contained"
+            onClick={() => setOpenFiltersDialog(false)}
+          >
+            تطبيق
+          </MuiButton>
         </MuiDialogActions>
       </MuiDialog>
 
@@ -202,37 +271,80 @@ export default function InventoryReceipts() {
           ) : filteredReceipts.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-5xl mb-3 opacity-50">📥</div>
-              <p className="text-muted-foreground font-medium">لا توجد واردات</p>
+              <p className="text-muted-foreground font-medium">
+                لا توجد واردات
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border/40">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30 hover:bg-muted/30">
-                    <TableHead className="font-bold text-center">رقم الوارد</TableHead>
-                    <TableHead className="font-bold text-center">التاريخ</TableHead>
-                    <TableHead className="font-bold text-center">المورد</TableHead>
-                    <TableHead className="font-bold text-center">عدد العناصر</TableHead>
-                    <TableHead className="font-bold text-center">المستخدم</TableHead>
-                    <TableHead className="font-bold text-center">إجراءات</TableHead>
+                    <TableHead className="font-bold text-center">
+                      رقم الوارد
+                    </TableHead>
+                    <TableHead className="font-bold text-center">
+                      التاريخ
+                    </TableHead>
+                    <TableHead className="font-bold text-center">
+                      المورد
+                    </TableHead>
+                    <TableHead className="font-bold text-center">
+                      عدد العناصر
+                    </TableHead>
+                    <TableHead className="font-bold text-center">
+                      المستخدم
+                    </TableHead>
+                    <TableHead className="font-bold text-center">
+                      إجراءات
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredReceipts.map((receipt: any) => (
-                    <TableRow key={receipt.id} className="hover:bg-muted/20 transition-colors">
-                      <TableCell className="font-medium text-center">{receipt.receipt_number || '-'}</TableCell>
-                      <TableCell className="text-center">
-                        {receipt.receipt_date ? dayjs(receipt.receipt_date).format('YYYY-MM-DD') : '-'}
+                    <TableRow
+                      key={receipt.id}
+                      className="hover:bg-muted/20 transition-colors"
+                    >
+                      <TableCell className="font-medium text-center">
+                        {receipt.receipt_number || "-"}
                       </TableCell>
-                      <TableCell className="text-center">{receipt.supplier || '-'}</TableCell>
-                      <TableCell className="text-center">{receipt.items?.length || 0}</TableCell>
-                      <TableCell className="text-center">{receipt.user?.username || receipt.user?.name || '-'}</TableCell>
+                      <TableCell className="text-center">
+                        {receipt.receipt_date
+                          ? dayjs(receipt.receipt_date).format("YYYY-MM-DD")
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {receipt.supplier || "-"}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {receipt.items?.length || 0}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {receipt.user?.username || receipt.user?.name || "-"}
+                      </TableCell>
                       <TableCell className="text-center">
                         <div className="flex gap-2 justify-center">
-                          <Button variant="outline" size="sm" onClick={() => handleViewDetails(receipt)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewDetails(receipt)}
+                          >
                             عرض التفاصيل
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(receipt)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleExportPdf(receipt.id)}
+                            title="طباعة"
+                          >
+                            <Printer className="size-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDelete(receipt)}
+                          >
                             حذف
                           </Button>
                         </div>
@@ -247,39 +359,65 @@ export default function InventoryReceipts() {
       </Card>
 
       {/* Receipt Details Dialog */}
-      <MuiDialog 
-        open={openReceiptDetails} 
+      <MuiDialog
+        open={openReceiptDetails}
         onClose={() => {
-          setOpenReceiptDetails(false)
-          setSelectedReceipt(null)
+          setOpenReceiptDetails(false);
+          setSelectedReceipt(null);
         }}
         maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
-            maxHeight: '90vh'
-          }
+            borderRadius: "12px",
+            maxHeight: "90vh",
+          },
         }}
       >
-        <MuiDialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
+        <MuiDialogTitle
+          sx={{
+            fontWeight: "bold",
+            fontSize: "1.25rem",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           تفاصيل الوارد
+          {selectedReceipt && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExportPdf(selectedReceipt.id)}
+            >
+              <Printer className="size-4 mr-2" />
+              طباعة
+            </Button>
+          )}
         </MuiDialogTitle>
         <MuiDialogContent>
           {selectedReceipt && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box
+              sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 1 }}
+            >
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <Typography variant="body2" color="text.secondary">
                   <strong>رقم الوارد:</strong> {selectedReceipt.receipt_number}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>التاريخ:</strong> {selectedReceipt.receipt_date ? dayjs(selectedReceipt.receipt_date).format('YYYY-MM-DD') : '-'}
+                  <strong>التاريخ:</strong>{" "}
+                  {selectedReceipt.receipt_date
+                    ? dayjs(selectedReceipt.receipt_date).format("YYYY-MM-DD")
+                    : "-"}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>المورد:</strong> {selectedReceipt.supplier || '-'}
+                  <strong>المورد:</strong> {selectedReceipt.supplier || "-"}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>المستخدم:</strong> {selectedReceipt.user?.username || selectedReceipt.user?.name || '-'}
+                  <strong>المستخدم:</strong>{" "}
+                  {selectedReceipt.user?.username ||
+                    selectedReceipt.user?.name ||
+                    "-"}
                 </Typography>
                 {selectedReceipt.notes && (
                   <Typography variant="body2" color="text.secondary">
@@ -289,32 +427,64 @@ export default function InventoryReceipts() {
               </Box>
 
               <Box>
-                <Typography variant="h6" sx={{ mb: 2 }}>عناصر الوارد</Typography>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  عناصر الوارد
+                </Typography>
                 <div className="rounded-lg border border-border/40">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/30">
-                        <TableHead className="font-bold text-center">العنصر</TableHead>
-                        <TableHead className="font-bold text-center">الفئة</TableHead>
-                        <TableHead className="font-bold text-center">الكمية المستلمة</TableHead>
-                        <TableHead className="font-bold text-center">سعر الشراء</TableHead>
-                        <TableHead className="font-bold text-center">ملاحظات</TableHead>
+                        <TableHead className="font-bold text-center">
+                          العنصر
+                        </TableHead>
+                        <TableHead className="font-bold text-center">
+                          الفئة
+                        </TableHead>
+                        <TableHead className="font-bold text-center">
+                          الكمية المستلمة
+                        </TableHead>
+                        <TableHead className="font-bold text-center">
+                          سعر الشراء
+                        </TableHead>
+                        <TableHead className="font-bold text-center">
+                          ملاحظات
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedReceipt.items?.map((item: any, index: number) => (
-                        <TableRow key={index}>
-                          <TableCell className="text-center">{item.inventory?.name || '-'}</TableCell>
-                          <TableCell className="text-center">{item.inventory?.category?.name || '-'}</TableCell>
-                          <TableCell className="text-center font-bold">
-                            {parseFloat(item.quantity_received || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {item.purchase_price ? parseFloat(item.purchase_price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">{item.notes || '-'}</TableCell>
-                        </TableRow>
-                      ))}
+                      {selectedReceipt.items?.map(
+                        (item: any, index: number) => (
+                          <TableRow key={index}>
+                            <TableCell className="text-center">
+                              {item.inventory?.name || "-"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.inventory?.category?.name || "-"}
+                            </TableCell>
+                            <TableCell className="text-center font-bold">
+                              {parseFloat(
+                                item.quantity_received || 0,
+                              ).toLocaleString("en-US", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.purchase_price
+                                ? parseFloat(
+                                    item.purchase_price,
+                                  ).toLocaleString("en-US", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })
+                                : "-"}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {item.notes || "-"}
+                            </TableCell>
+                          </TableRow>
+                        ),
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -323,15 +493,17 @@ export default function InventoryReceipts() {
           )}
         </MuiDialogContent>
         <MuiDialogActions>
-          <MuiButton variant="outlined" onClick={() => {
-            setOpenReceiptDetails(false)
-            setSelectedReceipt(null)
-          }}>
+          <MuiButton
+            variant="outlined"
+            onClick={() => {
+              setOpenReceiptDetails(false);
+              setSelectedReceipt(null);
+            }}
+          >
             إغلاق
           </MuiButton>
         </MuiDialogActions>
       </MuiDialog>
     </div>
-  )
+  );
 }
-

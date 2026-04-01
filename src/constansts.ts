@@ -1,5 +1,5 @@
-const host = '127.0.0.1'
-const schema = 'http'
+const host = window.location.hostname
+const schema = 'https'
 const projectFolder = 'hotel-backend'
 const port = 8000
 
