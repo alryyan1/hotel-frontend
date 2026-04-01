@@ -77,6 +77,11 @@ interface Reservation {
     type?: {
       name: string
       capacity: number
+      base_price: number
+    }
+    pivot?: {
+      rate: number
+      currency: string
     }
   }>
 }
@@ -115,6 +120,9 @@ export default function ReservationsList() {
   const [customerBalance, setCustomerBalance] = useState<number | null>(null)
   const [occupiedRoomsError, setOccupiedRoomsError] = useState<any>(null)
   const [openOccupiedRoomsDialog, setOpenOccupiedRoomsDialog] = useState(false)
+  const [openExtend, setOpenExtend] = useState(false)
+  const [newCheckOutDate, setNewCheckOutDate] = useState<string>('')
+  const [extensionLoading, setExtensionLoading] = useState(false)
 
   // Fetch customers list
   useEffect(() => {
@@ -522,6 +530,26 @@ export default function ReservationsList() {
         </Button>
       )
     }
+
+    if (['confirmed', 'checked_in'].includes(reservation.status)) {
+      buttons.push(
+        <Button
+          key="extend"
+          size="small"
+          variant="outlined"
+          onClick={() => {
+            setSelectedReservation(reservation)
+            setNewCheckOutDate(dayjs(reservation.check_out_date).add(1, 'day').format('YYYY-MM-DD'))
+            setOpenExtend(true)
+          }}
+          disabled={isLoading}
+          color="secondary"
+          startIcon={<CalendarIcon />}
+        >
+          تمديد
+        </Button>
+      )
+    }
     
     if (!['checked_in', 'checked_out'].includes(reservation.status)) {
       buttons.push(
@@ -540,6 +568,47 @@ export default function ReservationsList() {
     }
     
     return buttons
+  }
+
+  const handleExtend = async () => {
+    if (!selectedReservation || !newCheckOutDate) return
+
+    try {
+      setExtensionLoading(true)
+      const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/extend`, {
+        check_out_date: newCheckOutDate
+      })
+      
+      setReservations(prev => prev.map(r => r.id === data.id ? data : r))
+      setOpenExtend(false)
+      setSelectedReservation(null)
+      toast.success('تم تمديد الحجز بنجاح')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في تمديد الحجز')
+    } finally {
+      setExtensionLoading(false)
+    }
+  }
+
+  const calculateExtensionPrice = () => {
+    if (!selectedReservation || !newCheckOutDate) return 0
+    
+    const oldOut = dayjs(selectedReservation.check_out_date)
+    const newOut = dayjs(newCheckOutDate)
+    const days = newOut.diff(oldOut, 'day')
+    
+    if (days <= 0) return 0
+    
+    let total = 0
+    selectedReservation.rooms.forEach((room: any) => {
+      const pivotRate = room.pivot?.rate !== undefined && room.pivot?.rate !== null ? Number(room.pivot.rate) : 0
+      const typeRate = room.type?.base_price !== undefined && room.type?.base_price !== null ? Number(room.type.base_price) : 0
+      
+      const rate = pivotRate || typeRate || 0
+      total += days * rate
+    })
+    
+    return total
   }
 
   return (
@@ -1022,6 +1091,60 @@ export default function ReservationsList() {
             color="error"
           >
             إغلاق
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Extend Dialog */}
+      <Dialog open={openExtend} onClose={() => !extensionLoading && setOpenExtend(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>تمديد الحجز #{selectedReservation?.id}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
+            </Typography>
+            
+            <TextField
+              label="تاريخ المغادرة الجديد"
+              type="date"
+              fullWidth
+              value={newCheckOutDate}
+              onChange={(e) => setNewCheckOutDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ 
+                min: selectedReservation ? dayjs(selectedReservation.check_out_date).add(1, 'day').format('YYYY-MM-DD') : '' 
+              }}
+            />
+
+            {selectedReservation && newCheckOutDate && (
+              <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                <Stack spacing={1}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2">عدد الأيام الإضافية:</Typography>
+                    <Typography variant="body2" fontWeight="bold">
+                      {dayjs(newCheckOutDate).diff(dayjs(selectedReservation.check_out_date), 'day')} يوم
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="body2">التكلفة الإضافية:</Typography>
+                    <Typography variant="body2" fontWeight="bold" color="primary">
+                      {calculateExtensionPrice().toLocaleString()} SDG
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenExtend(false)} disabled={extensionLoading}>إلغاء</Button>
+          <Button 
+            onClick={handleExtend} 
+            variant="contained" 
+            disabled={extensionLoading || !newCheckOutDate || dayjs(newCheckOutDate).isBefore(dayjs(selectedReservation?.check_out_date).add(1, 'day'))}
+            startIcon={extensionLoading ? <CircularProgress size={16} /> : null}
+          >
+            تأكيد التمديد
           </Button>
         </DialogActions>
       </Dialog>
