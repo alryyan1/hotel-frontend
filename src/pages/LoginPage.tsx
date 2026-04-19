@@ -86,7 +86,7 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <div className="text-4xl lg:text-5xl font-extrabold leading-snug mb-4 text-center">شقق نوفا الفندقيه</div>
+            <div className="text-4xl lg:text-5xl font-extrabold leading-snug mb-4 text-center">فندق سيزر</div>
             <div className="mt-8 grid grid-cols-2 gap-4 max-w-lg text-center mx-auto">
               <div className="rounded-xl bg-primary-foreground/10 p-4 border border-primary-foreground/10">
                 <div className="text-2xl mb-1">⚡</div>
