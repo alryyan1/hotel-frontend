@@ -939,6 +939,42 @@ export default function ReservationsList() {
         <DialogContent>
           {actionType === 'checkout' && selectedReservation ? (
             <Stack spacing={2} sx={{ mt: 1 }}>
+              {/* Early checkout refund notice */}
+              {(() => {
+                const today = dayjs().startOf('day')
+                const scheduledOut = dayjs(selectedReservation.check_out_date).startOf('day')
+                const remainingDays = scheduledOut.diff(today, 'day')
+                if (remainingDays > 0) {
+                  let refundAmount = 0
+                  selectedReservation.rooms.forEach((room: any) => {
+                    const rate = room.pivot?.rate ?? room.type?.base_price ?? 0
+                    refundAmount += remainingDays * Number(rate)
+                  })
+                  return (
+                    <Alert severity="info" sx={{ bgcolor: 'info.light' }}>
+                      <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                        مغادرة مبكرة - سيتم استرجاع مبلغ
+                      </Typography>
+                      <Typography variant="body2">
+                        تاريخ المغادرة المجدولة: <strong>{formatDate(selectedReservation.check_out_date)}</strong>
+                      </Typography>
+                      <Typography variant="body2">
+                        عدد الأيام المتبقية: <strong>{remainingDays} يوم</strong>
+                      </Typography>
+                      {refundAmount > 0 && (
+                        <Typography variant="body1" color="info.dark" fontWeight="bold" sx={{ mt: 1 }}>
+                          المبلغ المسترجع: {refundAmount.toLocaleString()} SDG
+                        </Typography>
+                      )}
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        سيظهر المبلغ المسترجع في قسم المالية تحت بند "المبالغ المسترجعة"
+                      </Typography>
+                    </Alert>
+                  )
+                }
+                return null
+              })()}
+
               {customerBalance !== null && customerBalance !== 0 && (
                 <Alert severity="error">
                   <Typography variant="subtitle2" gutterBottom>
@@ -980,9 +1016,14 @@ export default function ReservationsList() {
                   </Typography>
                 </Alert>
               )}
-              {customerBalance === 0 && isPaymentComplete(selectedReservation) && (
-                <Typography>هل أنت متأكد من تسجيل المغادرة؟</Typography>
-              )}
+              {customerBalance === 0 && isPaymentComplete(selectedReservation) && (() => {
+                const today = dayjs().startOf('day')
+                const scheduledOut = dayjs(selectedReservation.check_out_date).startOf('day')
+                const remainingDays = scheduledOut.diff(today, 'day')
+                return remainingDays <= 0 ? (
+                  <Typography>هل أنت متأكد من تسجيل المغادرة؟</Typography>
+                ) : null
+              })()}
             </Stack>
           ) : (
             <Typography>هل أنت متأكد من تنفيذ هذا الإجراء؟ لا يمكن التراجع عن بعض العمليات.</Typography>
@@ -995,7 +1036,7 @@ export default function ReservationsList() {
             variant="contained"
             disabled={
               selectedReservation ? (
-                actionLoading[selectedReservation.id] !== undefined 
+                actionLoading[selectedReservation.id] !== undefined
               ) : false
             }
             startIcon={selectedReservation && actionLoading[selectedReservation.id] ? <CircularProgress size={16} /> : undefined}

@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import apiClient from "../api/axios";
+import { useAuth } from "../contexts/AuthContext";
 
 const drawerWidth = 250;
 
@@ -154,6 +155,7 @@ export default function MainLayout() {
   const [logoError, setLogoError] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasPermission, user } = useAuth();
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -356,48 +358,46 @@ export default function MainLayout() {
               }}
             >
               {navigationGroups.map((group) => {
-                // If group has only one item, render as MenuItem
-                if (group.items.length === 1) {
-                  const item = group.items[0];
-                  if (!item) return null;
+                // Filter items by permission
+                const visibleItems = group.items.filter(
+                  (item) => item && hasPermission(item.to)
+                );
+                if (visibleItems.length === 0) return null;
+
+                // Single visible item → plain MenuItem
+                if (visibleItems.length === 1) {
+                  const item = visibleItems[0]!;
                   return (
                     <MenuItem
                       key={item.to}
                       icon={item.icon}
                       component={<NavLink to={item.to} />}
-                      onClick={() => {
-                        if (isMobile) setMobileOpen(false);
-                      }}
+                      onClick={() => { if (isMobile) setMobileOpen(false); }}
                     >
                       {item.label}
                     </MenuItem>
                   );
                 }
-                // Otherwise render as SubMenu
+                // Multiple items → SubMenu
                 return (
                   <SubMenu
                     key={group.title}
                     label={group.title}
                     icon={group.icon}
-                    defaultOpen={group.items.some(
+                    defaultOpen={visibleItems.some(
                       (item) => item && item.to === location.pathname,
                     )}
                   >
-                    {group.items.map((item) => {
-                      if (!item) return null;
-                      return (
-                        <MenuItem
-                          key={item.to}
-                          icon={item.icon}
-                          component={<NavLink to={item.to} />}
-                          onClick={() => {
-                            if (isMobile) setMobileOpen(false);
-                          }}
-                        >
-                          {item.label}
-                        </MenuItem>
-                      );
-                    })}
+                    {visibleItems.map((item) => (
+                      <MenuItem
+                        key={item!.to}
+                        icon={item!.icon}
+                        component={<NavLink to={item!.to} />}
+                        onClick={() => { if (isMobile) setMobileOpen(false); }}
+                      >
+                        {item!.label}
+                      </MenuItem>
+                    ))}
                   </SubMenu>
                 );
               })}
@@ -409,6 +409,17 @@ export default function MainLayout() {
                 marginTop: "auto",
               }}
             >
+              {user && (
+                <div className="mb-2 px-2 py-1 rounded-md bg-accent/50 text-xs text-muted-foreground flex items-center gap-2">
+                  <Shield className="size-3 shrink-0" />
+                  <span className="truncate">
+                    {user.name}
+                    {user.is_admin && (
+                      <span className="mr-1 text-primary font-semibold">(مدير)</span>
+                    )}
+                  </span>
+                </div>
+              )}
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-2"

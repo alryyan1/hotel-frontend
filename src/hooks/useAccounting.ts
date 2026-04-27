@@ -7,6 +7,7 @@ export interface Summary {
   total_revenue: number;
   revenue_by_method?: Record<string, number>;
   total_debits: number;
+  total_refunds: number;
   total_expenses: number;
   expenses_by_method?: Record<string, number>;
   net_profit: number;
@@ -18,7 +19,7 @@ export interface Transaction {
   id: number;
   customer_id: number;
   reservation_id?: number;
-  type: "debit" | "credit";
+  type: "debit" | "credit" | "refund";
   amount: number;
   currency: string;
   method?: "cash" | "bankak" | "Ocash" | "fawri";

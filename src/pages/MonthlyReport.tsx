@@ -16,13 +16,16 @@ import {
   Stack,
   CircularProgress,
   IconButton,
+  Button,
 } from "@mui/material";
 import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Print as PrintIcon,
 } from "@mui/icons-material";
 import apiClient from "../api/axios";
 import dayjs from "dayjs";
+import { toast } from "sonner";
 
 interface DailyData {
   date: string;
@@ -32,6 +35,7 @@ interface DailyData {
   expense_total: number;
   expense_cash: number;
   expense_bank: number;
+  refund_total: number;
   net: number;
 }
 
@@ -78,6 +82,45 @@ export default function MonthlyReport() {
       setYear(year + 1);
     } else {
       setMonth(month + 1);
+    }
+  };
+
+  const handlePrintPdf = async () => {
+    const token = localStorage.getItem('token');
+    const url = `${apiClient.defaults.baseURL}/accounting/monthly-report/pdf?year=${year}&month=${month}`;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`خطأ في الطلب: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `monthly_report_${year}_${month}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+      }, 100);
+      
+      toast.success("تم بدء تحميل التقرير");
+    } catch (error: any) {
+      console.error("Failed to export PDF", error);
+      toast.error(`فشل تصدير PDF: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,6 +198,15 @@ export default function MonthlyReport() {
           </Box>
 
           <Stack direction="row" alignItems="center" spacing={2}>
+            <Button
+              variant="contained"
+              startIcon={<PrintIcon />}
+              onClick={handlePrintPdf}
+              sx={{ borderRadius: 2, px: 3, mr: 2 }}
+            >
+              طباعة PDF
+            </Button>
+
             <IconButton onClick={handleNextMonth}>
               <ChevronRightIcon />
             </IconButton>
@@ -213,10 +265,7 @@ export default function MonthlyReport() {
             <TableHead>
               <TableRow sx={{ bgcolor: "grey.50" }}>
                 <TableCell sx={{ fontWeight: 700 }}>التاريخ</TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 700, color: "primary.main" }}
-                >
+                <TableCell align="center" sx={{ fontWeight: 700, color: "primary.main" }}>
                   إجمالي الإيرادات
                 </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>
@@ -225,10 +274,10 @@ export default function MonthlyReport() {
                 <TableCell align="center" sx={{ fontWeight: 700 }}>
                   إيرادات بنك
                 </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 700, color: "error.main" }}
-                >
+                <TableCell align="center" sx={{ fontWeight: 700, color: "warning.main" }}>
+                  الاسترجاع
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: "error.main" }}>
                   إجمالي المصروفات
                 </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>
@@ -254,6 +303,9 @@ export default function MonthlyReport() {
                   </TableCell>
                   <TableCell align="center" color="text.secondary">
                     {formatCurrency(day.revenue_bank)}
+                  </TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600, color: "warning.main" }}>
+                    {formatCurrency(day.refund_total)}
                   </TableCell>
                   <TableCell
                     align="center"

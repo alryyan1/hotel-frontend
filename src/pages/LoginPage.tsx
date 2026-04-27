@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import apiClient from '../api/axios'
+import { useAuth } from '../contexts/AuthContext'
 
 interface LoginFormData {
   username: string
@@ -15,6 +16,7 @@ interface LoginFormData {
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const { setUser } = useAuth()
   const [formData, setFormData] = useState<LoginFormData>({
     username: '',
     password: ''
@@ -47,12 +49,16 @@ export default function LoginPage() {
       })
       
       localStorage.setItem('token', data.token)
-      
-      // Dispatch custom event to notify App component of auth change
+      if (data.user) setUser(data.user)
+
       window.dispatchEvent(new CustomEvent('auth-change'))
-      
-      // Use navigate instead of window.location for better UX
-      navigate('/reservations-list', { replace: true })
+
+      // Redirect to first permitted page or dashboard
+      const user = data.user
+      const firstPage = user?.is_admin
+        ? '/reservations-list'
+        : (user?.permissions?.[0] ?? '/')
+      navigate(firstPage, { replace: true })
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'فشل تسجيل الدخول'
     //  toast.error(message)

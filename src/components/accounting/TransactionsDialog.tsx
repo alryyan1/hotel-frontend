@@ -117,6 +117,7 @@ export default function TransactionsDialog({
               <MenuItem value="">الكل</MenuItem>
               <MenuItem value="debit">مدين</MenuItem>
               <MenuItem value="credit">دائن</MenuItem>
+              <MenuItem value="refund">مسترجع</MenuItem>
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -172,9 +173,19 @@ export default function TransactionsDialog({
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={transaction.type === "debit" ? "مدين" : "دائن"}
+                        label={
+                          transaction.type === "debit"
+                            ? "مدين"
+                            : transaction.type === "refund"
+                            ? "مسترجع"
+                            : "دائن"
+                        }
                         color={
-                          transaction.type === "debit" ? "primary" : "success"
+                          transaction.type === "debit"
+                            ? "primary"
+                            : transaction.type === "refund"
+                            ? "warning"
+                            : "success"
                         }
                         size="small"
                         variant="outlined"

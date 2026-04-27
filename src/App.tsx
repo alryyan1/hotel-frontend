@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import { CacheProvider } from "@emotion/react";
@@ -31,6 +31,7 @@ import Accountant from "./pages/Accountant";
 import MonthlyReport from "./pages/MonthlyReport";
 import MainLayout from "./layouts/MainLayout";
 import { Toaster } from "./components/ui/sonner";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 // Create RTL cache
 const cacheRtl = createCache({
@@ -38,20 +39,33 @@ const cacheRtl = createCache({
   stylisPlugins: [prefixer, rtlPlugin],
 });
 
-function App() {
+/** Renders the child only if the user has permission for the current path */
+function PermissionGuard({ children }: { children: React.ReactNode }) {
+  const { hasPermission, isLoadingUser } = useAuth()
+  const location = useLocation()
+
+  if (isLoadingUser) return null
+
+  // CustomerLedger is accessible to anyone who can access /customers
+  const checkPath = location.pathname.startsWith('/customers/')
+    ? '/customers'
+    : '/' + location.pathname.replace(/^\//, '')
+
+  const normalizedPath = checkPath === '//' ? '/' : checkPath
+
+  if (!hasPermission(normalizedPath === '' ? '/' : normalizedPath)) {
+    return <Navigate to="/" replace />
+  }
+  return <>{children}</>
+}
+
+function AppRoutes() {
   const [token, setToken] = useState(localStorage.getItem("token"));
 
   useEffect(() => {
-    const handleStorageChange = () => {
-      setToken(localStorage.getItem("token"));
-    };
-
-    // Listen for storage changes from other tabs
+    const handleStorageChange = () => setToken(localStorage.getItem("token"));
     window.addEventListener("storage", handleStorageChange);
-
-    // Also listen for custom events for same-tab changes
     window.addEventListener("auth-change", handleStorageChange);
-
     return () => {
       window.removeEventListener("storage", handleStorageChange);
       window.removeEventListener("auth-change", handleStorageChange);
@@ -59,49 +73,49 @@ function App() {
   }, []);
 
   return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/book" element={<PublicReservations />} />
+      <Route
+        element={token ? <MainLayout /> : <Navigate to="/login" replace />}
+      >
+        <Route index element={<PermissionGuard><Dashboard /></PermissionGuard>} />
+        <Route path="rooms" element={<PermissionGuard><Rooms /></PermissionGuard>} />
+        <Route path="floors" element={<PermissionGuard><Floors /></PermissionGuard>} />
+        <Route path="room-types" element={<PermissionGuard><RoomTypes /></PermissionGuard>} />
+        <Route path="room-statuses" element={<PermissionGuard><RoomStatuses /></PermissionGuard>} />
+        <Route path="reservations" element={<PermissionGuard><Reservations /></PermissionGuard>} />
+        <Route path="reservations-list" element={<PermissionGuard><ReservationsList /></PermissionGuard>} />
+        <Route path="customers" element={<PermissionGuard><Customers /></PermissionGuard>} />
+        <Route path="customers/:id/ledger" element={<PermissionGuard><CustomerLedger /></PermissionGuard>} />
+        <Route path="costs" element={<PermissionGuard><Costs /></PermissionGuard>} />
+        <Route path="inventory" element={<PermissionGuard><Inventory /></PermissionGuard>} />
+        <Route path="inventory-orders" element={<PermissionGuard><InventoryOrders /></PermissionGuard>} />
+        <Route path="inventory-receipts" element={<PermissionGuard><InventoryReceipts /></PermissionGuard>} />
+        <Route path="cleaning-notifications" element={<PermissionGuard><CleaningNotifications /></PermissionGuard>} />
+        <Route path="accountant" element={<PermissionGuard><Accountant /></PermissionGuard>} />
+        <Route path="monthly-report" element={<PermissionGuard><MonthlyReport /></PermissionGuard>} />
+        <Route path="users" element={<PermissionGuard><Users /></PermissionGuard>} />
+        <Route path="settings" element={<PermissionGuard><Settings /></PermissionGuard>} />
+      </Route>
+      <Route
+        path="*"
+        element={<Navigate to={token ? "/" : "/login"} replace />}
+      />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
     <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/book" element={<PublicReservations />} />
-            <Route
-              element={
-                token ? <MainLayout /> : <Navigate to="/login" replace />
-              }
-            >
-              <Route index element={<Dashboard />} />
-              <Route path="rooms" element={<Rooms />} />
-              <Route path="floors" element={<Floors />} />
-              <Route path="room-types" element={<RoomTypes />} />
-              <Route path="room-statuses" element={<RoomStatuses />} />
-              <Route path="reservations" element={<Reservations />} />
-              <Route path="reservations-list" element={<ReservationsList />} />
-              <Route path="customers" element={<Customers />} />
-              <Route path="customers/:id/ledger" element={<CustomerLedger />} />
-              <Route path="costs" element={<Costs />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="inventory-orders" element={<InventoryOrders />} />
-              <Route
-                path="inventory-receipts"
-                element={<InventoryReceipts />}
-              />
-              <Route
-                path="cleaning-notifications"
-                element={<CleaningNotifications />}
-              />
-              <Route path="accountant" element={<Accountant />} />
-              <Route path="monthly-report" element={<MonthlyReport />} />
-              <Route path="users" element={<Users />} />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-            <Route
-              path="*"
-              element={<Navigate to={token ? "/" : "/login"} replace />}
-            />
-          </Routes>
-          <Toaster />
+          <AuthProvider>
+            <AppRoutes />
+            <Toaster />
+          </AuthProvider>
         </BrowserRouter>
       </ThemeProvider>
     </CacheProvider>

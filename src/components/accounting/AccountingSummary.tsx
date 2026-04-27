@@ -13,6 +13,7 @@ import {
   TrendingDown as TrendingDownIcon,
   Add as AddIcon,
   AccountBalanceWallet as AccountBalanceWalletIcon,
+  Undo as UndoIcon,
 } from "@mui/icons-material";
 import { Summary } from "../../hooks/useAccounting";
 import QuickAddCostDialog from "../costs/QuickAddCostDialog";
@@ -156,6 +157,57 @@ export default function AccountingSummary({
           onClose={() => setOpenQuickAdd(false)}
           onSuccess={onRefresh}
         />
+
+        {(summary.total_refunds ?? 0) > 0 && (
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                borderRadius: 3,
+                bgcolor: "white",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                transition: "transform 0.2s, box-shadow 0.2s",
+                "&:hover": {
+                  transform: "translateY(-4px)",
+                  boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+                },
+              }}
+            >
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Box>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 0.5 }}
+                  >
+                    المبالغ المسترجعة
+                  </Typography>
+                  <Typography
+                    variant="h4"
+                    sx={{ fontWeight: 700, color: "warning.dark" }}
+                  >
+                    {formatCurrency(summary.total_refunds ?? 0)}
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: "warning.light",
+                    color: "warning.dark",
+                  }}
+                >
+                  <UndoIcon sx={{ fontSize: 32 }} />
+                </Box>
+              </Stack>
+            </Paper>
+          </Grid>
+        )}
 
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper

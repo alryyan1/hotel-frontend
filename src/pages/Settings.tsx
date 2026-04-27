@@ -51,28 +51,28 @@ export default function Settings() {
             setLogoPreview(data.logo_url)
           } else if (data.logo_path) {
             // Fallback: construct URL if backend doesn't provide logo_url
-            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setLogoPreview(`${baseUrl}/storage/${data.logo_path}`)
           }
           if (data.stamp_url) {
             setStampPreview(data.stamp_url)
           } else if (data.stamp_path) {
             // Fallback: construct URL if backend doesn't provide stamp_url
-            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setStampPreview(`${baseUrl}/storage/${data.stamp_path}`)
           }
           if (data.header_url) {
             setHeaderPreview(data.header_url)
           } else if (data.header_path) {
             // Fallback: construct URL if backend doesn't provide header_url
-            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setHeaderPreview(`${baseUrl}/storage/${data.header_path}`)
           }
           if (data.footer_url) {
             setFooterPreview(data.footer_url)
           } else if (data.footer_path) {
             // Fallback: construct URL if backend doesn't provide footer_url
-            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setFooterPreview(`${baseUrl}/storage/${data.footer_path}`)
           }
         }
