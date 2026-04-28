@@ -46,6 +46,7 @@ import {
   CalendarToday as CalendarIcon,
   Clear as ClearIcon,
   FileDownload as FileDownloadIcon,
+  RoomService as RoomServiceIcon,
 } from '@mui/icons-material'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
@@ -123,8 +124,12 @@ export default function ReservationsList() {
   const [openExtend, setOpenExtend] = useState(false)
   const [newCheckOutDate, setNewCheckOutDate] = useState<string>('')
   const [extensionLoading, setExtensionLoading] = useState(false)
+  const [openService, setOpenService] = useState(false)
+  const [availableServices, setAvailableServices] = useState<any[]>([])
+  const [serviceForm, setServiceForm] = useState({ room_id: '', service_id: '', amount: '', notes: '' })
+  const [serviceLoading, setServiceLoading] = useState(false)
 
-  // Fetch customers list
+  // Fetch customers and services list
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
@@ -142,7 +147,16 @@ export default function ReservationsList() {
         setLoadingCustomers(false)
       }
     }
+    const fetchServicesList = async () => {
+      try {
+        const { data } = await apiClient.get('/services')
+        setAvailableServices(data)
+      } catch (e) {
+        console.error('Failed to fetch services', e)
+      }
+    }
     fetchCustomers()
+    fetchServicesList()
   }, [])
 
   // Fetch immediately for status, date, and customer filters
@@ -530,7 +544,6 @@ export default function ReservationsList() {
         </Button>
       )
     }
-
     if (['confirmed', 'checked_in'].includes(reservation.status)) {
       buttons.push(
         <Button
@@ -547,6 +560,29 @@ export default function ReservationsList() {
           startIcon={<CalendarIcon />}
         >
           تمديد
+        </Button>
+      )
+
+      buttons.push(
+        <Button
+          key="service"
+          size="small"
+          variant="outlined"
+          onClick={() => {
+            setSelectedReservation(reservation)
+            setServiceForm({ 
+              room_id: reservation.rooms?.[0]?.id?.toString() || '', 
+              service_id: '', 
+              amount: '', 
+              notes: '' 
+            })
+            setOpenService(true)
+          }}
+          disabled={isLoading}
+          color="primary"
+          startIcon={<RoomServiceIcon />}
+        >
+          إضافة خدمة
         </Button>
       )
     }
@@ -609,6 +645,31 @@ export default function ReservationsList() {
     })
     
     return total
+  }
+
+  const handleServiceSubmit = async () => {
+    if (!selectedReservation || !serviceForm.room_id || !serviceForm.service_id || !serviceForm.amount) {
+      toast.error('يرجى تعبئة جميع الحقول المطلوبة')
+      return
+    }
+
+    try {
+      setServiceLoading(true)
+      await apiClient.post('/reservation-services', {
+        reservation_id: selectedReservation.id,
+        room_id: serviceForm.room_id,
+        service_id: serviceForm.service_id,
+        amount: parseFloat(serviceForm.amount),
+        notes: serviceForm.notes
+      })
+      
+      toast.success('تمت إضافة الخدمة بنجاح')
+      setOpenService(false)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في إضافة الخدمة')
+    } finally {
+      setServiceLoading(false)
+    }
   }
 
   return (
@@ -1186,6 +1247,75 @@ export default function ReservationsList() {
             startIcon={extensionLoading ? <CircularProgress size={16} /> : null}
           >
             تأكيد التمديد
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Service Dialog */}
+      <Dialog open={openService} onClose={() => !serviceLoading && setOpenService(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>إضافة خدمة للحجز #{selectedReservation?.id}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <FormControl fullWidth required>
+              <InputLabel>الغرفة</InputLabel>
+              <Select
+                value={serviceForm.room_id}
+                label="الغرفة"
+                onChange={(e) => setServiceForm({ ...serviceForm, room_id: e.target.value })}
+              >
+                {selectedReservation?.rooms?.map(room => (
+                  <MenuItem key={room.id} value={room.id.toString()}>
+                    غرفة {room.number}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth required>
+              <InputLabel>نوع الخدمة</InputLabel>
+              <Select
+                value={serviceForm.service_id}
+                label="نوع الخدمة"
+                onChange={(e) => setServiceForm({ ...serviceForm, service_id: e.target.value })}
+              >
+                <MenuItem value="" disabled>اختر خدمة</MenuItem>
+                {availableServices.map(svc => (
+                  <MenuItem key={svc.id} value={svc.id.toString()}>
+                    {svc.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="المبلغ (SDG)"
+              type="number"
+              fullWidth
+              required
+              inputProps={{ min: 0, step: 'any' }}
+              value={serviceForm.amount}
+              onChange={(e) => setServiceForm({ ...serviceForm, amount: e.target.value })}
+            />
+
+            <TextField
+              label="ملاحظات"
+              multiline
+              rows={3}
+              fullWidth
+              value={serviceForm.notes}
+              onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenService(false)} disabled={serviceLoading}>إلغاء</Button>
+          <Button 
+            onClick={handleServiceSubmit} 
+            variant="contained" 
+            disabled={serviceLoading || !serviceForm.room_id || !serviceForm.service_id || !serviceForm.amount}
+            startIcon={serviceLoading ? <CircularProgress size={16} /> : null}
+          >
+            إضافة الخدمة
           </Button>
         </DialogActions>
       </Dialog>

@@ -119,12 +119,17 @@ const navigationGroups = [
     ],
   },
   {
-    title: "العمليات",
+    title: "الخدمات",
     icon: <Sparkles className="size-5" />,
     items: [
       {
         to: "/cleaning-notifications",
         label: "تنبيهات النظافة",
+        icon: <Sparkles className="size-5" />,
+      },
+      {
+        to: "/services",
+        label: "خدمات اضافية",
         icon: <Sparkles className="size-5" />,
       },
     ],

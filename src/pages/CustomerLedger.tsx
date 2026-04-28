@@ -81,6 +81,7 @@ interface LedgerEntry {
   paymentMethod?: string
   debit: number
   credit: number
+  refund_amount?: number
   balance: number
 }
 
@@ -298,20 +299,25 @@ export default function CustomerLedger() {
     return new Intl.NumberFormat('en-US').format(amount)
   }
 
-  const totalDebit = ledgerEntries.reduce((sum, entry) => {
+  const sumDebit = ledgerEntries.reduce((sum, entry) => {
     const debit = Number(entry.debit) || 0
     return sum + (isNaN(debit) ? 0 : debit)
   }, 0)
-  const totalCredit = ledgerEntries.reduce((sum, entry) => {
+
+  const sumCredit = ledgerEntries.reduce((sum, entry) => {
     if (entry.type !== 'payment') return sum
     const credit = Number(entry.credit) || 0
     return sum + (isNaN(credit) ? 0 : credit)
   }, 0)
+
   const totalRefund = ledgerEntries.reduce((sum, entry) => {
     if (entry.type !== 'refund') return sum
-    const credit = Number(entry.credit) || 0
-    return sum + (isNaN(credit) ? 0 : credit)
+    const refundAmt = Number(entry.refund_amount) || 0
+    return sum + (isNaN(refundAmt) ? 0 : refundAmt)
   }, 0)
+
+  const totalDebit = sumDebit - totalRefund
+  const totalCredit = sumCredit - totalRefund
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>

@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 
 export interface Summary {
   total_revenue: number;
+  total_service_revenue?: number;
   revenue_by_method?: Record<string, number>;
   total_debits: number;
   total_refunds: number;

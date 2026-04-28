@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,24 @@ export default function LoginPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [hotelSettings, setHotelSettings] = useState({ official_name: 'فندق سيزر', logo_url: '/logo.png' })
+
+  useEffect(() => {
+    const fetchPublicSettings = async () => {
+      try {
+        const { data } = await apiClient.get('/public/settings/hotel')
+        if (data) {
+          setHotelSettings({
+            official_name: data.official_name || 'فندق سيزر',
+            logo_url: data.logo_url || '/logo.png'
+          })
+        }
+      } catch (err) {
+        console.error('Failed to fetch public settings', err)
+      }
+    }
+    fetchPublicSettings()
+  }, [])
 
   const handleInputChange = (field: keyof LoginFormData) => (
     e: React.ChangeEvent<HTMLInputElement>
@@ -86,13 +104,15 @@ export default function LoginPage() {
         <div className="hidden md:flex flex-col justify-between bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-10 lg:p-14">
           <div className="flex items-center justify-center">
             <img 
-              src="/logo.png" 
-              alt="Logo" 
+              src={hotelSettings.logo_url} 
+              alt={hotelSettings.official_name} 
               className="h-32 w-32 lg:h-40 lg:w-40 rounded-xl bg-primary-foreground/20 object-contain p-3 shadow-md"
             />
           </div>
           <div>
-            <div className="text-4xl lg:text-5xl font-extrabold leading-snug mb-4 text-center">فندق سيزر</div>
+            <div className="text-4xl lg:text-5xl font-extrabold leading-snug mb-4 text-center">
+              {hotelSettings.official_name}
+            </div>
             <div className="mt-8 grid grid-cols-2 gap-4 max-w-lg text-center mx-auto">
               <div className="rounded-xl bg-primary-foreground/10 p-4 border border-primary-foreground/10">
                 <div className="text-2xl mb-1">⚡</div>
@@ -126,8 +146,8 @@ export default function LoginPage() {
               <CardHeader className="text-center space-y-4 pb-6">
                 <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg md:w-20 md:h-20 p-2">
                   <img 
-                    src="/logo.png" 
-                    alt="Logo" 
+                    src={hotelSettings.logo_url} 
+                    alt={hotelSettings.official_name} 
                     className="w-full h-full object-contain"
                   />
                 </div>

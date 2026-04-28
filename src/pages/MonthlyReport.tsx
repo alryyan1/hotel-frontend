@@ -32,6 +32,7 @@ interface DailyData {
   revenue_total: number;
   revenue_cash: number;
   revenue_bank: number;
+  service_revenue?: number;
   expense_total: number;
   expense_cash: number;
   expense_bank: number;
@@ -129,18 +130,22 @@ export default function MonthlyReport() {
       revenue_total: acc.revenue_total + day.revenue_total,
       revenue_cash: acc.revenue_cash + day.revenue_cash,
       revenue_bank: acc.revenue_bank + day.revenue_bank,
+      service_revenue: acc.service_revenue + (day.service_revenue || 0),
       expense_total: acc.expense_total + day.expense_total,
       expense_cash: acc.expense_cash + day.expense_cash,
       expense_bank: acc.expense_bank + day.expense_bank,
+      refund_total: acc.refund_total + day.refund_total,
       net: acc.net + day.net,
     }),
     {
       revenue_total: 0,
       revenue_cash: 0,
       revenue_bank: 0,
+      service_revenue: 0,
       expense_total: 0,
       expense_cash: 0,
       expense_bank: 0,
+      refund_total: 0,
       net: 0,
     },
   );
@@ -274,6 +279,9 @@ export default function MonthlyReport() {
                 <TableCell align="center" sx={{ fontWeight: 700 }}>
                   إيرادات بنك
                 </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: "info.main" }}>
+                  إيرادات خدمات
+                </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700, color: "warning.main" }}>
                   الاسترجاع
                 </TableCell>
@@ -303,6 +311,9 @@ export default function MonthlyReport() {
                   </TableCell>
                   <TableCell align="center" color="text.secondary">
                     {formatCurrency(day.revenue_bank)}
+                  </TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600, color: "info.main" }}>
+                    {formatCurrency(day.service_revenue || 0)}
                   </TableCell>
                   <TableCell align="center" sx={{ fontWeight: 600, color: "warning.main" }}>
                     {formatCurrency(day.refund_total)}
@@ -351,6 +362,18 @@ export default function MonthlyReport() {
                   sx={{ color: "white", fontWeight: 600 }}
                 >
                   {formatCurrency(totals.revenue_bank)}
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ color: "white", fontWeight: 700 }}
+                >
+                  {formatCurrency(totals.service_revenue)}
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ color: "white", fontWeight: 700 }}
+                >
+                  {formatCurrency(totals.refund_total)}
                 </TableCell>
                 <TableCell
                   align="center"
