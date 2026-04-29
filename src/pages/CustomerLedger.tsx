@@ -613,7 +613,7 @@ export default function CustomerLedger() {
                   label="طريقة الدفع"
                 >
                   <MenuItem value="cash">نقدي</MenuItem>
-                  <MenuItem value="bankak">بنكاك</MenuItem>
+                  <MenuItem value="bankak">بنكك</MenuItem>
                   <MenuItem value="Ocash">أوكاش</MenuItem>
                   <MenuItem value="fawri">فوري</MenuItem>
                 </Select>

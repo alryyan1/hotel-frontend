@@ -51,7 +51,7 @@ export default function CreatePaymentDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="cash">نقدي</SelectItem>
-                <SelectItem value="bankak">بنكاك</SelectItem>
+                <SelectItem value="bankak">بنكك</SelectItem>
                 <SelectItem value="Ocash">أوكاش</SelectItem>
                 <SelectItem value="fawri">فوري</SelectItem>
               </SelectContent>

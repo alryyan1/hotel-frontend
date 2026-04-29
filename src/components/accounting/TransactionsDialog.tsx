@@ -129,7 +129,7 @@ export default function TransactionsDialog({
             >
               <MenuItem value="">الكل</MenuItem>
               <MenuItem value="cash">نقدي</MenuItem>
-              <MenuItem value="bankak">بنكاك</MenuItem>
+              <MenuItem value="bankak">بنكك</MenuItem>
               <MenuItem value="Ocash">أوكاش</MenuItem>
               <MenuItem value="fawri">فوري</MenuItem>
             </Select>

@@ -142,6 +142,7 @@ export default function ServicesPage() {
                       <TableHead className="text-center font-bold">الغرفة</TableHead>
                       <TableHead className="text-center font-bold">الخدمة</TableHead>
                       <TableHead className="text-center font-bold">المبلغ</TableHead>
+                      <TableHead className="text-center font-bold">طريقة الدفع</TableHead>
                       <TableHead className="text-center font-bold">ملاحظات</TableHead>
                       <TableHead className="text-center font-bold">إجراءات</TableHead>
                     </TableRow>
@@ -184,6 +185,16 @@ export default function ServicesPage() {
                           </TableCell>
                           <TableCell className="text-center font-bold text-emerald-600">
                             {formatCurrency(req.amount)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {req.payment_method ? (
+                              <Badge variant="secondary">
+                                {req.payment_method === 'cash' ? 'نقدي' : 
+                                 req.payment_method === 'bankak' ? 'بنكك' : 
+                                 req.payment_method === 'Ocash' ? 'أوكاش' : 
+                                 req.payment_method === 'fawri' ? 'فوري' : req.payment_method}
+                              </Badge>
+                            ) : '-'}
                           </TableCell>
                           <TableCell className="text-center text-sm text-muted-foreground max-w-xs truncate">
                             {req.notes || '-'}

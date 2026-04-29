@@ -156,7 +156,7 @@ export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string>("/logo.png");
+  const [logoUrl, setLogoUrl] = useState<string>("");
   const [logoError, setLogoError] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -253,7 +253,7 @@ export default function MainLayout() {
               onClick={() => navigate("/")}
               title="الانتقال إلى لوحة التحكم"
             >
-              {!logoError ? (
+              {logoUrl && !logoError ? (
                 <img
                   src={logoUrl}
                   alt="Logo"
@@ -328,7 +328,7 @@ export default function MainLayout() {
                   justifyContent: "center",
                 }}
               >
-                {!logoError ? (
+                {logoUrl && !logoError ? (
                   <img
                     src={logoUrl}
                     alt="Logo"
