@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, LayoutList, Calendar, DollarSign, Home } from 'lucide-react'
+import { Plus, Edit, Trash2, LayoutList, Calendar, Home } from 'lucide-react'
 import apiClient from '../api/axios'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -81,7 +81,7 @@ export default function ServicesPage() {
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('هل أنت متأكد من حذف هذه الخدمة؟')) return
-    
+
     try {
       setLoading(true)
       await apiClient.delete(`/services/${id}`)
@@ -124,7 +124,7 @@ export default function ServicesPage() {
       <Tabs defaultValue="requests" className="w-full" dir="rtl">
         <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto mb-6">
           <TabsTrigger value="requests">الطلبات</TabsTrigger>
-          <TabsTrigger value="categories">أقسام الخدمات</TabsTrigger>
+          <TabsTrigger value="categories">تعريف الخدمات</TabsTrigger>
         </TabsList>
 
         <TabsContent value="requests" className="mt-0">
@@ -183,18 +183,15 @@ export default function ServicesPage() {
                             {req.service?.name || '-'}
                           </TableCell>
                           <TableCell className="text-center font-bold text-emerald-600">
-                            <div className="flex items-center justify-center gap-1">
-                              <DollarSign className="size-3" />
-                              {formatCurrency(req.amount)}
-                            </div>
+                            {formatCurrency(req.amount)}
                           </TableCell>
                           <TableCell className="text-center text-sm text-muted-foreground max-w-xs truncate">
                             {req.notes || '-'}
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button 
-                              variant="destructive" 
-                              size="sm" 
+                            <Button
+                              variant="destructive"
+                              size="sm"
                               onClick={() => handleDeleteReservationService(req.id)}
                               className="h-8 w-8 p-0"
                             >
@@ -215,17 +212,17 @@ export default function ServicesPage() {
           <Card className="border-border/40 shadow-lg">
             <CardContent className="pt-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold">أنواع وأقسام الخدمات</h3>
+
                 <Button onClick={() => {
                   setEditingService(null)
                   setFormName('')
                   setOpenDialog(true)
                 }}>
                   <Plus className="size-4 mr-2" />
-                  إضافة قسم خدمة
+                  إضافة خدمة
                 </Button>
               </div>
-              
+
               <div className="overflow-x-auto rounded-lg border border-border/40">
                 <Table>
                   <TableHeader>
@@ -287,10 +284,10 @@ export default function ServicesPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label className="text-sm font-medium">اسم الخدمة *</Label>
-              <Input 
-                value={formName} 
-                onChange={(e) => setFormName(e.target.value)} 
-                required 
+              <Input
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+                required
                 className="h-11 mt-1"
                 placeholder="مثال: خدمة الغرف"
               />

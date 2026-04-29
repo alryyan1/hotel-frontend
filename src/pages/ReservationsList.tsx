@@ -128,6 +128,10 @@ export default function ReservationsList() {
   const [availableServices, setAvailableServices] = useState<any[]>([])
   const [serviceForm, setServiceForm] = useState({ room_id: '', service_id: '', amount: '', notes: '' })
   const [serviceLoading, setServiceLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
 
   // Fetch customers and services list
   useEffect(() => {
@@ -159,10 +163,10 @@ export default function ReservationsList() {
     fetchServicesList()
   }, [])
 
-  // Fetch immediately for status, date, and customer filters
+  // Fetch immediately for status, date, customer filters, and pagination
   useEffect(() => {
     fetchReservations()
-  }, [statusFilter, createdAtFilter, selectedCustomer])
+  }, [statusFilter, createdAtFilter, selectedCustomer, currentPage, perPage])
 
   const fetchReservations = async () => {
     try {
@@ -182,8 +186,14 @@ export default function ReservationsList() {
         params.customer_id = selectedCustomer.id
       }
       
+      params.page = currentPage
+      params.per_page = perPage
+      
       const { data } = await apiClient.get('/reservations', { params })
-      setReservations(data.data || data)
+      const reservationsData = data.data || []
+      setReservations(reservationsData)
+      setTotalPages(data.last_page || 1)
+      setTotalItems(data.total || 0)
     } catch (e) {
       console.error('Failed to fetch reservations', e)
       toast.error('فشل في جلب الحجوزات')
@@ -493,75 +503,102 @@ export default function ReservationsList() {
   }
 
   const getActionButtons = (reservation: Reservation) => {
-    const buttons = []
-    const isLoading = actionLoading[reservation.id] !== undefined
-    const currentAction = actionLoading[reservation.id]
-    
-    if (reservation.status === 'pending') {
+    const buttons = [];
+    const isLoading = actionLoading[reservation.id] !== undefined;
+    const currentAction = actionLoading[reservation.id];
+
+    const commonSx = {
+      py: 0.5,
+      px: 1,
+      minWidth: "auto",
+      fontSize: "0.75rem",
+      fontWeight: 600,
+      whiteSpace: "nowrap",
+    };
+
+    if (reservation.status === "pending") {
       buttons.push(
         <Button
           key="confirm"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'confirm', true)}
+          onClick={() => handleAction(reservation, "confirm", true)}
           disabled={isLoading}
           color="info"
-          startIcon={isLoading && currentAction === 'confirm' ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            isLoading && currentAction === "confirm" ? (
+              <CircularProgress size={14} />
+            ) : undefined
+          }
+          sx={commonSx}
         >
           تأكيد
-        </Button>
-      )
+        </Button>,
+      );
     }
-    
-    if (reservation.status === 'confirmed') {
+
+    if (reservation.status === "confirmed") {
       buttons.push(
         <Button
           key="checkin"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'checkin', true)}
+          onClick={() => handleAction(reservation, "checkin", true)}
           disabled={isLoading}
           color="success"
-          startIcon={isLoading && currentAction === 'checkin' ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            isLoading && currentAction === "checkin" ? (
+              <CircularProgress size={14} />
+            ) : undefined
+          }
+          sx={commonSx}
         >
           تسجيل الوصول
-        </Button>
-      )
+        </Button>,
+      );
     }
-    
-    if (reservation.status === 'checked_in') {
+
+    if (reservation.status === "checked_in") {
       buttons.push(
         <Button
           key="checkout"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'checkout', false)}
+          onClick={() => handleAction(reservation, "checkout", false)}
           disabled={isLoading}
           color="inherit"
-          startIcon={isLoading && currentAction === 'checkout' ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            isLoading && currentAction === "checkout" ? (
+              <CircularProgress size={14} />
+            ) : undefined
+          }
+          sx={commonSx}
         >
           تسجيل المغادرة
-        </Button>
-      )
+        </Button>,
+      );
     }
-    if (['confirmed', 'checked_in'].includes(reservation.status)) {
+    if (["confirmed", "checked_in"].includes(reservation.status)) {
       buttons.push(
         <Button
           key="extend"
           size="small"
           variant="outlined"
           onClick={() => {
-            setSelectedReservation(reservation)
-            setNewCheckOutDate(dayjs(reservation.check_out_date).add(1, 'day').format('YYYY-MM-DD'))
-            setOpenExtend(true)
+            setSelectedReservation(reservation);
+            setNewCheckOutDate(
+              dayjs(reservation.check_out_date).add(1, "day").format("YYYY-MM-DD"),
+            );
+            setOpenExtend(true);
           }}
           disabled={isLoading}
           color="secondary"
-          startIcon={<CalendarIcon />}
+          startIcon={<CalendarIcon sx={{ fontSize: "1rem !important" }} />}
+          sx={commonSx}
         >
           تمديد
-        </Button>
-      )
+        </Button>,
+      );
 
       buttons.push(
         <Button
@@ -569,41 +606,47 @@ export default function ReservationsList() {
           size="small"
           variant="outlined"
           onClick={() => {
-            setSelectedReservation(reservation)
-            setServiceForm({ 
-              room_id: reservation.rooms?.[0]?.id?.toString() || '', 
-              service_id: '', 
-              amount: '', 
-              notes: '' 
-            })
-            setOpenService(true)
+            setSelectedReservation(reservation);
+            setServiceForm({
+              room_id: reservation.rooms?.[0]?.id?.toString() || "",
+              service_id: "",
+              amount: "",
+              notes: "",
+            });
+            setOpenService(true);
           }}
           disabled={isLoading}
           color="primary"
-          startIcon={<RoomServiceIcon />}
+          startIcon={<RoomServiceIcon sx={{ fontSize: "1rem !important" }} />}
+          sx={commonSx}
         >
           إضافة خدمة
-        </Button>
-      )
+        </Button>,
+      );
     }
-    
-    if (!['checked_in', 'checked_out'].includes(reservation.status)) {
+
+    if (!["checked_in", "checked_out"].includes(reservation.status)) {
       buttons.push(
         <Button
           key="cancel"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'cancel', false)}
+          onClick={() => handleAction(reservation, "cancel", false)}
           disabled={isLoading}
           color="error"
-          startIcon={isLoading && currentAction === 'cancel' ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            isLoading && currentAction === "cancel" ? (
+              <CircularProgress size={14} />
+            ) : undefined
+          }
+          sx={commonSx}
         >
           إلغاء
-        </Button>
-      )
+        </Button>,
+      );
     }
-    
-    return buttons
+
+    return buttons;
   }
 
   const handleExtend = async () => {
@@ -912,6 +955,74 @@ export default function ReservationsList() {
                 </TableBody>
               </Table>
             </TableContainer>
+          )}
+
+          {!loading && reservations.length > 0 && (
+            <Box
+              sx={{
+                mt: 3,
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="body2" color="text.secondary">
+                  عرض:
+                </Typography>
+                <FormControl size="small" sx={{ minWidth: 80 }}>
+                  <Select
+                    value={perPage}
+                    onChange={(e) => {
+                      setPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <MenuItem value={10}>10</MenuItem>
+                    <MenuItem value={20}>20</MenuItem>
+                    <MenuItem value={50}>50</MenuItem>
+                    <MenuItem value={100}>100</MenuItem>
+                  </Select>
+                </FormControl>
+                <Typography variant="body2" color="text.secondary">
+                  من {totalItems} حجز
+                </Typography>
+              </Stack>
+
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={currentPage === 1 || loading}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                >
+                  السابق
+                </Button>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    px: 2,
+                    borderRadius: 1,
+                    bgcolor: "action.hover",
+                  }}
+                >
+                  <Typography variant="body2" fontWeight="bold">
+                    صفحة {currentPage} من {totalPages}
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={currentPage === totalPages || loading}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                >
+                  التالي
+                </Button>
+              </Stack>
+            </Box>
           )}
         </CardContent>
       </Card>

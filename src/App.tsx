@@ -33,6 +33,7 @@ import ServicesPage from "./pages/ServicesPage";
 import MainLayout from "./layouts/MainLayout";
 import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import DynamicSettings from "./components/DynamicSettings";
 
 // Create RTL cache
 const cacheRtl = createCache({
@@ -115,6 +116,7 @@ function App() {
         <CssBaseline />
         <BrowserRouter>
           <AuthProvider>
+            <DynamicSettings />
             <AppRoutes />
             <Toaster />
           </AuthProvider>

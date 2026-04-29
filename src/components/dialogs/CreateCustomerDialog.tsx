@@ -16,7 +16,9 @@ import {
   Stack,
   IconButton,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material'
 import {
   Person as PersonIcon,
@@ -26,7 +28,9 @@ import {
   CalendarToday as CalendarIcon,
   Wc as GenderIcon,
   Close as CloseIcon,
-  Save as SaveIcon
+  Save as SaveIcon,
+  Business as CompanyIcon,
+  PersonOutline as IndividualIcon
 } from '@mui/icons-material'
 
 interface CreateCustomerDialogProps {
@@ -39,6 +43,7 @@ interface CreateCustomerDialogProps {
     address: string
     date_of_birth: string
     gender: string
+    type: string
   }
   onCustomerFormChange: (form: {
     name: string
@@ -47,6 +52,7 @@ interface CreateCustomerDialogProps {
     address: string
     date_of_birth: string
     gender: string
+    type: string
   }) => void
   onCreateCustomer: () => void
   loading: boolean
@@ -137,7 +143,7 @@ export default function CreateCustomerDialog({
         </Typography>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Personal Information Section */}
+          {/* Base Selection Section */}
           <Box>
             <Typography 
               variant="subtitle2" 
@@ -150,50 +156,86 @@ export default function CreateCustomerDialog({
                 letterSpacing: '0.5px'
               }}
             >
-              المعلومات الشخصية
-            </Typography>
-            <TextField
-              label="الاسم الكامل"
-              value={customerForm.name}
-              onChange={(e) => onCustomerFormChange({ ...customerForm, name: e.target.value })}
-              fullWidth
-              required
-              size="medium"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  '&:hover fieldset': {
-                    borderColor: 'primary.main',
-                  },
-                },
-              }}
-            />
-          </Box>
-
-
-          {/* Contact Information Section */}
-          <Box>
-            <Typography 
-              variant="subtitle2" 
-              sx={{ 
-                fontWeight: 'bold', 
-                mb: 2,
-                color: 'primary.main',
-                fontSize: '0.875rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}
-            >
-              معلومات الاتصال
+              فئة العميل
             </Typography>
             <Stack direction="row" spacing={2}>
+              <ToggleButtonGroup
+                value={customerForm.type}
+                exclusive
+                onChange={(_, newValue) => {
+                  if (newValue !== null) {
+                    onCustomerFormChange({ ...customerForm, type: newValue });
+                  }
+                }}
+                fullWidth
+                sx={{
+                  '& .MuiToggleButton-root': {
+                    borderRadius: '12px',
+                    py: 1,
+                    '&.Mui-selected': {
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)',
+                      }
+                    }
+                  }
+                }}
+              >
+                <ToggleButton value="individual">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <IndividualIcon />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>عميل عادي</Typography>
+                  </Stack>
+                </ToggleButton>
+                <ToggleButton value="company">
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <CompanyIcon />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>شركة</Typography>
+                  </Stack>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+          </Box>
+
+          {/* Main Information Section */}
+          <Box>
+            <Typography 
+              variant="subtitle2" 
+              sx={{ 
+                fontWeight: 'bold', 
+                mb: 2,
+                color: 'primary.main',
+                fontSize: '0.875rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}
+            >
+              {customerForm.type === 'company' ? 'بيانات الشركة' : 'المعلومات الشخصية'}
+            </Typography>
+            <Stack spacing={2}>
+              <TextField
+                label={customerForm.type === 'company' ? 'اسم الشركة' : 'الاسم الكامل'}
+                value={customerForm.name}
+                onChange={(e) => onCustomerFormChange({ ...customerForm, name: e.target.value })}
+                fullWidth
+                required
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      {customerForm.type === 'company' ? <CompanyIcon sx={{ color: 'text.secondary', fontSize: 20 }} /> : <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />}
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                  },
+                }}
+              />
+              
+              <Stack direction="row" spacing={2}>
                 <TextField
                   label="رقم الهاتف"
                   value={customerForm.phone}
@@ -214,7 +256,7 @@ export default function CreateCustomerDialog({
                   }}
                 />
                 <TextField
-                  label="الرقم الوطني"
+                  label={customerForm.type === 'company' ? 'رقم السجل التجاري' : 'الرقم الوطني'}
                   value={customerForm.national_id}
                   onChange={(e) => onCustomerFormChange({ ...customerForm, national_id: e.target.value })}
                   fullWidth
@@ -232,117 +274,136 @@ export default function CreateCustomerDialog({
                     },
                   }}
                 />
-            </Stack>
-          </Box>
+              </Stack>
 
-
-          {/* Address Section */}
-          {/* <Box>
-            <Typography 
-              variant="subtitle2" 
-              sx={{ 
-                fontWeight: 'bold', 
-                mb: 2,
-                color: 'primary.main',
-                fontSize: '0.875rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}
-            >
-              العنوان
-            </Typography>
-            <TextField
-              label="العنوان الكامل"
-              value={customerForm.address}
-              onChange={(e) => onCustomerFormChange({ ...customerForm, address: e.target.value })}
-              fullWidth
-              multiline
-              rows={3}
-              size="medium"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                    <HomeIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                },
-              }}
-            />
-          </Box> */}
-
-
-          {/* Additional Information Section */}
-          <Box>
-            <Typography 
-              variant="subtitle2" 
-              sx={{ 
-                fontWeight: 'bold', 
-                mb: 2,
-                color: 'primary.main',
-                fontSize: '0.875rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}
-            >
-              معلومات إضافية
-            </Typography>
-            <Stack direction="row" spacing={2}>
+              {customerForm.type === 'company' && (
                 <TextField
-                  label="تاريخ الميلاد"
-                  type="date"
-                  value={customerForm.date_of_birth}
-                  onChange={(e) => onCustomerFormChange({ ...customerForm, date_of_birth: e.target.value })}
+                  label="البريد الالكتروني"
+                  type="email"
+                  value={customerForm.email}
+                  onChange={(e) => onCustomerFormChange({ ...customerForm, email: e.target.value })}
                   fullWidth
                   size="medium"
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <CalendarIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '12px',
                     },
                   }}
                 />
-                <FormControl fullWidth size="medium">
-                  <InputLabel>النوع</InputLabel>
-                  <Select
-                    value={customerForm.gender}
-                    onChange={(e) => onCustomerFormChange({ ...customerForm, gender: e.target.value as string })}
-                    label="النوع"
+              )}
+            </Stack>
+          </Box>
+
+          {/* Address Section */}
+          {customerForm.type === 'company' && (
+            <Box>
+              <Typography 
+                variant="subtitle2" 
+                sx={{ 
+                  fontWeight: 'bold', 
+                  mb: 2,
+                  color: 'primary.main',
+                  fontSize: '0.875rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                العنوان
+              </Typography>
+              <TextField
+                label="العنوان الكامل"
+                value={customerForm.address}
+                onChange={(e) => onCustomerFormChange({ ...customerForm, address: e.target.value })}
+                fullWidth
+                multiline
+                rows={3}
+                size="medium"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
+                      <HomeIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                  },
+                }}
+              />
+            </Box>
+          )}
+
+          {/* Individual Specific Section */}
+          {customerForm.type === 'individual' && (
+            <Box>
+              <Typography 
+                variant="subtitle2" 
+                sx={{ 
+                  fontWeight: 'bold', 
+                  mb: 2,
+                  color: 'primary.main',
+                  fontSize: '0.875rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                معلومات إضافية
+              </Typography>
+              <Stack direction="row" spacing={2}>
+                  <TextField
+                    label="تاريخ الميلاد"
+                    type="date"
+                    value={customerForm.date_of_birth}
+                    onChange={(e) => onCustomerFormChange({ ...customerForm, date_of_birth: e.target.value })}
+                    fullWidth
+                    size="medium"
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <CalendarIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    }}
                     sx={{
-                      borderRadius: '12px',
-                      '& .MuiOutlinedInput-notchedOutline': {
+                      '& .MuiOutlinedInput-root': {
                         borderRadius: '12px',
                       },
                     }}
-                  >
-                    <MenuItem value="male">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <GenderIcon sx={{ fontSize: 18 }} />
-                        <span>ذكر</span>
-                      </Box>
-                    </MenuItem>
-                    <MenuItem value="female">
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <GenderIcon sx={{ fontSize: 18 }} />
-                        <span>أنثى</span>
-                      </Box>
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-            </Stack>
-          </Box>
+                  />
+                  <FormControl fullWidth size="medium">
+                    <InputLabel>النوع</InputLabel>
+                    <Select
+                      value={customerForm.gender}
+                      onChange={(e) => onCustomerFormChange({ ...customerForm, gender: e.target.value as string })}
+                      label="النوع"
+                      sx={{
+                        borderRadius: '12px',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderRadius: '12px',
+                        },
+                      }}
+                    >
+                      <MenuItem value="male">
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <GenderIcon sx={{ fontSize: 18 }} />
+                          <span>ذكر</span>
+                        </Box>
+                      </MenuItem>
+                      <MenuItem value="female">
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <GenderIcon sx={{ fontSize: 18 }} />
+                          <span>أنثى</span>
+                        </Box>
+                      </MenuItem>
+                    </Select>
+                  </FormControl>
+              </Stack>
+            </Box>
+          )}
         </Box>
       </DialogContent>
       

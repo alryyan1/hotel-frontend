@@ -23,7 +23,7 @@ export default function LoginPage() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [hotelSettings, setHotelSettings] = useState({ official_name: 'فندق سيزر', logo_url: '/logo.png' })
+  const [hotelSettings, setHotelSettings] = useState<{ official_name: string, logo_url: string | null }>({ official_name: '', logo_url: null })
 
   useEffect(() => {
     const fetchPublicSettings = async () => {
@@ -31,8 +31,8 @@ export default function LoginPage() {
         const { data } = await apiClient.get('/public/settings/hotel')
         if (data) {
           setHotelSettings({
-            official_name: data.official_name || 'فندق سيزر',
-            logo_url: data.logo_url || '/logo.png'
+            official_name: data.official_name || '',
+            logo_url: data.logo_url || null
           })
         }
       } catch (err) {
@@ -102,12 +102,14 @@ export default function LoginPage() {
       <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 h-full">
         {/* Left brand/hero - hidden on mobile */}
         <div className="hidden md:flex flex-col justify-between bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-10 lg:p-14">
-          <div className="flex items-center justify-center">
-            <img 
-              src={hotelSettings.logo_url} 
-              alt={hotelSettings.official_name} 
-              className="h-32 w-32 lg:h-40 lg:w-40 rounded-xl bg-primary-foreground/20 object-contain p-3 shadow-md"
-            />
+          <div className="flex items-center justify-center min-h-[160px]">
+            {hotelSettings.logo_url && (
+              <img 
+                src={hotelSettings.logo_url} 
+                alt={hotelSettings.official_name} 
+                className="h-32 w-32 lg:h-40 lg:w-40 rounded-xl bg-primary-foreground/20 object-contain p-3 shadow-md"
+              />
+            )}
           </div>
           <div>
             <div className="text-4xl lg:text-5xl font-extrabold leading-snug mb-4 text-center">
@@ -145,11 +147,13 @@ export default function LoginPage() {
             <Card className="border-border/40 shadow-2xl backdrop-blur-xl bg-card/95">
               <CardHeader className="text-center space-y-4 pb-6">
                 <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg md:w-20 md:h-20 p-2">
-                  <img 
-                    src={hotelSettings.logo_url} 
-                    alt={hotelSettings.official_name} 
-                    className="w-full h-full object-contain"
-                  />
+                  {hotelSettings.logo_url && (
+                    <img 
+                      src={hotelSettings.logo_url} 
+                      alt={hotelSettings.official_name} 
+                      className="w-full h-full object-contain"
+                    />
+                  )}
                 </div>
                 <div>
                   <CardTitle className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">

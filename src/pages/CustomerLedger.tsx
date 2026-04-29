@@ -36,6 +36,7 @@ import {
   Download as DownloadIcon,
   AttachMoney as DollarSignIcon,
   Undo as UndoIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { toast } from 'sonner'
 import dayjs from 'dayjs'
@@ -68,6 +69,8 @@ interface Customer {
   phone?: string
   national_id?: string
   address?: string
+  type?: 'individual' | 'company'
+  document_path?: string
 }
 
 interface LedgerEntry {
@@ -341,6 +344,20 @@ export default function CustomerLedger() {
             >
               عرض PDF
             </Button>
+            {customer.type === 'company' && customer.document_path && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<PrintIcon />}
+                onClick={() => {
+                  const url = `${apiClient.defaults.baseURL?.replace('/api', '')}/storage/${customer.document_path}`
+                  window.open(url, '_blank')
+                }}
+                sx={{ boxShadow: 2 }}
+              >
+                طباعة المستند
+              </Button>
+            )}
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -386,7 +403,7 @@ export default function CustomerLedger() {
               {customer.national_id && (
                 <Grid size={{ xs: 12, md: 3 }}>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    الرقم الوطني
+                    {customer.type === 'company' ? 'رقم السجل التجاري' : 'الرقم الوطني'}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: 600 }}>
                     {customer.national_id}
