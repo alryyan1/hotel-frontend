@@ -5,8 +5,12 @@ import dayjs from "dayjs";
 
 export interface Summary {
   total_revenue: number;
+  total_service_revenue?: number;
   revenue_by_method?: Record<string, number>;
+  services_by_method?: Record<string, number>;
   total_debits: number;
+  total_refunds: number;
+  refunds_by_method?: Record<string, number>;
   total_expenses: number;
   expenses_by_method?: Record<string, number>;
   net_profit: number;
@@ -18,7 +22,7 @@ export interface Transaction {
   id: number;
   customer_id: number;
   reservation_id?: number;
-  type: "debit" | "credit";
+  type: "debit" | "credit" | "refund";
   amount: number;
   currency: string;
   method?: "cash" | "bankak" | "Ocash" | "fawri";
@@ -225,6 +229,44 @@ export function useAccounting() {
     }
   };
 
+  const handleExportNetPdf = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (dateFrom) params.append("date_from", dateFrom);
+      if (dateTo) params.append("date_to", dateTo);
+
+      const response = await apiClient.get(
+        `/accounting/net-breakdown/pdf?${params.toString()}`,
+        {
+          responseType: "blob",
+        },
+      );
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const newWindow = window.open(url, "_blank");
+
+      if (!newWindow) {
+        toast.error("يرجى السماح بالنوافذ المنبثقة لعرض PDF");
+        window.URL.revokeObjectURL(url);
+        return;
+      }
+
+      newWindow.addEventListener("load", () => {
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 1000);
+      });
+
+      toast.success("تم فتح تقرير الصافي في نافذة جديدة");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "فشل في تصدير PDF الصافي");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const deleteTransaction = async (id: number) => {
     if (!window.confirm("هل أنت متأكد من حذف هذه العملية؟")) return;
 
@@ -282,6 +324,7 @@ export function useAccounting() {
     balancesTotalPages,
     handleExportPdf,
     handleExportExcel,
+    handleExportNetPdf,
     deleteTransaction,
     updateTransaction,
     refreshAll: () => {

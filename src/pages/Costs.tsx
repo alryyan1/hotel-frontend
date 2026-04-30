@@ -357,8 +357,10 @@ export default function Costs() {
 
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
-      case 'cash': return 'نقد'
-      case 'bankak': return 'بنك'
+      case 'cash': return 'نقداً'
+      case 'bankak': return 'بنكك'
+      case 'Ocash': return 'أوكاش'
+      case 'fawri': return 'فوري'
       default: return method
     }
   }
@@ -813,8 +815,10 @@ export default function Costs() {
                 label="طريقة الدفع"
               >
                 <MenuItem value="">اختر طريقة الدفع</MenuItem>
-                <MenuItem value="cash">نقد</MenuItem>
-                <MenuItem value="bankak">بنك</MenuItem>
+                <MenuItem value="cash">نقداً</MenuItem>
+                <MenuItem value="bankak">بنكك</MenuItem>
+                <MenuItem value="Ocash">أوكاش</MenuItem>
+                <MenuItem value="fawri">فوري</MenuItem>
               </Select>
             </FormControl>
             <TextField

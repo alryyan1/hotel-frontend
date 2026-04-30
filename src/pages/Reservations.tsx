@@ -280,6 +280,9 @@ export default function Reservations() {
                   onChange={(e) => setCheckIn(e.target.value)}
                   fullWidth
                   size="small"
+                  inputProps={{
+                    min: getDateNDaysFromToday(0)
+                  }}
                   InputLabelProps={{
                     shrink: true,
                   }}
@@ -310,6 +313,9 @@ export default function Reservations() {
                   }}
                   fullWidth
                   size="small"
+                  inputProps={{
+                    min: checkIn || getDateNDaysFromToday(0)
+                  }}
                   InputLabelProps={{
                     shrink: true,
                   }}
@@ -396,20 +402,6 @@ export default function Reservations() {
                   <Typography variant="h6" sx={{ fontWeight: "bold" }}>
                     جميع الغرف ({allRooms.length})
                   </Typography>
-                  <Button
-                    variant="contained"
-                    onClick={openCreateDialog}
-                    disabled={selectedRooms.length === 0}
-                    startIcon={<AddIcon />}
-                    sx={{
-                      boxShadow: 2,
-                      ...(selectedRooms.length > 0 && {
-                        animation: "heartbeat 1.5s ease-in-out infinite",
-                      }),
-                    }}
-                  >
-                    إنشاء حجز ({selectedRooms.length})
-                  </Button>
                 </Stack>
                 <Grid container spacing={2} sx={{ p: 1 }}>
                   {allRooms.map((room: any) => {
@@ -440,9 +432,7 @@ export default function Reservations() {
                               : isOccupied
                               ? ""
                               : "divider",
-                            bgcolor: isSelected
-                              ? "primary.light"
-                              : isOccupied
+                            bgcolor: isOccupied
                               ? ""
                               : "background.paper",
                             p: 2,
@@ -596,6 +586,7 @@ export default function Reservations() {
                             spacing={0.5}
                             flexWrap="wrap"
                             gap={0.5}
+                            sx={{ mb: isSelected ? 2 : 0 }}
                           >
                             <Chip
                               label={`${room.type?.capacity} ضيوف`}
@@ -624,6 +615,31 @@ export default function Reservations() {
                                   />
                                 ))}
                           </Stack>
+
+                          {/* Action Button inside Selected Room */}
+                          {isSelected && (
+                            <Button
+                              variant="contained"
+                              fullWidth
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openCreateDialog();
+                              }}
+                              startIcon={<AddIcon />}
+                              sx={{
+                                mt: 1,
+                                py: 0.5,
+                                fontSize: "0.85rem",
+                                fontWeight: "bold",
+                                borderRadius: 1.5,
+                                boxShadow: 2,
+                                animation: "heartbeat 1.5s ease-in-out infinite",
+                              }}
+                            >
+                              إتمام الحجز
+                            </Button>
+                          )}
                         </Box>
                       </Grid>
                     );

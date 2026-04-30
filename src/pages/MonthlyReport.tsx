@@ -16,22 +16,27 @@ import {
   Stack,
   CircularProgress,
   IconButton,
+  Button,
 } from "@mui/material";
 import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Print as PrintIcon,
 } from "@mui/icons-material";
 import apiClient from "../api/axios";
 import dayjs from "dayjs";
+import { toast } from "sonner";
 
 interface DailyData {
   date: string;
   revenue_total: number;
   revenue_cash: number;
   revenue_bank: number;
+  service_revenue?: number;
   expense_total: number;
   expense_cash: number;
   expense_bank: number;
+  refund_total: number;
   net: number;
 }
 
@@ -81,23 +86,66 @@ export default function MonthlyReport() {
     }
   };
 
+  const handlePrintPdf = async () => {
+    const token = localStorage.getItem('token');
+    const url = `${apiClient.defaults.baseURL}/accounting/monthly-report/pdf?year=${year}&month=${month}`;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`خطأ في الطلب: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `monthly_report_${year}_${month}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+      }, 100);
+      
+      toast.success("تم بدء تحميل التقرير");
+    } catch (error: any) {
+      console.error("Failed to export PDF", error);
+      toast.error(`فشل تصدير PDF: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const totals = report.reduce(
     (acc, day) => ({
       revenue_total: acc.revenue_total + day.revenue_total,
       revenue_cash: acc.revenue_cash + day.revenue_cash,
       revenue_bank: acc.revenue_bank + day.revenue_bank,
+      service_revenue: acc.service_revenue + (day.service_revenue || 0),
       expense_total: acc.expense_total + day.expense_total,
       expense_cash: acc.expense_cash + day.expense_cash,
       expense_bank: acc.expense_bank + day.expense_bank,
+      refund_total: acc.refund_total + day.refund_total,
       net: acc.net + day.net,
     }),
     {
       revenue_total: 0,
       revenue_cash: 0,
       revenue_bank: 0,
+      service_revenue: 0,
       expense_total: 0,
       expense_cash: 0,
       expense_bank: 0,
+      refund_total: 0,
       net: 0,
     },
   );
@@ -155,6 +203,15 @@ export default function MonthlyReport() {
           </Box>
 
           <Stack direction="row" alignItems="center" spacing={2}>
+            <Button
+              variant="contained"
+              startIcon={<PrintIcon />}
+              onClick={handlePrintPdf}
+              sx={{ borderRadius: 2, px: 3, mr: 2 }}
+            >
+              طباعة PDF
+            </Button>
+
             <IconButton onClick={handleNextMonth}>
               <ChevronRightIcon />
             </IconButton>
@@ -213,10 +270,7 @@ export default function MonthlyReport() {
             <TableHead>
               <TableRow sx={{ bgcolor: "grey.50" }}>
                 <TableCell sx={{ fontWeight: 700 }}>التاريخ</TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 700, color: "primary.main" }}
-                >
+                <TableCell align="center" sx={{ fontWeight: 700, color: "primary.main" }}>
                   إجمالي الإيرادات
                 </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>
@@ -225,10 +279,13 @@ export default function MonthlyReport() {
                 <TableCell align="center" sx={{ fontWeight: 700 }}>
                   إيرادات بنك
                 </TableCell>
-                <TableCell
-                  align="center"
-                  sx={{ fontWeight: 700, color: "error.main" }}
-                >
+                <TableCell align="center" sx={{ fontWeight: 700, color: "info.main" }}>
+                  إيرادات خدمات
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: "warning.main" }}>
+                  الاسترجاع
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: "error.main" }}>
                   إجمالي المصروفات
                 </TableCell>
                 <TableCell align="center" sx={{ fontWeight: 700 }}>
@@ -254,6 +311,12 @@ export default function MonthlyReport() {
                   </TableCell>
                   <TableCell align="center" color="text.secondary">
                     {formatCurrency(day.revenue_bank)}
+                  </TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600, color: "info.main" }}>
+                    {formatCurrency(day.service_revenue || 0)}
+                  </TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 600, color: "warning.main" }}>
+                    {formatCurrency(day.refund_total)}
                   </TableCell>
                   <TableCell
                     align="center"
@@ -299,6 +362,18 @@ export default function MonthlyReport() {
                   sx={{ color: "white", fontWeight: 600 }}
                 >
                   {formatCurrency(totals.revenue_bank)}
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ color: "white", fontWeight: 700 }}
+                >
+                  {formatCurrency(totals.service_revenue)}
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{ color: "white", fontWeight: 700 }}
+                >
+                  {formatCurrency(totals.refund_total)}
                 </TableCell>
                 <TableCell
                   align="center"

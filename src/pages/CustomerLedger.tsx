@@ -35,6 +35,8 @@ import {
   Add as AddIcon,
   Download as DownloadIcon,
   AttachMoney as DollarSignIcon,
+  Undo as UndoIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material'
 import { toast } from 'sonner'
 import dayjs from 'dayjs'
@@ -67,12 +69,14 @@ interface Customer {
   phone?: string
   national_id?: string
   address?: string
+  type?: 'individual' | 'company'
+  document_path?: string
 }
 
 interface LedgerEntry {
   id: number
   reservation_id?: number
-  type: 'reservation' | 'payment'
+  type: 'reservation' | 'payment' | 'refund'
   date: string
   description: string
   rooms?: string
@@ -80,6 +84,7 @@ interface LedgerEntry {
   paymentMethod?: string
   debit: number
   credit: number
+  refund_amount?: number
   balance: number
 }
 
@@ -297,14 +302,25 @@ export default function CustomerLedger() {
     return new Intl.NumberFormat('en-US').format(amount)
   }
 
-  const totalDebit = ledgerEntries.reduce((sum, entry) => {
+  const sumDebit = ledgerEntries.reduce((sum, entry) => {
     const debit = Number(entry.debit) || 0
     return sum + (isNaN(debit) ? 0 : debit)
   }, 0)
-  const totalCredit = ledgerEntries.reduce((sum, entry) => {
+
+  const sumCredit = ledgerEntries.reduce((sum, entry) => {
+    if (entry.type !== 'payment') return sum
     const credit = Number(entry.credit) || 0
     return sum + (isNaN(credit) ? 0 : credit)
   }, 0)
+
+  const totalRefund = ledgerEntries.reduce((sum, entry) => {
+    if (entry.type !== 'refund') return sum
+    const refundAmt = Number(entry.refund_amount) || 0
+    return sum + (isNaN(refundAmt) ? 0 : refundAmt)
+  }, 0)
+
+  const totalDebit = sumDebit - totalRefund
+  const totalCredit = sumCredit - totalRefund
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
@@ -328,6 +344,20 @@ export default function CustomerLedger() {
             >
               عرض PDF
             </Button>
+            {customer.type === 'company' && customer.document_path && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<PrintIcon />}
+                onClick={() => {
+                  const url = `${apiClient.defaults.baseURL?.replace('/api', '')}/storage/${customer.document_path}`
+                  window.open(url, '_blank')
+                }}
+                sx={{ boxShadow: 2 }}
+              >
+                طباعة المستند
+              </Button>
+            )}
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -373,7 +403,7 @@ export default function CustomerLedger() {
               {customer.national_id && (
                 <Grid size={{ xs: 12, md: 3 }}>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                    الرقم الوطني
+                    {customer.type === 'company' ? 'رقم السجل التجاري' : 'الرقم الوطني'}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: 600 }}>
                     {customer.national_id}
@@ -434,12 +464,15 @@ export default function CustomerLedger() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {ledgerEntries.map((entry, index) => (
-                    <TableRow key={`${entry.type}-${entry.id}`}>
+                  {ledgerEntries.map((entry) => (
+                    <TableRow
+                      key={`${entry.type}-${entry.id}`}
+                      sx={entry.type === 'refund' ? { bgcolor: 'warning.50', borderLeft: '4px solid', borderColor: 'warning.main' } : {}}
+                    >
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
-                          {entry.date}
+                        {entry.date}
                       </TableCell>
-                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center" >
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.type === 'reservation' && entry.reservation_id ? (
                           <Typography
                             component="span"
@@ -448,10 +481,7 @@ export default function CustomerLedger() {
                               cursor: 'pointer',
                               color: 'primary.main',
                               textDecoration: 'underline',
-                              '&:hover': {
-                                color: 'primary.dark',
-                                textDecoration: 'underline',
-                              },
+                              '&:hover': { color: 'primary.dark' },
                             }}
                           >
                             {entry.description}
@@ -464,12 +494,17 @@ export default function CustomerLedger() {
                               cursor: 'pointer',
                               color: 'primary.main',
                               textDecoration: 'underline',
-                              '&:hover': {
-                                color: 'primary.dark',
-                                textDecoration: 'underline',
-                              },
+                              '&:hover': { color: 'primary.dark' },
                             }}
                           >
+                            {entry.description}
+                          </Typography>
+                        ) : entry.type === 'refund' ? (
+                          <Typography
+                            component="span"
+                            sx={{ color: 'warning.dark', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}
+                          >
+                            <UndoIcon sx={{ fontSize: 16 }} />
                             {entry.description}
                           </Typography>
                         ) : (
@@ -479,6 +514,14 @@ export default function CustomerLedger() {
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.type === 'reservation' ? (
                           <Chip label={entry.rooms} variant="outlined" size="small" />
+                        ) : entry.type === 'refund' ? (
+                          <Chip
+                            icon={<UndoIcon sx={{ fontSize: 14 }} />}
+                            label="مسترجع"
+                            color="warning"
+                            size="small"
+                            variant="outlined"
+                          />
                         ) : (
                           <Chip
                             icon={<CreditCardIcon sx={{ fontSize: 14 }} />}
@@ -491,28 +534,50 @@ export default function CustomerLedger() {
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.days || '-'}
                       </TableCell>
-                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center"  color="success.main">
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
                       </TableCell>
-                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center"  color="error.main">
+                      <TableCell
+                        className='text-2xl'
+                        sx={{
+                          fontSize: '1.4rem',
+                          color: entry.type === 'refund' ? 'warning.dark' : 'inherit',
+                          fontWeight: entry.type === 'refund' ? 700 : 'inherit',
+                        }}
+                        align="center"
+                      >
                         {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
                       </TableCell>
-                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }}   align="center" >
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {formatCurrency(entry.balance)}
                       </TableCell>
                     </TableRow>
                   ))}
-                  <TableRow sx={{ bgcolor: 'action.hover',}}>
-                    <TableCell colSpan={4} align="center" className='text-2xl' sx={{}}>
+                  <TableRow sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell colSpan={4} align="center" sx={{ fontSize: '1.4rem', fontWeight: 700 }}>
                       الإجمالي
                     </TableCell>
-                    <TableCell align="center" className='text-2xl' sx={{ color: 'success.main',fontSize: '1.4rem' }}>
+                    <TableCell align="center" sx={{ color: 'error.main', fontSize: '1.4rem', fontWeight: 700 }}>
                       {formatCurrency(totalDebit)}
                     </TableCell>
-                    <TableCell align="center" className='text-2xl' sx={{ color: 'error.main',fontSize: '1.4rem' }}>
-                      {formatCurrency(totalCredit)}
+                    <TableCell align="center" sx={{ fontSize: '1.4rem' }}>
+                      <Stack spacing={0.5} alignItems="center">
+                        <Typography sx={{ color: 'success.main', fontWeight: 700, fontSize: 'inherit' }}>
+                          {formatCurrency(totalCredit)}
+                        </Typography>
+                        {totalRefund > 0 && (
+                          <Chip
+                            icon={<UndoIcon sx={{ fontSize: 13 }} />}
+                            label={`مسترجع: ${formatCurrency(totalRefund)}`}
+                            color="warning"
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontSize: '0.75rem' }}
+                          />
+                        )}
+                      </Stack>
                     </TableCell>
-                    <TableCell align="center" sx={{fontSize: '1.4rem' }}>
+                    <TableCell align="center" sx={{ fontSize: '1.4rem', fontWeight: 700 }}>
                       {formatCurrency(finalBalance)}
                     </TableCell>
                   </TableRow>
@@ -548,7 +613,7 @@ export default function CustomerLedger() {
                   label="طريقة الدفع"
                 >
                   <MenuItem value="cash">نقدي</MenuItem>
-                  <MenuItem value="bankak">بنكاك</MenuItem>
+                  <MenuItem value="bankak">بنكك</MenuItem>
                   <MenuItem value="Ocash">أوكاش</MenuItem>
                   <MenuItem value="fawri">فوري</MenuItem>
                 </Select>

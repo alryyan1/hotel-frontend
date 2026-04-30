@@ -32,6 +32,8 @@ export default function Settings() {
   const [headerPreview, setHeaderPreview] = useState('')
   const [footerFile, setFooterFile] = useState<File | null>(null)
   const [footerPreview, setFooterPreview] = useState('')
+  const [e_stampFile, setEStampFile] = useState<File | null>(null)
+  const [e_stampPreview, setEStampPreview] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -51,29 +53,35 @@ export default function Settings() {
             setLogoPreview(data.logo_url)
           } else if (data.logo_path) {
             // Fallback: construct URL if backend doesn't provide logo_url
-            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setLogoPreview(`${baseUrl}/storage/${data.logo_path}`)
           }
           if (data.stamp_url) {
             setStampPreview(data.stamp_url)
           } else if (data.stamp_path) {
             // Fallback: construct URL if backend doesn't provide stamp_url
-            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setStampPreview(`${baseUrl}/storage/${data.stamp_path}`)
           }
           if (data.header_url) {
             setHeaderPreview(data.header_url)
           } else if (data.header_path) {
             // Fallback: construct URL if backend doesn't provide header_url
-            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setHeaderPreview(`${baseUrl}/storage/${data.header_path}`)
           }
           if (data.footer_url) {
             setFooterPreview(data.footer_url)
           } else if (data.footer_path) {
             // Fallback: construct URL if backend doesn't provide footer_url
-            const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setFooterPreview(`${baseUrl}/storage/${data.footer_path}`)
+          }
+          if (data.e_stamp_url) {
+            setEStampPreview(data.e_stamp_url)
+          } else if (data.e_stamp_path) {
+            const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
+            setEStampPreview(`${baseUrl}/storage/${data.e_stamp_path}`)
           }
         }
       } catch (e) {
@@ -96,6 +104,7 @@ export default function Settings() {
       if (stampFile) fd.append('stamp', stampFile)
       if (headerFile) fd.append('header', headerFile)
       if (footerFile) fd.append('footer', footerFile)
+      if (e_stampFile) fd.append('e_stamp', e_stampFile)
       const { data } = await apiClient.post('/settings/hotel', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
@@ -127,6 +136,12 @@ export default function Settings() {
         // Fallback: construct URL if backend doesn't provide footer_url
         const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
         setFooterPreview(`${baseUrl}/storage/${data.footer_path}`)
+      }
+      if (data.e_stamp_url) {
+        setEStampPreview(data.e_stamp_url)
+      } else if (data.e_stamp_path) {
+        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+        setEStampPreview(`${baseUrl}/storage/${data.e_stamp_path}`)
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err.message || 'فشل الحفظ')
@@ -164,6 +179,14 @@ export default function Settings() {
     if (file) {
       setFooterFile(file)
       setFooterPreview(URL.createObjectURL(file))
+    }
+  }
+
+  const handleEStampChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setEStampFile(file)
+      setEStampPreview(URL.createObjectURL(file))
     }
   }
 
@@ -327,6 +350,46 @@ export default function Settings() {
                             component="img"
                             src={stampPreview}
                             alt="Stamp Preview"
+                            sx={{
+                              width: 64,
+                              height: 64,
+                              objectFit: 'cover',
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              boxShadow: 1,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    </Stack>
+                  </Grid>
+                  {/* E-Stamp Upload */}
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <Stack spacing={2}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        الختم الإلكتروني
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Button
+                          variant="outlined"
+                          component="label"
+                          startIcon={<UploadIcon />}
+                          size="small"
+                        >
+                          رفع الختم الإلكتروني
+                          <input
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={handleEStampChange}
+                          />
+                        </Button>
+                        {e_stampPreview && (
+                          <Box
+                            component="img"
+                            src={e_stampPreview}
+                            alt="E-Stamp Preview"
                             sx={{
                               width: 64,
                               height: 64,

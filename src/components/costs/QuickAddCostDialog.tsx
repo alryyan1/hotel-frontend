@@ -241,6 +241,8 @@ export default function QuickAddCostDialog({
             >
               <MenuItem value="cash">نقداً</MenuItem>
               <MenuItem value="bankak">بنكك</MenuItem>
+              <MenuItem value="Ocash">أوكاش</MenuItem>
+              <MenuItem value="fawri">فوري</MenuItem>
             </Select>
           </FormControl>
 

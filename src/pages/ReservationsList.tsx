@@ -46,6 +46,7 @@ import {
   CalendarToday as CalendarIcon,
   Clear as ClearIcon,
   FileDownload as FileDownloadIcon,
+  RoomService as RoomServiceIcon,
 } from '@mui/icons-material'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
@@ -123,8 +124,17 @@ export default function ReservationsList() {
   const [openExtend, setOpenExtend] = useState(false)
   const [newCheckOutDate, setNewCheckOutDate] = useState<string>('')
   const [extensionLoading, setExtensionLoading] = useState(false)
+  const [openService, setOpenService] = useState(false)
+  const [availableServices, setAvailableServices] = useState<any[]>([])
+  const [serviceForm, setServiceForm] = useState({ room_id: '', service_id: '', amount: '', payment_method: 'cash', notes: '' })
+  const [serviceLoading, setServiceLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [perPage, setPerPage] = useState(20)
+  const [refundMethod, setRefundMethod] = useState('cash')
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
 
-  // Fetch customers list
+  // Fetch customers and services list
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
@@ -142,13 +152,22 @@ export default function ReservationsList() {
         setLoadingCustomers(false)
       }
     }
+    const fetchServicesList = async () => {
+      try {
+        const { data } = await apiClient.get('/services')
+        setAvailableServices(data)
+      } catch (e) {
+        console.error('Failed to fetch services', e)
+      }
+    }
     fetchCustomers()
+    fetchServicesList()
   }, [])
 
-  // Fetch immediately for status, date, and customer filters
+  // Fetch immediately for status, date, customer filters, and pagination
   useEffect(() => {
     fetchReservations()
-  }, [statusFilter, createdAtFilter, selectedCustomer])
+  }, [statusFilter, createdAtFilter, selectedCustomer, currentPage, perPage])
 
   const fetchReservations = async () => {
     try {
@@ -168,8 +187,14 @@ export default function ReservationsList() {
         params.customer_id = selectedCustomer.id
       }
       
+      params.page = currentPage
+      params.per_page = perPage
+      
       const { data } = await apiClient.get('/reservations', { params })
-      setReservations(data.data || data)
+      const reservationsData = data.data || []
+      setReservations(reservationsData)
+      setTotalPages(data.last_page || 1)
+      setTotalItems(data.total || 0)
     } catch (e) {
       console.error('Failed to fetch reservations', e)
       toast.error('فشل في جلب الحجوزات')
@@ -211,6 +236,7 @@ export default function ReservationsList() {
       } else {
         setCustomerBalance(null)
       }
+      setRefundMethod('cash')
       setOpenConfirm(true)
       return
     }
@@ -282,7 +308,9 @@ export default function ReservationsList() {
               }
             )
           }
-          const checkoutData = await apiClient.post(`/reservations/${reservation.id}/check-out`)
+          const checkoutData = await apiClient.post(`/reservations/${reservation.id}/check-out`, {
+            refund_method: refundMethod
+          })
           updatedReservation = checkoutData.data
           toast.success('تم تسجيل المغادرة بنجاح')
           break
@@ -479,95 +507,151 @@ export default function ReservationsList() {
   }
 
   const getActionButtons = (reservation: Reservation) => {
-    const buttons = []
-    const isLoading = actionLoading[reservation.id] !== undefined
-    const currentAction = actionLoading[reservation.id]
-    
-    if (reservation.status === 'pending') {
+    const buttons = [];
+    const isLoading = actionLoading[reservation.id] !== undefined;
+    const currentAction = actionLoading[reservation.id];
+
+    const commonSx = {
+      py: 0.5,
+      px: 1,
+      minWidth: "auto",
+      fontSize: "0.75rem",
+      fontWeight: 600,
+      whiteSpace: "nowrap",
+    };
+
+    if (reservation.status === "pending") {
       buttons.push(
         <Button
           key="confirm"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'confirm', true)}
+          onClick={() => handleAction(reservation, "confirm", true)}
           disabled={isLoading}
           color="info"
-          startIcon={isLoading && currentAction === 'confirm' ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            isLoading && currentAction === "confirm" ? (
+              <CircularProgress size={14} />
+            ) : undefined
+          }
+          sx={commonSx}
         >
           تأكيد
-        </Button>
-      )
+        </Button>,
+      );
     }
-    
-    if (reservation.status === 'confirmed') {
+
+    if (reservation.status === "confirmed") {
       buttons.push(
         <Button
           key="checkin"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'checkin', true)}
+          onClick={() => handleAction(reservation, "checkin", true)}
           disabled={isLoading}
           color="success"
-          startIcon={isLoading && currentAction === 'checkin' ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            isLoading && currentAction === "checkin" ? (
+              <CircularProgress size={14} />
+            ) : undefined
+          }
+          sx={commonSx}
         >
           تسجيل الوصول
-        </Button>
-      )
+        </Button>,
+      );
     }
-    
-    if (reservation.status === 'checked_in') {
+
+    if (reservation.status === "checked_in") {
       buttons.push(
         <Button
           key="checkout"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'checkout', false)}
+          onClick={() => handleAction(reservation, "checkout", false)}
           disabled={isLoading}
           color="inherit"
-          startIcon={isLoading && currentAction === 'checkout' ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            isLoading && currentAction === "checkout" ? (
+              <CircularProgress size={14} />
+            ) : undefined
+          }
+          sx={commonSx}
         >
           تسجيل المغادرة
-        </Button>
-      )
+        </Button>,
+      );
     }
-
-    if (['confirmed', 'checked_in'].includes(reservation.status)) {
+    if (["confirmed", "checked_in"].includes(reservation.status)) {
       buttons.push(
         <Button
           key="extend"
           size="small"
           variant="outlined"
           onClick={() => {
-            setSelectedReservation(reservation)
-            setNewCheckOutDate(dayjs(reservation.check_out_date).add(1, 'day').format('YYYY-MM-DD'))
-            setOpenExtend(true)
+            setSelectedReservation(reservation);
+            setNewCheckOutDate(
+              dayjs(reservation.check_out_date).add(1, "day").format("YYYY-MM-DD"),
+            );
+            setOpenExtend(true);
           }}
           disabled={isLoading}
           color="secondary"
-          startIcon={<CalendarIcon />}
+          startIcon={<CalendarIcon sx={{ fontSize: "1rem !important" }} />}
+          sx={commonSx}
         >
           تمديد
-        </Button>
-      )
+        </Button>,
+      );
+
+      buttons.push(
+        <Button
+          key="service"
+          size="small"
+          variant="outlined"
+          onClick={() => {
+            setSelectedReservation(reservation);
+            setServiceForm({
+              room_id: reservation.rooms?.[0]?.id?.toString() || "",
+              service_id: "",
+              amount: "",
+              payment_method: "cash",
+              notes: "",
+            });
+            setOpenService(true);
+          }}
+          disabled={isLoading}
+          color="primary"
+          startIcon={<RoomServiceIcon sx={{ fontSize: "1rem !important" }} />}
+          sx={commonSx}
+        >
+          إضافة خدمة
+        </Button>,
+      );
     }
-    
-    if (!['checked_in', 'checked_out'].includes(reservation.status)) {
+
+    if (!["checked_in", "checked_out"].includes(reservation.status)) {
       buttons.push(
         <Button
           key="cancel"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'cancel', false)}
+          onClick={() => handleAction(reservation, "cancel", false)}
           disabled={isLoading}
           color="error"
-          startIcon={isLoading && currentAction === 'cancel' ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            isLoading && currentAction === "cancel" ? (
+              <CircularProgress size={14} />
+            ) : undefined
+          }
+          sx={commonSx}
         >
           إلغاء
-        </Button>
-      )
+        </Button>,
+      );
     }
-    
-    return buttons
+
+    return buttons;
   }
 
   const handleExtend = async () => {
@@ -609,6 +693,32 @@ export default function ReservationsList() {
     })
     
     return total
+  }
+
+  const handleServiceSubmit = async () => {
+    if (!selectedReservation || !serviceForm.room_id || !serviceForm.service_id || !serviceForm.amount) {
+      toast.error('يرجى تعبئة جميع الحقول المطلوبة')
+      return
+    }
+
+    try {
+      setServiceLoading(true)
+      await apiClient.post('/reservation-services', {
+        reservation_id: selectedReservation.id,
+        room_id: serviceForm.room_id,
+        service_id: serviceForm.service_id,
+        amount: parseFloat(serviceForm.amount),
+        payment_method: serviceForm.payment_method,
+        notes: serviceForm.notes
+      })
+      
+      toast.success('تمت إضافة الخدمة بنجاح')
+      setOpenService(false)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في إضافة الخدمة')
+    } finally {
+      setServiceLoading(false)
+    }
   }
 
   return (
@@ -852,6 +962,74 @@ export default function ReservationsList() {
               </Table>
             </TableContainer>
           )}
+
+          {!loading && reservations.length > 0 && (
+            <Box
+              sx={{
+                mt: 3,
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 2,
+              }}
+            >
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Typography variant="body2" color="text.secondary">
+                  عرض:
+                </Typography>
+                <FormControl size="small" sx={{ minWidth: 80 }}>
+                  <Select
+                    value={perPage}
+                    onChange={(e) => {
+                      setPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <MenuItem value={10}>10</MenuItem>
+                    <MenuItem value={20}>20</MenuItem>
+                    <MenuItem value={50}>50</MenuItem>
+                    <MenuItem value={100}>100</MenuItem>
+                  </Select>
+                </FormControl>
+                <Typography variant="body2" color="text.secondary">
+                  من {totalItems} حجز
+                </Typography>
+              </Stack>
+
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={currentPage === 1 || loading}
+                  onClick={() => setCurrentPage((prev) => prev - 1)}
+                >
+                  السابق
+                </Button>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    px: 2,
+                    borderRadius: 1,
+                    bgcolor: "action.hover",
+                  }}
+                >
+                  <Typography variant="body2" fontWeight="bold">
+                    صفحة {currentPage} من {totalPages}
+                  </Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  disabled={currentPage === totalPages || loading}
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                >
+                  التالي
+                </Button>
+              </Stack>
+            </Box>
+          )}
         </CardContent>
       </Card>
 
@@ -980,9 +1158,69 @@ export default function ReservationsList() {
                   </Typography>
                 </Alert>
               )}
-              {customerBalance === 0 && isPaymentComplete(selectedReservation) && (
-                <Typography>هل أنت متأكد من تسجيل المغادرة؟</Typography>
-              )}
+              {actionType === 'checkout' && (() => {
+                const today = dayjs().startOf('day')
+                const scheduledOut = dayjs(selectedReservation.check_out_date).startOf('day')
+                const remainingDays = scheduledOut.diff(today, 'day')
+                
+                if (remainingDays > 0) {
+                  // Calculate refund amount based on debit transactions (room charges)
+                  const debitTransactions = selectedReservation.transactions?.filter((t: any) => t.type === 'debit') || []
+                  const totalCharged = debitTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0)
+                  
+                  const checkIn = dayjs(selectedReservation.check_in_date).startOf('day')
+                  const originalCheckOut = dayjs(selectedReservation.check_out_date).startOf('day')
+                  const totalDays = originalCheckOut.diff(checkIn, 'day') || 1
+                  
+                  const dailyRate = totalCharged / totalDays
+                  const refundTotal = Math.round(dailyRate * remainingDays)
+
+                  return (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid', borderColor: 'warning.main' }}>
+                      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'warning.dark' }}>
+                        ⚠️ تنبيه: مغادرة مبكرة (متبقي {remainingDays} يوم)
+                      </Typography>
+                      
+                      <Stack spacing={1} sx={{ mb: 2 }}>
+                        <Typography variant="body2">
+                          تاريخ المغادرة المجدولة: <strong>{formatDate(selectedReservation.check_out_date)}</strong>
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                          المبلغ المراد استرجاعه: <span style={{ color: '#d32f2f' }}>{refundTotal.toLocaleString()} SDG</span>
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          (تم الحساب بناءً على إجمالي قيمة الحجز: {totalCharged.toLocaleString()} SDG لـ {totalDays} يوم)
+                        </Typography>
+                      </Stack>
+
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        هل أنت متأكد من تسجيل المغادرة؟ يرجى تحديد طريقة استرجاع المبلغ:
+                      </Typography>
+                      
+                      <FormControl fullWidth>
+                        <InputLabel>طريقة الاسترجاع</InputLabel>
+                        <Select
+                          value={refundMethod}
+                          onChange={(e) => setRefundMethod(e.target.value)}
+                          label="طريقة الاسترجاع"
+                        >
+                          <MenuItem value="cash">نقدي</MenuItem>
+                          <MenuItem value="bankak">بنكك</MenuItem>
+                          <MenuItem value="Ocash">أوكاش</MenuItem>
+                          <MenuItem value="fawri">فوري</MenuItem>
+                        </Select>
+                      </FormControl>
+                      
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        سيتم تسجيل هذه العملية كـ "مسترجع" في التقارير المالية.
+                      </Typography>
+                    </Box>
+                  )
+                } else if (customerBalance === 0 && isPaymentComplete(selectedReservation)) {
+                  return <Typography sx={{ mt: 2 }}>هل أنت متأكد من تسجيل المغادرة؟</Typography>
+                }
+                return null
+              })()}
             </Stack>
           ) : (
             <Typography>هل أنت متأكد من تنفيذ هذا الإجراء؟ لا يمكن التراجع عن بعض العمليات.</Typography>
@@ -995,7 +1233,7 @@ export default function ReservationsList() {
             variant="contained"
             disabled={
               selectedReservation ? (
-                actionLoading[selectedReservation.id] !== undefined 
+                actionLoading[selectedReservation.id] !== undefined
               ) : false
             }
             startIcon={selectedReservation && actionLoading[selectedReservation.id] ? <CircularProgress size={16} /> : undefined}
@@ -1145,6 +1383,89 @@ export default function ReservationsList() {
             startIcon={extensionLoading ? <CircularProgress size={16} /> : null}
           >
             تأكيد التمديد
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Service Dialog */}
+      <Dialog open={openService} onClose={() => !serviceLoading && setOpenService(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>إضافة خدمة للحجز #{selectedReservation?.id}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <FormControl fullWidth required>
+              <InputLabel>الغرفة</InputLabel>
+              <Select
+                value={serviceForm.room_id}
+                label="الغرفة"
+                onChange={(e) => setServiceForm({ ...serviceForm, room_id: e.target.value })}
+              >
+                {selectedReservation?.rooms?.map(room => (
+                  <MenuItem key={room.id} value={room.id.toString()}>
+                    غرفة {room.number}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth required>
+              <InputLabel>نوع الخدمة</InputLabel>
+              <Select
+                value={serviceForm.service_id}
+                label="نوع الخدمة"
+                onChange={(e) => setServiceForm({ ...serviceForm, service_id: e.target.value })}
+              >
+                <MenuItem value="" disabled>اختر خدمة</MenuItem>
+                {availableServices.map(svc => (
+                  <MenuItem key={svc.id} value={svc.id.toString()}>
+                    {svc.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="المبلغ (SDG)"
+              type="number"
+              fullWidth
+              required
+              inputProps={{ min: 0, step: 'any' }}
+              value={serviceForm.amount}
+              onChange={(e) => setServiceForm({ ...serviceForm, amount: e.target.value })}
+            />
+
+            <FormControl fullWidth required>
+              <InputLabel>طريقة الدفع</InputLabel>
+              <Select
+                value={serviceForm.payment_method}
+                onChange={(e) => setServiceForm({ ...serviceForm, payment_method: e.target.value })}
+                label="طريقة الدفع"
+              >
+                <MenuItem value="cash">نقدي</MenuItem>
+                <MenuItem value="bankak">بنكك</MenuItem>
+                <MenuItem value="Ocash">أوكاش</MenuItem>
+                <MenuItem value="fawri">فوري</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField
+              label="ملاحظات"
+              multiline
+              rows={3}
+              fullWidth
+              value={serviceForm.notes}
+              onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenService(false)} disabled={serviceLoading}>إلغاء</Button>
+          <Button 
+            onClick={handleServiceSubmit} 
+            variant="contained" 
+            disabled={serviceLoading || !serviceForm.room_id || !serviceForm.service_id || !serviceForm.amount}
+            startIcon={serviceLoading ? <CircularProgress size={16} /> : null}
+          >
+            إضافة الخدمة
           </Button>
         </DialogActions>
       </Dialog>

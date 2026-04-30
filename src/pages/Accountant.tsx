@@ -38,6 +38,7 @@ export default function Accountant() {
     balancesTotalPages,
     handleExportPdf,
     handleExportExcel,
+    handleExportNetPdf,
     deleteTransaction,
     updateTransaction,
     refreshAll,
@@ -60,7 +61,7 @@ export default function Accountant() {
 
   const methodLabels: Record<string, string> = {
     cash: "نقدي",
-    bankak: "بنكاك",
+    bankak: "بنكك",
     Ocash: "أوكاش",
     fawri: "فوري",
   };
@@ -103,6 +104,7 @@ export default function Accountant() {
         formatCurrency={formatCurrency}
         methodLabels={methodLabels}
         onRefresh={refreshAll}
+        onExportNetPdf={handleExportNetPdf}
       />
 
       {/* Quick Access Cards */}

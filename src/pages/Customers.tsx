@@ -58,6 +58,8 @@ interface Customer {
   address?: string;
   date_of_birth?: string;
   gender?: "male" | "female";
+  type?: "individual" | "company";
+  email?: string;
   document_path?: string;
   total_debit?: string | number;
   total_credit?: string | number;
@@ -90,6 +92,8 @@ export default function Customers() {
     address: "",
     date_of_birth: "",
     gender: "",
+    type: "individual",
+    email: "",
   });
   const [uploadingDocument, setUploadingDocument] = useState<number | null>(
     null,
@@ -191,6 +195,8 @@ export default function Customers() {
         address: "",
         date_of_birth: "",
         gender: "",
+        type: "individual",
+        email: "",
       });
       toast.success("تم إنشاء العميل بنجاح");
       // Refresh the list - go to first page to show the new customer
@@ -225,6 +231,8 @@ export default function Customers() {
         address: "",
         date_of_birth: "",
         gender: "",
+        type: "individual",
+        email: "",
       });
       toast.success("تم تحديث العميل بنجاح");
       // Refresh to ensure data is up to date
@@ -261,6 +269,8 @@ export default function Customers() {
       address: customer.address || "",
       date_of_birth: customer.date_of_birth || "",
       gender: customer.gender || "",
+      type: customer.type || "individual",
+      email: customer.email || "",
     });
     setOpenEdit(true);
   };
@@ -446,6 +456,9 @@ export default function Customers() {
                     الاسم
                   </TableCell>
                   <TableCell align="center" sx={{ fontWeight: "bold" }}>
+                    النوع
+                  </TableCell>
+                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
                     الهاتف
                   </TableCell>
                   <TableCell align="center" sx={{ fontWeight: "bold" }}>
@@ -503,6 +516,18 @@ export default function Customers() {
                     <TableRow key={customer.id}>
                       <TableCell align="center" sx={{ fontWeight: 500 }}>
                         {customer.name}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={
+                            customer.type === "company" ? "شركة" : "عميل عادي"
+                          }
+                          color={
+                            customer.type === "company" ? "secondary" : "primary"
+                          }
+                          size="small"
+                          variant="outlined"
+                        />
                       </TableCell>
                       <TableCell align="center">
                         {customer.phone ? (
@@ -664,11 +689,15 @@ export default function Customers() {
                           <Button
                             variant="outlined"
                             size="small"
-                            startIcon={<FileTextIcon />}
+                            startIcon={<FileTextIcon sx={{ fontSize: "1rem !important" }} />}
                             onClick={() =>
                               navigate(`/customers/${customer.id}/ledger`)
                             }
                             sx={{
+                              py: 0,
+                              px: 1,
+                              minWidth: "auto",
+                              fontSize: "0.75rem",
                               color: "info.main",
                               borderColor: "info.main",
                               "&:hover": {
@@ -677,7 +706,7 @@ export default function Customers() {
                               },
                             }}
                           >
-                            كشف حساب
+                            كشف
                           </Button>
                           <IconButton
                             size="small"
@@ -806,9 +835,26 @@ export default function Customers() {
           </Typography>
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid size={{ xs: 12 }}>
+              <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                <InputLabel id="type-select-label">فئة العميل</InputLabel>
+                <Select
+                  labelId="type-select-label"
+                  value={customerForm.type}
+                  onChange={(e) =>
+                    setCustomerForm({ ...customerForm, type: e.target.value })
+                  }
+                  label="فئة العميل"
+                >
+                  <MenuItem value="individual">عميل عادي</MenuItem>
+                  <MenuItem value="company">شركة</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="الاسم"
+                label={customerForm.type === "company" ? "اسم الشركة" : "الاسم"}
                 value={customerForm.name}
                 onChange={(e) =>
                   setCustomerForm({ ...customerForm, name: e.target.value })
@@ -816,6 +862,7 @@ export default function Customers() {
                 size="small"
               />
             </Grid>
+
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
@@ -827,10 +874,15 @@ export default function Customers() {
                 size="small"
               />
             </Grid>
+
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                label="الرقم الوطني"
+                label={
+                  customerForm.type === "company"
+                    ? "رقم السجل التجاري"
+                    : "الرقم الوطني"
+                }
                 value={customerForm.national_id}
                 onChange={(e) =>
                   setCustomerForm({
@@ -841,51 +893,76 @@ export default function Customers() {
                 size="small"
               />
             </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="العنوان"
-                value={customerForm.address}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, address: e.target.value })
-                }
-                size="small"
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                type="date"
-                label="تاريخ الميلاد"
-                value={customerForm.date_of_birth}
-                onChange={(e) =>
-                  setCustomerForm({
-                    ...customerForm,
-                    date_of_birth: e.target.value,
-                  })
-                }
-                size="small"
-                InputLabelProps={{
-                  shrink: true,
-                }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel id="gender-select-label">النوع</InputLabel>
-                <Select
-                  labelId="gender-select-label"
-                  value={customerForm.gender}
+
+            {customerForm.type === "company" && (
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  label="البريد الالكتروني"
+                  value={customerForm.email}
                   onChange={(e) =>
-                    setCustomerForm({ ...customerForm, gender: e.target.value })
+                    setCustomerForm({ ...customerForm, email: e.target.value })
                   }
-                  label="النوع"
-                >
-                  <MenuItem value="male">ذكر</MenuItem>
-                  <MenuItem value="female">أنثى</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+                  size="small"
+                />
+              </Grid>
+            )}
+
+            {customerForm.type === "company" && (
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  label="العنوان"
+                  value={customerForm.address}
+                  onChange={(e) =>
+                    setCustomerForm({ ...customerForm, address: e.target.value })
+                  }
+                  size="small"
+                />
+              </Grid>
+            )}
+
+            {customerForm.type === "individual" && (
+              <>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    type="date"
+                    label="تاريخ الميلاد"
+                    value={customerForm.date_of_birth}
+                    onChange={(e) =>
+                      setCustomerForm({
+                        ...customerForm,
+                        date_of_birth: e.target.value,
+                      })
+                    }
+                    size="small"
+                    InputLabelProps={{
+                      shrink: true,
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel id="gender-select-label">النوع</InputLabel>
+                    <Select
+                      labelId="gender-select-label"
+                      value={customerForm.gender}
+                      onChange={(e) =>
+                        setCustomerForm({
+                          ...customerForm,
+                          gender: e.target.value,
+                        })
+                      }
+                      label="النوع"
+                    >
+                      <MenuItem value="male">ذكر</MenuItem>
+                      <MenuItem value="female">أنثى</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions>
