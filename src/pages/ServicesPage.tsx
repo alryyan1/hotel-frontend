@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, LayoutList, Calendar, Home } from 'lucide-react'
+import { Plus, Edit, Trash2, LayoutList, Calendar, Home, Printer } from 'lucide-react'
 import apiClient from '../api/axios'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
@@ -112,6 +112,22 @@ export default function ServicesPage() {
     return new Intl.NumberFormat('en-US').format(amount)
   }
 
+  const handleExportPdf = async (id: number) => {
+    try {
+      const response = await apiClient.get(`/reservation-services/${id}/pdf`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `service_invoice_${id}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      toast.error('فشل في تصدير الفاتورة')
+    }
+  }
+
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -200,14 +216,25 @@ export default function ServicesPage() {
                             {req.notes || '-'}
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteReservationService(req.id)}
-                              className="h-8 w-8 p-0"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
+                            <div className="flex gap-1 justify-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleExportPdf(req.id)}
+                                className="h-8 w-8 p-0"
+                                title="طباعة الفاتورة"
+                              >
+                                <Printer className="size-4" />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteReservationService(req.id)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))

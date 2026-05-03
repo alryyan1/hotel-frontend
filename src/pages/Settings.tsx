@@ -12,7 +12,7 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material'
-import { Upload as UploadIcon, Save as SaveIcon } from '@mui/icons-material'
+import { Upload as UploadIcon, Save as SaveIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import { toast } from 'sonner'
 
 export default function Settings() {
@@ -145,6 +145,41 @@ export default function Settings() {
       }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err.message || 'فشل الحفظ')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDeleteImage(type: 'logo' | 'stamp' | 'header' | 'footer' | 'e_stamp') {
+    if (!window.confirm('هل أنت متأكد من حذف هذه الصورة؟')) return
+    
+    try {
+      setLoading(true)
+      await apiClient.delete('/settings/hotel/image', {
+        data: { type }
+      })
+      
+      toast.success('تم حذف الصورة بنجاح')
+      
+      // Clear specific preview and file
+      if (type === 'logo') {
+        setLogoPreview('')
+        setLogoFile(null)
+      } else if (type === 'stamp') {
+        setStampPreview('')
+        setStampFile(null)
+      } else if (type === 'header') {
+        setHeaderPreview('')
+        setHeaderFile(null)
+      } else if (type === 'footer') {
+        setFooterPreview('')
+        setFooterFile(null)
+      } else if (type === 'e_stamp') {
+        setEStampPreview('')
+        setEStampFile(null)
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err.message || 'فشل حذف الصورة')
     } finally {
       setLoading(false)
     }
@@ -305,20 +340,40 @@ export default function Settings() {
                           />
                         </Button>
                         {logoPreview && (
-                          <Box
-                            component="img"
-                            src={logoPreview}
-                            alt="Logo Preview"
-                            sx={{
-                              width: 64,
-                              height: 64,
-                              objectFit: 'cover',
-                              borderRadius: 1,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              boxShadow: 1,
-                            }}
-                          />
+                          <Box sx={{ position: 'relative' }}>
+                            <Box
+                              component="img"
+                              src={logoPreview}
+                              alt="Logo Preview"
+                              sx={{
+                                width: 64,
+                                height: 64,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                boxShadow: 1,
+                              }}
+                            />
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteImage('logo')}
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                minWidth: 0,
+                                p: 0.5,
+                                bgcolor: 'background.paper',
+                                borderRadius: '50%',
+                                boxShadow: 2,
+                                '&:hover': { bgcolor: 'error.light', color: 'white' }
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </Button>
+                          </Box>
                         )}
                       </Box>
                     </Stack>
@@ -346,20 +401,40 @@ export default function Settings() {
                           />
                         </Button>
                         {stampPreview && (
-                          <Box
-                            component="img"
-                            src={stampPreview}
-                            alt="Stamp Preview"
-                            sx={{
-                              width: 64,
-                              height: 64,
-                              objectFit: 'cover',
-                              borderRadius: 1,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              boxShadow: 1,
-                            }}
-                          />
+                          <Box sx={{ position: 'relative' }}>
+                            <Box
+                              component="img"
+                              src={stampPreview}
+                              alt="Stamp Preview"
+                              sx={{
+                                width: 64,
+                                height: 64,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                boxShadow: 1,
+                              }}
+                            />
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteImage('stamp')}
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                minWidth: 0,
+                                p: 0.5,
+                                bgcolor: 'background.paper',
+                                borderRadius: '50%',
+                                boxShadow: 2,
+                                '&:hover': { bgcolor: 'error.light', color: 'white' }
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </Button>
+                          </Box>
                         )}
                       </Box>
                     </Stack>
@@ -386,20 +461,40 @@ export default function Settings() {
                           />
                         </Button>
                         {e_stampPreview && (
-                          <Box
-                            component="img"
-                            src={e_stampPreview}
-                            alt="E-Stamp Preview"
-                            sx={{
-                              width: 64,
-                              height: 64,
-                              objectFit: 'cover',
-                              borderRadius: 1,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              boxShadow: 1,
-                            }}
-                          />
+                          <Box sx={{ position: 'relative' }}>
+                            <Box
+                              component="img"
+                              src={e_stampPreview}
+                              alt="E-Stamp Preview"
+                              sx={{
+                                width: 64,
+                                height: 64,
+                                objectFit: 'cover',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                boxShadow: 1,
+                              }}
+                            />
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteImage('e_stamp')}
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                minWidth: 0,
+                                p: 0.5,
+                                bgcolor: 'background.paper',
+                                borderRadius: '50%',
+                                boxShadow: 2,
+                                '&:hover': { bgcolor: 'error.light', color: 'white' }
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </Button>
+                          </Box>
                         )}
                       </Box>
                     </Stack>
@@ -437,20 +532,40 @@ export default function Settings() {
                           />
                         </Button>
                         {headerPreview && (
-                          <Box
-                            component="img"
-                            src={headerPreview}
-                            alt="Header Preview"
-                            sx={{
-                              maxWidth: '100%',
-                              maxHeight: 150,
-                              objectFit: 'contain',
-                              borderRadius: 1,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              boxShadow: 1,
-                            }}
-                          />
+                          <Box sx={{ position: 'relative', width: 'fit-content' }}>
+                            <Box
+                              component="img"
+                              src={headerPreview}
+                              alt="Header Preview"
+                              sx={{
+                                maxWidth: '100%',
+                                maxHeight: 150,
+                                objectFit: 'contain',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                boxShadow: 1,
+                              }}
+                            />
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteImage('header')}
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                minWidth: 0,
+                                p: 0.5,
+                                bgcolor: 'background.paper',
+                                borderRadius: '50%',
+                                boxShadow: 2,
+                                '&:hover': { bgcolor: 'error.light', color: 'white' }
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </Button>
+                          </Box>
                         )}
                       </Box>
                     </Stack>
@@ -478,20 +593,40 @@ export default function Settings() {
                           />
                         </Button>
                         {footerPreview && (
-                          <Box
-                            component="img"
-                            src={footerPreview}
-                            alt="Footer Preview"
-                            sx={{
-                              maxWidth: '100%',
-                              maxHeight: 150,
-                              objectFit: 'contain',
-                              borderRadius: 1,
-                              border: '1px solid',
-                              borderColor: 'divider',
-                              boxShadow: 1,
-                            }}
-                          />
+                          <Box sx={{ position: 'relative', width: 'fit-content' }}>
+                            <Box
+                              component="img"
+                              src={footerPreview}
+                              alt="Footer Preview"
+                              sx={{
+                                maxWidth: '100%',
+                                maxHeight: 150,
+                                objectFit: 'contain',
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                boxShadow: 1,
+                              }}
+                            />
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteImage('footer')}
+                              sx={{
+                                position: 'absolute',
+                                top: -8,
+                                right: -8,
+                                minWidth: 0,
+                                p: 0.5,
+                                bgcolor: 'background.paper',
+                                borderRadius: '50%',
+                                boxShadow: 2,
+                                '&:hover': { bgcolor: 'error.light', color: 'white' }
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </Button>
+                          </Box>
                         )}
                       </Box>
                     </Stack>
