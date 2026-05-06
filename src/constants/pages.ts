@@ -10,6 +10,7 @@ export const ALL_PAGES: PageDef[] = [
   { path: '/reservations-list',             label: 'قائمة الحجوزات',         group: 'الحجوزات' },
   { path: '/reservations-list/edit-dates',  label: 'تعديل تواريخ الحجوزات',  group: 'الحجوزات' },
   { path: '/customers',             label: 'العملاء',           group: 'العملاء' },
+  { path: '/customers/delete',      label: 'حذف العملاء',        group: 'العملاء' },
   { path: '/rooms',                 label: 'الغرف',             group: 'إدارة الغرف' },
   { path: '/room-types',            label: 'أنواع الغرف',       group: 'إدارة الغرف' },
   { path: '/floors',                label: 'الطوابق',           group: 'إدارة الغرف' },
@@ -28,7 +29,7 @@ export const ALL_PAGES: PageDef[] = [
 export const PAGES_BY_GROUP: Record<string, PageDef[]> = ALL_PAGES.reduce(
   (acc, page) => {
     if (!acc[page.group]) acc[page.group] = []
-    acc[page.group].push(page)
+    acc[page.group]!.push(page)
     return acc
   },
   {} as Record<string, PageDef[]>

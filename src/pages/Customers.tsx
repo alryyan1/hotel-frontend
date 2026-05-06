@@ -730,13 +730,15 @@ export default function Customers() {
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteCustomer(customer)}
-                            color="error"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          {(user?.is_admin || user?.permissions?.includes('/customers/delete')) && (
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteCustomer(customer)}
+                              color="error"
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </Stack>
                       </TableCell>
                     </TableRow>
