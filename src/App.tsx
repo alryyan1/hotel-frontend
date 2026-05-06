@@ -19,6 +19,7 @@ import Reservations from "./pages/Reservations";
 import ReservationsList from "./pages/ReservationsList";
 import Customers from "./pages/Customers";
 import CustomerLedger from "./pages/CustomerLedger";
+import DeletedCustomers from "./pages/DeletedCustomers";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import Costs from "./pages/Costs";
@@ -89,6 +90,7 @@ function AppRoutes() {
         <Route path="reservations" element={<PermissionGuard><Reservations /></PermissionGuard>} />
         <Route path="reservations-list" element={<PermissionGuard><ReservationsList /></PermissionGuard>} />
         <Route path="customers" element={<PermissionGuard><Customers /></PermissionGuard>} />
+        <Route path="customers/deleted" element={<PermissionGuard><DeletedCustomers /></PermissionGuard>} />
         <Route path="customers/:id/ledger" element={<PermissionGuard><CustomerLedger /></PermissionGuard>} />
         <Route path="costs" element={<PermissionGuard><Costs /></PermissionGuard>} />
         <Route path="inventory" element={<PermissionGuard><Inventory /></PermissionGuard>} />

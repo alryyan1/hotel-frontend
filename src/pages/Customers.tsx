@@ -44,11 +44,13 @@ import {
   Close as CloseIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  DeleteSweep as DeleteSweepIcon,
 } from "@mui/icons-material";
 import { toast } from "sonner";
 import CreateCustomerDialog from "@/components/dialogs/CreateCustomerDialog";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Customer {
   id: number;
@@ -76,6 +78,7 @@ interface PaginationMeta {
 
 export default function Customers() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -413,14 +416,26 @@ export default function Customers() {
             </Stack>
           }
           action={
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setOpenCreate(true)}
-              sx={{ boxShadow: 2 }}
-            >
-              عميل جديد
-            </Button>
+            <Stack direction="row" spacing={1}>
+              {user?.is_admin && (
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<DeleteSweepIcon />}
+                  onClick={() => navigate("/customers/deleted")}
+                >
+                  المحذوفون
+                </Button>
+              )}
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setOpenCreate(true)}
+                sx={{ boxShadow: 2 }}
+              >
+                عميل جديد
+              </Button>
+            </Stack>
           }
         />
         <CardContent>
@@ -715,13 +730,13 @@ export default function Customers() {
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
-                          {/* <IconButton
-                          size="small"
-                          onClick={() => handleDeleteCustomer(customer)}
-                          color="error"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton> */}
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteCustomer(customer)}
+                            color="error"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
                         </Stack>
                       </TableCell>
                     </TableRow>
