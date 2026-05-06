@@ -6,8 +6,9 @@ export interface PageDef {
 
 export const ALL_PAGES: PageDef[] = [
   { path: '/',                      label: 'لوحة التحكم',      group: 'عام' },
-  { path: '/reservations',          label: 'إنشاء حجز',        group: 'الحجوزات' },
-  { path: '/reservations-list',     label: 'قائمة الحجوزات',   group: 'الحجوزات' },
+  { path: '/reservations',                   label: 'إنشاء حجز',              group: 'الحجوزات' },
+  { path: '/reservations-list',             label: 'قائمة الحجوزات',         group: 'الحجوزات' },
+  { path: '/reservations-list/edit-dates',  label: 'تعديل تواريخ الحجوزات',  group: 'الحجوزات' },
   { path: '/customers',             label: 'العملاء',           group: 'العملاء' },
   { path: '/rooms',                 label: 'الغرف',             group: 'إدارة الغرف' },
   { path: '/room-types',            label: 'أنواع الغرف',       group: 'إدارة الغرف' },

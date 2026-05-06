@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import apiClient from '../api/axios'
 import {
   Box,
@@ -85,6 +86,14 @@ interface Reservation {
       currency: string
     }
   }>
+  transactions?: Array<{
+    id: number
+    type: string
+    amount: number
+    currency: string
+    transaction_date: string
+    notes?: string
+  }>
 }
 
 interface Customer {
@@ -104,6 +113,7 @@ const statusConfig = {
 
 export default function ReservationsList() {
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
@@ -133,6 +143,10 @@ export default function ReservationsList() {
   const [refundMethod, setRefundMethod] = useState('cash')
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
+  const [openEditDates, setOpenEditDates] = useState(false)
+  const [editCheckInDate, setEditCheckInDate] = useState<string>('')
+  const [editCheckOutDate, setEditCheckOutDate] = useState<string>('')
+  const [editDatesLoading, setEditDatesLoading] = useState(false)
 
   // Fetch customers and services list
   useEffect(() => {
@@ -630,6 +644,27 @@ export default function ReservationsList() {
       );
     }
 
+    if (!["checked_out", "cancelled"].includes(reservation.status) && hasPermission('/reservations-list/edit-dates')) {
+      buttons.push(
+        <Button
+          key="editdates"
+          size="small"
+          variant="outlined"
+          onClick={() => {
+            setSelectedReservation(reservation)
+            setEditCheckInDate(dayjs(reservation.check_in_date).format('YYYY-MM-DD'))
+            setEditCheckOutDate(dayjs(reservation.check_out_date).format('YYYY-MM-DD'))
+            setOpenEditDates(true)
+          }}
+          disabled={isLoading}
+          color="warning"
+          sx={{ ...commonSx, minWidth: 0, px: 0.75 }}
+        >
+          <EditIcon sx={{ fontSize: "1rem" }} />
+        </Button>,
+      )
+    }
+
     if (!["checked_in", "checked_out"].includes(reservation.status)) {
       buttons.push(
         <Button
@@ -718,6 +753,48 @@ export default function ReservationsList() {
       toast.error(err?.response?.data?.message || 'فشل في إضافة الخدمة')
     } finally {
       setServiceLoading(false)
+    }
+  }
+
+  const calculateDateEditDiff = () => {
+    if (!selectedReservation) return { oldDays: 0, newDays: 0, daysDiff: 0, oldAmount: 0, newAmount: 0 }
+    const oldDays = Math.max(1, dayjs(selectedReservation.check_out_date).diff(dayjs(selectedReservation.check_in_date), 'day'))
+    const newIn  = editCheckInDate  || selectedReservation.check_in_date
+    const newOut = editCheckOutDate || selectedReservation.check_out_date
+    const newDays = Math.max(1, dayjs(newOut).diff(dayjs(newIn), 'day'))
+    let pricePerDay = 0
+    selectedReservation.rooms.forEach((room: any) => {
+      const rate = room.pivot?.rate !== undefined && room.pivot?.rate !== null ? Number(room.pivot.rate) : 0
+      const base = room.type?.base_price ? Number(room.type.base_price) : 0
+      pricePerDay += rate || base || 0
+    })
+    const oldAmount = oldDays * pricePerDay
+    const newAmount = newDays * pricePerDay
+    return { oldDays, newDays, daysDiff: newDays - oldDays, oldAmount, newAmount }
+  }
+
+  const handleUpdateDates = async () => {
+    if (!selectedReservation) return
+    const newIn  = editCheckInDate  || selectedReservation.check_in_date
+    const newOut = editCheckOutDate || selectedReservation.check_out_date
+    if (!dayjs(newOut).isAfter(dayjs(newIn))) {
+      toast.error('يجب أن يكون تاريخ المغادرة بعد تاريخ الوصول')
+      return
+    }
+    try {
+      setEditDatesLoading(true)
+      const payload: any = {}
+      if (editCheckInDate)  payload.check_in_date  = editCheckInDate
+      if (editCheckOutDate) payload.check_out_date = editCheckOutDate
+      const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/update-dates`, payload)
+      setReservations(prev => prev.map(r => r.id === data.id ? { ...data, rooms: data.rooms || r.rooms } : r))
+      setOpenEditDates(false)
+      setSelectedReservation(null)
+      toast.success('تم تعديل التواريخ بنجاح')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في تعديل التواريخ')
+    } finally {
+      setEditDatesLoading(false)
     }
   }
 
@@ -1044,7 +1121,7 @@ export default function ReservationsList() {
         <DialogContent>
           {selectedReservation && (
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" color="text.secondary">العميل</Typography>
                 <Typography fontWeight="medium">
                   {selectedReservation.customer?.name || 'غير محدد'}
@@ -1053,13 +1130,13 @@ export default function ReservationsList() {
                   {selectedReservation.customer?.phone || '-'}
                 </Typography>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" color="text.secondary">الحالة</Typography>
                 <Box sx={{ mt: 1 }}>
                   {getStatusChip(selectedReservation.status)}
                 </Box>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" color="text.secondary">تاريخ الوصول</Typography>
                 <Typography fontWeight="medium">
                   {formatDate(selectedReservation.check_in_date)}
@@ -1068,7 +1145,7 @@ export default function ReservationsList() {
                   {getRelativeDate(selectedReservation.check_in_date)}
                 </Typography>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" color="text.secondary">تاريخ المغادرة</Typography>
                 <Typography fontWeight="medium">
                   {formatDate(selectedReservation.check_out_date)}
@@ -1077,7 +1154,7 @@ export default function ReservationsList() {
                   {getRelativeDate(selectedReservation.check_out_date)}
                 </Typography>
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="caption" color="text.secondary">الغرف</Typography>
                 <Box sx={{ mt: 1 }}>
                   {selectedReservation.rooms?.map((room) => (
@@ -1091,7 +1168,7 @@ export default function ReservationsList() {
                 </Box>
               </Grid>
               {selectedReservation.notes && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="caption" color="text.secondary">ملاحظات</Typography>
                   <Paper sx={{ p: 2, mt: 1, bgcolor: 'grey.100' }}>
                     <Typography variant="body2">{selectedReservation.notes}</Typography>
@@ -1383,6 +1460,83 @@ export default function ReservationsList() {
             startIcon={extensionLoading ? <CircularProgress size={16} /> : null}
           >
             تأكيد التمديد
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Dates Dialog */}
+      <Dialog open={openEditDates} onClose={() => !editDatesLoading && setOpenEditDates(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>تعديل تواريخ الحجز #{selectedReservation?.id}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                تاريخ الوصول الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong>
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
+              </Typography>
+            </Box>
+
+            <TextField
+              label="تاريخ الوصول الجديد"
+              type="date"
+              fullWidth
+              value={editCheckInDate}
+              onChange={(e) => setEditCheckInDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <TextField
+              label="تاريخ المغادرة الجديد"
+              type="date"
+              fullWidth
+              value={editCheckOutDate}
+              onChange={(e) => setEditCheckOutDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              inputProps={{ min: editCheckInDate ? dayjs(editCheckInDate).add(1, 'day').format('YYYY-MM-DD') : '' }}
+            />
+
+            {selectedReservation && editCheckInDate && editCheckOutDate && (() => {
+              const diff = calculateDateEditDiff()
+              if (diff.daysDiff === 0) return null
+              const isExtra = diff.daysDiff > 0
+              return (
+                <Box sx={{ p: 2, bgcolor: isExtra ? 'warning.light' : 'info.light', borderRadius: 1 }}>
+                  <Stack spacing={1}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">عدد الأيام الجديد:</Typography>
+                      <Typography variant="body2" fontWeight="bold">{diff.newDays} يوم</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2">المبلغ القديم:</Typography>
+                      <Typography variant="body2">{diff.oldAmount.toLocaleString()} SDG</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Typography variant="body2" fontWeight="bold">المبلغ الجديد:</Typography>
+                      <Typography variant="body2" fontWeight="bold" color={isExtra ? 'warning.dark' : 'info.dark'}>
+                        {diff.newAmount.toLocaleString()} SDG
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      سيتم تعديل المعاملة الأصلية في كشف الحساب.
+                    </Typography>
+                  </Stack>
+                </Box>
+              )
+            })()}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditDates(false)} disabled={editDatesLoading}>إلغاء</Button>
+          <Button
+            onClick={handleUpdateDates}
+            variant="contained"
+            color="warning"
+            disabled={editDatesLoading || !editCheckInDate || !editCheckOutDate}
+            startIcon={editDatesLoading ? <CircularProgress size={16} /> : <EditIcon />}
+          >
+            {editDatesLoading ? 'جارٍ التعديل...' : 'تأكيد التعديل'}
           </Button>
         </DialogActions>
       </Dialog>
