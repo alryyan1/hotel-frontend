@@ -292,13 +292,13 @@ export default function Floors() {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-foreground">رقم الطابق *</Label>
-              <Input 
-                type="number" 
-                value={form.number} 
-                onChange={(e) => setForm({ ...form, number: e.target.value })} 
-                required 
+              <Input
+                type="text"
+                value={form.number}
+                onChange={(e) => setForm({ ...form, number: e.target.value })}
+                required
                 className="h-12 text-base"
-                placeholder="مثل: 1, 2, 3"
+                placeholder="مثل: 1, 2, 1-1"
                 autoComplete="off"
               />
             </div>
