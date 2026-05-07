@@ -70,6 +70,8 @@ interface Customer {
   national_id?: string
   address?: string
   type?: 'individual' | 'company'
+  contact_name_1?: string
+  contact_name_2?: string
   document_path?: string
 }
 
@@ -389,6 +391,11 @@ export default function CustomerLedger() {
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
                   {customer.name}
                 </Typography>
+                {customer.type === 'company' && (customer.contact_name_1 || customer.contact_name_2) && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    {[customer.contact_name_1, customer.contact_name_2].filter(Boolean).join(' • ')}
+                  </Typography>
+                )}
               </Grid>
               {customer.phone && (
                 <Grid size={{ xs: 12, md: 3 }}>

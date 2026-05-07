@@ -44,6 +44,9 @@ interface CreateCustomerDialogProps {
     date_of_birth: string
     gender: string
     type: string
+    email?: string
+    contact_name_1?: string
+    contact_name_2?: string
   }
   onCustomerFormChange: (form: {
     name: string
@@ -53,6 +56,9 @@ interface CreateCustomerDialogProps {
     date_of_birth: string
     gender: string
     type: string
+    email?: string
+    contact_name_1?: string
+    contact_name_2?: string
   }) => void
   onCreateCustomer: () => void
   loading: boolean
@@ -234,7 +240,42 @@ export default function CreateCustomerDialog({
                   },
                 }}
               />
-              
+
+              {customerForm.type === 'company' && (
+                <Stack direction="row" spacing={2}>
+                  <TextField
+                    label="اسم العميل 1"
+                    value={customerForm.contact_name_1 || ''}
+                    onChange={(e) => onCustomerFormChange({ ...customerForm, contact_name_1: e.target.value })}
+                    fullWidth
+                    size="medium"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                  />
+                  <TextField
+                    label="اسم العميل 2"
+                    value={customerForm.contact_name_2 || ''}
+                    onChange={(e) => onCustomerFormChange({ ...customerForm, contact_name_2: e.target.value })}
+                    fullWidth
+                    size="medium"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                  />
+                </Stack>
+              )}
+
               <Stack direction="row" spacing={2}>
                 <TextField
                   label="رقم الهاتف"

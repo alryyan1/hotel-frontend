@@ -101,6 +101,9 @@ interface Customer {
   name: string
   phone?: string
   national_id?: string
+  type?: string
+  contact_name_1?: string
+  contact_name_2?: string
 }
 
 const statusConfig = {
@@ -991,8 +994,13 @@ export default function ReservationsList() {
                           <Typography fontWeight="medium">
                             {reservation.customer?.name || 'غير محدد'}
                           </Typography>
+                          {reservation.customer?.type === 'company' && (reservation.customer?.contact_name_1 || reservation.customer?.contact_name_2) && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {[reservation.customer.contact_name_1, reservation.customer.contact_name_2].filter(Boolean).join(" • ")}
+                            </Typography>
+                          )}
                           <Typography variant="caption" color="text.secondary">
-                            {reservation.customer?.phone || reservation.customer?.email || '-'}
+                            {reservation.customer?.phone || '-'}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">

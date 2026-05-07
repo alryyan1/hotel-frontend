@@ -62,6 +62,8 @@ interface Customer {
   gender?: "male" | "female";
   type?: "individual" | "company";
   email?: string;
+  contact_name_1?: string;
+  contact_name_2?: string;
   document_path?: string;
   total_debit?: string | number;
   total_credit?: string | number;
@@ -97,6 +99,8 @@ export default function Customers() {
     gender: "",
     type: "individual",
     email: "",
+    contact_name_1: "",
+    contact_name_2: "",
   });
   const [uploadingDocument, setUploadingDocument] = useState<number | null>(
     null,
@@ -200,6 +204,8 @@ export default function Customers() {
         gender: "",
         type: "individual",
         email: "",
+        contact_name_1: "",
+        contact_name_2: "",
       });
       toast.success("تم إنشاء العميل بنجاح");
       // Refresh the list - go to first page to show the new customer
@@ -236,6 +242,8 @@ export default function Customers() {
         gender: "",
         type: "individual",
         email: "",
+        contact_name_1: "",
+        contact_name_2: "",
       });
       toast.success("تم تحديث العميل بنجاح");
       // Refresh to ensure data is up to date
@@ -274,6 +282,8 @@ export default function Customers() {
       gender: customer.gender || "",
       type: customer.type || "individual",
       email: customer.email || "",
+      contact_name_1: customer.contact_name_1 || "",
+      contact_name_2: customer.contact_name_2 || "",
     });
     setOpenEdit(true);
   };
@@ -529,8 +539,13 @@ export default function Customers() {
                 ) : (
                   filteredCustomers.map((customer) => (
                     <TableRow key={customer.id}>
-                      <TableCell align="center" sx={{ fontWeight: 500 }}>
-                        {customer.name}
+                      <TableCell align="center">
+                        <Typography sx={{ fontWeight: 500 }}>{customer.name}</Typography>
+                        {customer.type === "company" && (customer.contact_name_1 || customer.contact_name_2) && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {[customer.contact_name_1, customer.contact_name_2].filter(Boolean).join(" • ")}
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell align="center">
                         <Chip
@@ -879,6 +894,33 @@ export default function Customers() {
                 size="small"
               />
             </Grid>
+
+            {customerForm.type === "company" && (
+              <>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="اسم العميل 1"
+                    value={customerForm.contact_name_1}
+                    onChange={(e) =>
+                      setCustomerForm({ ...customerForm, contact_name_1: e.target.value })
+                    }
+                    size="small"
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    label="اسم العميل 2"
+                    value={customerForm.contact_name_2}
+                    onChange={(e) =>
+                      setCustomerForm({ ...customerForm, contact_name_2: e.target.value })
+                    }
+                    size="small"
+                  />
+                </Grid>
+              </>
+            )}
 
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField

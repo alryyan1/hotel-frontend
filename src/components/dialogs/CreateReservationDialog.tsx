@@ -92,6 +92,23 @@ export default function CreateReservationDialog({
             onChange={(_, newValue: any) => {
               onFormChange({ ...form, customer_id: newValue ? String(newValue.id) : '' })
             }}
+            renderOption={(props, option: any) => (
+              <li {...props} key={option.id}>
+                <div>
+                  <div>{option.name}</div>
+                  {option.type === 'company' && (option.contact_name_1 || option.contact_name_2) && (
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(0,0,0,0.54)' }}>
+                      {[option.contact_name_1, option.contact_name_2].filter(Boolean).join(' • ')}
+                    </div>
+                  )}
+                  {(option.phone || option.email) && (
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(0,0,0,0.54)' }}>
+                      {option.phone || option.email}
+                    </div>
+                  )}
+                </div>
+              </li>
+            )}
             renderInput={(params) => (
               <TextField {...params} label="العميل" />
             )}
