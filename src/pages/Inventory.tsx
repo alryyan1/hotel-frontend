@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import apiClient from '../api/axios'
 import { toast } from 'sonner'
-import { Plus, Edit, Trash2, Package, Search, Filter, AlertTriangle, ShoppingCart, ArrowDownCircle, History } from 'lucide-react'
+import { Plus, Edit, Trash2, Package, Search, Filter, AlertTriangle, ShoppingCart, ArrowDownCircle, History, Tags } from 'lucide-react'
 import {
   Button,
   Card,
@@ -54,6 +54,10 @@ export default function Inventory() {
   const [filterStockStatus, setFilterStockStatus] = useState('')
   const [openFiltersDialog, setOpenFiltersDialog] = useState(false)
   const [categories, setCategories] = useState<any[]>([])
+  const [openCategoriesDialog, setOpenCategoriesDialog] = useState(false)
+  const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [addingCategory, setAddingCategory] = useState(false)
 
   // Effects
   useEffect(() => {
@@ -200,6 +204,36 @@ export default function Inventory() {
     setFilterStockStatus('')
   }
 
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return
+    try {
+      setAddingCategory(true)
+      const { data } = await apiClient.post('/inventory-categories', { name: newCategoryName.trim() })
+      setCategories(prev => [...prev, data])
+      setNewCategoryName('')
+      toast.success('تم إضافة الفئة بنجاح')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل إضافة الفئة')
+    } finally {
+      setAddingCategory(false)
+    }
+  }
+
+  const handleDeleteCategory = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه الفئة؟')) return
+    try {
+      setDeletingCategoryId(id)
+      await apiClient.delete(`/inventory-categories/${id}`)
+      toast.success('تم حذف الفئة بنجاح')
+      setCategories(prev => prev.filter(c => c.id !== id))
+      fetchInventory()
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل حذف الفئة')
+    } finally {
+      setDeletingCategoryId(null)
+    }
+  }
+
   const lowStockCount = inventory.filter((item: any) => 
     getStockStatus(item) === 'low_stock' || getStockStatus(item) === 'out_of_stock'
   ).length
@@ -236,13 +270,21 @@ export default function Inventory() {
           >
             إنشاء طلب
           </Button>
-          <Button 
-            onClick={() => setOpenReceiptDialog(true)} 
+          <Button
+            onClick={() => setOpenReceiptDialog(true)}
             variant="outlined"
             startIcon={<ArrowDownCircle size={16} />}
             sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
           >
             إنشاء وارد
+          </Button>
+          <Button
+            onClick={() => setOpenCategoriesDialog(true)}
+            variant="outlined"
+            startIcon={<Tags size={16} />}
+            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
+          >
+            الفئات
           </Button>
         </Stack>
       </Stack>
@@ -498,6 +540,72 @@ export default function Inventory() {
           )}
         </CardContent>
       </Card>
+
+      {/* Categories Dialog */}
+      <Dialog open={openCategoriesDialog} onClose={() => setOpenCategoriesDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>إدارة الفئات</DialogTitle>
+        <DialogContent>
+          <Stack direction="row" spacing={1} sx={{ mb: 2, mt: 1 }}>
+            <TextField
+              size="small"
+              fullWidth
+              placeholder="اسم الفئة الجديدة"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory() }}
+              disabled={addingCategory}
+            />
+            <Button
+              variant="contained"
+              onClick={handleAddCategory}
+              disabled={!newCategoryName.trim() || addingCategory}
+              sx={{ minWidth: 80 }}
+              startIcon={addingCategory ? <CircularProgress size={14} color="inherit" /> : <Plus size={16} />}
+            >
+              إضافة
+            </Button>
+          </Stack>
+
+          {categories.length === 0 ? (
+            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 3 }}>
+              لا توجد فئات
+            </Typography>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold' }}>الفئة</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', textAlign: 'center', width: 60 }}>حذف</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {categories.map((cat: any) => (
+                  <TableRow key={cat.id}>
+                    <TableCell>{cat.name}</TableCell>
+                    <TableCell sx={{ textAlign: 'center' }}>
+                      <Tooltip title="حذف الفئة">
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            disabled={deletingCategoryId === cat.id}
+                            onClick={() => handleDeleteCategory(cat.id)}
+                          >
+                            {deletingCategoryId === cat.id ? <CircularProgress size={16} /> : <Trash2 size={16} />}
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCategoriesDialog(false)}>إغلاق</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Dialogs */}
       <CreateInventoryItemDialog

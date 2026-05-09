@@ -820,7 +820,15 @@ export default function ReservationsList() {
   const fetchAvailableRoomsForTransfer = async (reservation: Reservation) => {
     try {
       setLoadingAvailableRooms(true)
-      const { data } = await apiClient.get('/rooms/all')
+      const checkIn  = reservation.check_in_date?.slice(0, 10)
+      const checkOut = reservation.check_out_date?.slice(0, 10)
+      const { data } = await apiClient.get('/rooms/all', {
+        params: {
+          check_in_date: checkIn,
+          check_out_date: checkOut,
+          exclude_reservation_id: reservation.id,
+        },
+      })
       const currentRoomIds = reservation.rooms.map(r => r.id)
       const rooms: any[] = Array.isArray(data) ? data : []
       setAvailableRooms(rooms.filter(r => !currentRoomIds.includes(r.id)))
