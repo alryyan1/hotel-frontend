@@ -13,16 +13,19 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Divider,
   Grid,
   IconButton,
   InputAdornment,
   Paper,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Tabs,
   TextField,
   Typography,
   MenuItem,
@@ -48,6 +51,7 @@ import {
   Clear as ClearIcon,
   FileDownload as FileDownloadIcon,
   RoomService as RoomServiceIcon,
+  SwapHoriz as SwapRoomIcon,
 } from '@mui/icons-material'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
@@ -150,6 +154,13 @@ export default function ReservationsList() {
   const [editCheckInDate, setEditCheckInDate] = useState<string>('')
   const [editCheckOutDate, setEditCheckOutDate] = useState<string>('')
   const [editDatesLoading, setEditDatesLoading] = useState(false)
+  const [openEditReservation, setOpenEditReservation] = useState(false)
+  const [editReservationTab, setEditReservationTab] = useState(0)
+  const [availableRooms, setAvailableRooms] = useState<any[]>([])
+  const [loadingAvailableRooms, setLoadingAvailableRooms] = useState(false)
+  const [transferOldRoomId, setTransferOldRoomId] = useState<string>('')
+  const [transferNewRoomId, setTransferNewRoomId] = useState<string>('')
+  const [transferLoading, setTransferLoading] = useState(false)
 
   // Fetch customers and services list
   useEffect(() => {
@@ -650,14 +661,18 @@ export default function ReservationsList() {
     if (!["checked_out", "cancelled"].includes(reservation.status) && hasPermission('/reservations-list/edit-dates')) {
       buttons.push(
         <Button
-          key="editdates"
+          key="editreservation"
           size="small"
           variant="outlined"
           onClick={() => {
             setSelectedReservation(reservation)
             setEditCheckInDate(dayjs(reservation.check_in_date).format('YYYY-MM-DD'))
             setEditCheckOutDate(dayjs(reservation.check_out_date).format('YYYY-MM-DD'))
-            setOpenEditDates(true)
+            setEditReservationTab(0)
+            setTransferOldRoomId(reservation.rooms?.[0]?.id?.toString() || '')
+            setTransferNewRoomId('')
+            setAvailableRooms([])
+            setOpenEditReservation(true)
           }}
           disabled={isLoading}
           color="warning"
@@ -792,6 +807,7 @@ export default function ReservationsList() {
       const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/update-dates`, payload)
       setReservations(prev => prev.map(r => r.id === data.id ? { ...data, rooms: data.rooms || r.rooms } : r))
       setOpenEditDates(false)
+      setOpenEditReservation(false)
       setSelectedReservation(null)
       toast.success('تم تعديل التواريخ بنجاح')
     } catch (err: any) {
@@ -799,6 +815,50 @@ export default function ReservationsList() {
     } finally {
       setEditDatesLoading(false)
     }
+  }
+
+  const fetchAvailableRoomsForTransfer = async (reservation: Reservation) => {
+    try {
+      setLoadingAvailableRooms(true)
+      const { data } = await apiClient.get('/rooms/all')
+      const currentRoomIds = reservation.rooms.map(r => r.id)
+      const rooms: any[] = Array.isArray(data) ? data : []
+      setAvailableRooms(rooms.filter(r => !currentRoomIds.includes(r.id)))
+    } catch {
+      toast.error('فشل في جلب الغرف')
+    } finally {
+      setLoadingAvailableRooms(false)
+    }
+  }
+
+  const handleTransferRoom = async () => {
+    if (!selectedReservation || !transferOldRoomId || !transferNewRoomId) return
+    try {
+      setTransferLoading(true)
+      const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/transfer-room`, {
+        old_room_id: parseInt(transferOldRoomId),
+        new_room_id: parseInt(transferNewRoomId),
+      })
+      setReservations(prev => prev.map(r => r.id === data.id ? data : r))
+      setOpenEditReservation(false)
+      setSelectedReservation(null)
+      toast.success('تم تحويل الغرفة بنجاح')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في تحويل الغرفة')
+    } finally {
+      setTransferLoading(false)
+    }
+  }
+
+  const getTransferPriceDiff = () => {
+    if (!selectedReservation || !transferOldRoomId || !transferNewRoomId) return null
+    const oldRoom = selectedReservation.rooms.find(r => r.id.toString() === transferOldRoomId)
+    const newRoom = availableRooms.find(r => r.id.toString() === transferNewRoomId)
+    if (!oldRoom || !newRoom) return null
+    const days = Math.max(1, dayjs(selectedReservation.check_out_date).diff(dayjs(selectedReservation.check_in_date), 'day'))
+    const oldRate = oldRoom.pivot?.rate !== undefined && oldRoom.pivot?.rate !== null ? Number(oldRoom.pivot.rate) : Number(oldRoom.type?.base_price ?? 0)
+    const newRate = Number(newRoom.type?.base_price ?? 0)
+    return { oldRate, newRate, days, oldTotal: days * oldRate, newTotal: days * newRate, diff: days * (newRate - oldRate) }
   }
 
   return (
@@ -1469,6 +1529,207 @@ export default function ReservationsList() {
           >
             تأكيد التمديد
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unified Edit Reservation Dialog */}
+      <Dialog
+        open={openEditReservation}
+        onClose={() => !editDatesLoading && !transferLoading && setOpenEditReservation(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>تعديل الحجز #{selectedReservation?.id}</DialogTitle>
+        <Tabs
+          value={editReservationTab}
+          onChange={(_, v) => {
+            setEditReservationTab(v)
+            if (v === 1 && selectedReservation && availableRooms.length === 0) {
+              fetchAvailableRoomsForTransfer(selectedReservation)
+            }
+          }}
+          variant="fullWidth"
+          sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
+        >
+          <Tab label="تعديل التواريخ" icon={<CalendarIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" />
+          <Tab label="تحويل الغرفة" icon={<SwapRoomIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" />
+        </Tabs>
+
+        <DialogContent>
+          {/* Tab 0: Edit Dates */}
+          {editReservationTab === 0 && (
+            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  تاريخ الوصول الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong>
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
+                </Typography>
+              </Box>
+              <TextField
+                label="تاريخ الوصول الجديد"
+                type="date"
+                fullWidth
+                value={editCheckInDate}
+                onChange={(e) => setEditCheckInDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                label="تاريخ المغادرة الجديد"
+                type="date"
+                fullWidth
+                value={editCheckOutDate}
+                onChange={(e) => setEditCheckOutDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ min: editCheckInDate ? dayjs(editCheckInDate).add(1, 'day').format('YYYY-MM-DD') : '' }}
+              />
+              {selectedReservation && editCheckInDate && editCheckOutDate && (() => {
+                const diff = calculateDateEditDiff()
+                if (diff.daysDiff === 0) return null
+                const isExtra = diff.daysDiff > 0
+                return (
+                  <Box sx={{ p: 2, bgcolor: isExtra ? 'warning.light' : 'info.light', borderRadius: 1 }}>
+                    <Stack spacing={1}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2">عدد الأيام الجديد:</Typography>
+                        <Typography variant="body2" fontWeight="bold">{diff.newDays} يوم</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2">المبلغ القديم:</Typography>
+                        <Typography variant="body2">{diff.oldAmount.toLocaleString()} SDG</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" fontWeight="bold">المبلغ الجديد:</Typography>
+                        <Typography variant="body2" fontWeight="bold" color={isExtra ? 'warning.dark' : 'info.dark'}>
+                          {diff.newAmount.toLocaleString()} SDG
+                        </Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        سيتم تعديل المعاملة الأصلية في كشف الحساب.
+                      </Typography>
+                    </Stack>
+                  </Box>
+                )
+              })()}
+            </Box>
+          )}
+
+          {/* Tab 1: Transfer Room */}
+          {editReservationTab === 1 && (
+            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  الغرف الحالية: <strong>{selectedReservation?.rooms.map(r => `غرفة ${r.number}`).join('، ')}</strong>
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  الفترة: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong> → <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
+                </Typography>
+              </Box>
+
+              <FormControl fullWidth>
+                <InputLabel>الغرفة المراد التحويل منها</InputLabel>
+                <Select
+                  value={transferOldRoomId}
+                  label="الغرفة المراد التحويل منها"
+                  onChange={(e) => setTransferOldRoomId(e.target.value)}
+                >
+                  {selectedReservation?.rooms.map(room => (
+                    <MenuItem key={room.id} value={room.id.toString()}>
+                      غرفة {room.number}
+                      {room.type?.name ? ` — ${room.type.name}` : ''}
+                      {(room.pivot?.rate || room.type?.base_price) ? ` (${(room.pivot?.rate || room.type?.base_price)?.toLocaleString()} SDG/ليلة)` : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth disabled={loadingAvailableRooms}>
+                <InputLabel>الغرفة الجديدة</InputLabel>
+                <Select
+                  value={transferNewRoomId}
+                  label="الغرفة الجديدة"
+                  onChange={(e) => setTransferNewRoomId(e.target.value)}
+                  startAdornment={loadingAvailableRooms ? <CircularProgress size={16} sx={{ ml: 1 }} /> : undefined}
+                >
+                  {availableRooms.length === 0 && !loadingAvailableRooms ? (
+                    <MenuItem disabled value="">لا توجد غرف أخرى</MenuItem>
+                  ) : (
+                    availableRooms.map((room: any) => (
+                      <MenuItem key={room.id} value={room.id.toString()}>
+                        غرفة {room.number}
+                        {room.type?.name ? ` — ${room.type.name}` : ''}
+                        {room.type?.base_price ? ` (${Number(room.type.base_price).toLocaleString()} SDG/ليلة)` : ''}
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+
+              {(() => {
+                const diff = getTransferPriceDiff()
+                if (!diff) return null
+                const isSamePrice = diff.diff === 0
+                const isExtra = diff.diff > 0
+                return (
+                  <Box sx={{ p: 2, bgcolor: isSamePrice ? 'success.light' : isExtra ? 'warning.light' : 'info.light', borderRadius: 1 }}>
+                    <Stack spacing={1}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2">سعر الغرفة القديمة:</Typography>
+                        <Typography variant="body2">{diff.oldRate.toLocaleString()} SDG/ليلة</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2">سعر الغرفة الجديدة:</Typography>
+                        <Typography variant="body2" fontWeight="bold">{diff.newRate.toLocaleString()} SDG/ليلة</Typography>
+                      </Box>
+                      <Divider />
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2">إجمالي قديم ({diff.days} يوم):</Typography>
+                        <Typography variant="body2">{diff.oldTotal.toLocaleString()} SDG</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" fontWeight="bold">إجمالي جديد:</Typography>
+                        <Typography variant="body2" fontWeight="bold" color={isSamePrice ? 'success.dark' : isExtra ? 'warning.dark' : 'info.dark'}>
+                          {diff.newTotal.toLocaleString()} SDG
+                        </Typography>
+                      </Box>
+                      {!isSamePrice && (
+                        <Typography variant="caption" color="text.secondary">
+                          {isExtra ? `فرق إضافي: +${diff.diff.toLocaleString()} SDG` : `خصم: ${diff.diff.toLocaleString()} SDG`} — سيتم تعديل كشف الحساب تلقائياً.
+                        </Typography>
+                      )}
+                    </Stack>
+                  </Box>
+                )
+              })()}
+            </Box>
+          )}
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => setOpenEditReservation(false)} disabled={editDatesLoading || transferLoading}>إلغاء</Button>
+          {editReservationTab === 0 && (
+            <Button
+              onClick={handleUpdateDates}
+              variant="contained"
+              color="warning"
+              disabled={editDatesLoading || !editCheckInDate || !editCheckOutDate}
+              startIcon={editDatesLoading ? <CircularProgress size={16} /> : <CalendarIcon />}
+            >
+              {editDatesLoading ? 'جارٍ التعديل...' : 'تأكيد تعديل التواريخ'}
+            </Button>
+          )}
+          {editReservationTab === 1 && (
+            <Button
+              onClick={handleTransferRoom}
+              variant="contained"
+              color="primary"
+              disabled={transferLoading || !transferOldRoomId || !transferNewRoomId}
+              startIcon={transferLoading ? <CircularProgress size={16} /> : <SwapRoomIcon />}
+            >
+              {transferLoading ? 'جارٍ التحويل...' : 'تأكيد التحويل'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

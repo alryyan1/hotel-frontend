@@ -8,7 +8,7 @@ export const ALL_PAGES: PageDef[] = [
   { path: '/',                      label: 'لوحة التحكم',      group: 'عام' },
   { path: '/reservations',                   label: 'إنشاء حجز',              group: 'الحجوزات' },
   { path: '/reservations-list',             label: 'قائمة الحجوزات',         group: 'الحجوزات' },
-  { path: '/reservations-list/edit-dates',  label: 'تعديل تواريخ الحجوزات',  group: 'الحجوزات' },
+  { path: '/reservations-list/edit-dates',  label: 'تعديل الحجوزات',  group: 'الحجوزات' },
   { path: '/customers',             label: 'العملاء',           group: 'العملاء' },
   { path: '/customers/delete',      label: 'حذف العملاء',        group: 'العملاء' },
   { path: '/rooms',                 label: 'الغرف',             group: 'إدارة الغرف' },
