@@ -83,11 +83,10 @@ export default function Dashboard() {
       const reservationsData = reservationsRes.data?.data || reservationsRes.data || []
       const allReservations = Array.isArray(reservationsData) ? reservationsData : []
       
-      // Create a set of room IDs that are occupied (have reservations with status !== 'checked_out')
+      // Create a set of room IDs that are occupied (only checked_in reservations)
       const occupiedRoomIds = new Set<number>()
       allReservations.forEach((reservation: any) => {
-        // If reservation status is not 'checked_out', mark all its rooms as occupied
-        if (reservation.status && reservation.status !== 'checked_out') {
+        if (reservation.status === 'checked_in') {
           if (reservation.rooms && Array.isArray(reservation.rooms)) {
             reservation.rooms.forEach((room: any) => {
               const roomId = room.id || room.room_id

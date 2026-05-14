@@ -23,6 +23,12 @@ export default function Settings() {
     phone: '',
     phone_2: '',
     email: '',
+    bank_name_1: '',
+    bank_account_number_1: '',
+    bank_account_name_1: '',
+    bank_name_2: '',
+    bank_account_number_2: '',
+    bank_account_name_2: '',
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState('')
@@ -48,6 +54,12 @@ export default function Settings() {
             phone: data.phone || '',
             phone_2: data.phone_2 || '',
             email: data.email || '',
+            bank_name_1: data.bank_name_1 || '',
+            bank_account_number_1: data.bank_account_number_1 || '',
+            bank_account_name_1: data.bank_account_name_1 || '',
+            bank_name_2: data.bank_name_2 || '',
+            bank_account_number_2: data.bank_account_number_2 || '',
+            bank_account_name_2: data.bank_account_name_2 || '',
           })
           if (data.logo_url) {
             setLogoPreview(data.logo_url)
@@ -304,6 +316,77 @@ export default function Settings() {
                       label="البريد الإلكتروني"
                       value={form.email}
                       onChange={(e) => updateField('email', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                </Grid>
+              </Box>
+
+              <Divider />
+
+              {/* Bank Account Section */}
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
+                  معلومات الحساب البنكي
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>الحساب الأول</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="اسم البنك الأول"
+                      value={form.bank_name_1}
+                      onChange={(e) => updateField('bank_name_1', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="رقم الحساب الأول"
+                      value={form.bank_account_number_1}
+                      onChange={(e) => updateField('bank_account_number_1', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="اسم الحساب الأول"
+                      value={form.bank_account_name_1}
+                      onChange={(e) => updateField('bank_account_name_1', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>الحساب الثاني</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="اسم البنك الثاني"
+                      value={form.bank_name_2}
+                      onChange={(e) => updateField('bank_name_2', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="رقم الحساب الثاني"
+                      value={form.bank_account_number_2}
+                      onChange={(e) => updateField('bank_account_number_2', e.target.value)}
+                      size="small"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="اسم الحساب الثاني"
+                      value={form.bank_account_name_2}
+                      onChange={(e) => updateField('bank_account_name_2', e.target.value)}
                       size="small"
                     />
                   </Grid>

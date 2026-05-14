@@ -704,6 +704,26 @@ export default function ReservationsList() {
       );
     }
 
+    if (hasPermission('/reservations-list/delete')) {
+      buttons.push(
+        <Button
+          key="delete"
+          size="small"
+          variant="outlined"
+          onClick={() => handleAction(reservation, "delete", false)}
+          disabled={isLoading}
+          color="error"
+          sx={{ ...commonSx, minWidth: 0, px: 0.75 }}
+        >
+          {isLoading && currentAction === "delete" ? (
+            <CircularProgress size={14} />
+          ) : (
+            <DeleteIcon sx={{ fontSize: "1rem" }} />
+          )}
+        </Button>,
+      );
+    }
+
     return buttons;
   }
 
