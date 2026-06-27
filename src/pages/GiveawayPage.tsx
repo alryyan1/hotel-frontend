@@ -5,7 +5,7 @@ import myLogo from '../assets/nova-logo.png';
 type IconName =
   | 'trophy' | 'target' | 'shield' | 'gift' | 'calendar' | 'list'
   | 'user' | 'phone' | 'pin' | 'building' | 'bed' | 'medal'
-  | 'star' | 'check' | 'whatsapp' | 'tiktok' | 'facebook' | 'close';
+  | 'star' | 'check' | 'whatsapp' | 'tiktok' | 'facebook' | 'close' | 'share';
 
 const ICONS: Record<IconName, string | string[]> = {
   trophy:   "M6 9H3.5a2.5 2.5 0 0 1 0-5H6m12 5h2.5a2.5 2.5 0 0 0 0-5H18M6 4h12v9a6 6 0 0 1-12 0V4ZM8 21h8m-4-4v4m-5 0h10",
@@ -25,7 +25,8 @@ const ICONS: Record<IconName, string | string[]> = {
   whatsapp: ["M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.455 5.703 1.457h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"],
   facebook: "M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z",
   tiktok:   "M12.53.15C13.82.14 15 .21 15 .21v4.3s-1.16-.08-2.3.43c-.83.37-1.35 1.08-1.35 2.19v3.17c0 3.12-1.28 5.4-4.8 5.4-2.73 0-5-2-5-5.26 0-3.1 2.37-5.18 5.23-5.02v4.21c-.81-.13-1.43.32-1.43 1.04 0 .97.83 1.1 1.43 1.1 1.25 0 1.47-.79 1.47-1.74V0h4.3a6.83 6.83 0 0 0 3.98 2.54V0z",
-  close:    "M18 6L6 18M6 6l12 12"
+  close:    "M18 6L6 18M6 6l12 12",
+  share:    ["M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8", "M16 6l-4-4-4 4", "M12 2v13"]
 };
 
 function SvgIcon({ name, size = 20, color = "currentColor", strokeWidth = 1.8 }: {
@@ -154,6 +155,20 @@ export default function GiveawayPage() {
     }
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: 'مسابقة شقق نوفا الفندقية',
+      text: 'شارك في السحب واربح 100$ سجّل بياناتك الآن.',
+      url: 'https://app.nova-suits.com/giveaway',
+    };
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else {
+      await navigator.clipboard.writeText(shareData.url);
+      alert('تم نسخ الرابط!');
+    }
+  };
+
   const inputBase: React.CSSProperties = {
     width: "100%",
     padding: "13px 16px 13px 44px",
@@ -241,7 +256,7 @@ export default function GiveawayPage() {
           }}>
             <SvgIcon name="trophy" size={14} color="#D4A017" />
             <span style={{ fontSize: isMobile ? "12px" : "14px", color: "#F0C040", fontWeight: "700" }}>
-              5 فائزين — $100 لكل فائز
+              5 فائزين — 100$ لكل فائز
             </span>
           </div>
 
@@ -294,9 +309,8 @@ export default function GiveawayPage() {
             }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "16px", flex: 1 }}>
                 {[
-                  { icon: "trophy"   as IconName, label: "الجوائز",       value: "5 فائزين — $100 لكل فائز" },
-                  { icon: "calendar" as IconName, label: "تاريخ السحب",   value: "سيتم الإعلان في صفحتنا" },
-                  { icon: "list"     as IconName, label: "شروط المشاركة", value: "متابعة صفحاتنا على مواقع التواصل الإجتماعي" },
+                  { icon: "trophy"   as IconName, label: "الجوائز",     value: "5 فائزين — 100$ لكل فائز" },
+                  { icon: "calendar" as IconName, label: "تاريخ السحب", value: "سيتم الإعلان في صفحتنا" },
                 ].map((item, i) => (
                   <div key={i} style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
                     <div style={{ width: "32px", height: "32px", flexShrink: 0, background: "rgba(212,160,23,0.12)", border: "1px solid rgba(212,160,23,0.3)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -308,6 +322,27 @@ export default function GiveawayPage() {
                     </div>
                   </div>
                 ))}
+
+                {/* شروط المشاركة */}
+                <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                  <div style={{ width: "32px", height: "32px", flexShrink: 0, background: "rgba(212,160,23,0.12)", border: "1px solid rgba(212,160,23,0.3)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <SvgIcon name="list" size={14} color="#D4A017" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px" }}>شروط المشاركة</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      {[
+                        "متابعة صفحاتنا على مواقع التواصل الإجتماعي",
+                        "مشاركة رابط المسابقة",
+                      ].map((cond, ci) => (
+                        <div key={ci} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                          <span style={{ fontSize: "12px", fontWeight: "800", color: "#D4A017", flexShrink: 0 }}>{ci + 1}.</span>
+                          <span style={{ fontSize: "12px", fontWeight: "600", lineHeight: 1.4 }}>{cond}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
               <div style={{
                 marginTop: "20px", padding: "10px",
@@ -478,15 +513,29 @@ export default function GiveawayPage() {
               </a>
 
               {/* زر فيسبوك */}
-              <a href="https://www.facebook.com/share/1CRMuaVTfz/" target="_blank" rel="noreferrer" style={{ 
+              <a href="https://www.facebook.com/share/1CRMuaVTfz/" target="_blank" rel="noreferrer" style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                padding: "12px 20px", background: "#1877F2", color: "#fff", 
+                padding: "12px 20px", background: "#1877F2", color: "#fff",
                 borderRadius: "12px", textDecoration: "none", fontSize: "14px", fontWeight: "700",
                 boxShadow: "0 4px 12px rgba(24,119,242,0.25)"
               }}>
                 <SvgIcon name="facebook" size={16} color="#fff" />
                فيسبوك
               </a>
+
+              {/* زر مشاركة الرابط */}
+              <button onClick={handleShare} style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                padding: "12px 20px",
+                background: "linear-gradient(90deg, #b8862B 0%, #D4A017 100%)",
+                color: "#fff", border: "none",
+                borderRadius: "12px", fontSize: "14px", fontWeight: "700", cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(212,160,23,0.3)",
+                fontFamily: "system-ui, -apple-system, sans-serif",
+              }}>
+                <SvgIcon name="share" size={16} color="#fff" />
+                شارك الرابط
+              </button>
             </div>
           </div>
 
