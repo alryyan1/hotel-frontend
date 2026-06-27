@@ -5,7 +5,7 @@ import myLogo from '../assets/nova-logo.png';
 type IconName =
   | 'trophy' | 'target' | 'shield' | 'gift' | 'calendar' | 'list'
   | 'user' | 'phone' | 'pin' | 'building' | 'bed' | 'medal'
-  | 'star' | 'check' | 'whatsapp' | 'tiktok' | 'facebook' | 'close' | 'share';
+  | 'star' | 'check' | 'whatsapp' | 'tiktok' | 'facebook' | 'close' | 'share' | 'instagram';
 
 const ICONS: Record<IconName, string | string[]> = {
   trophy:   "M6 9H3.5a2.5 2.5 0 0 1 0-5H6m12 5h2.5a2.5 2.5 0 0 0 0-5H18M6 4h12v9a6 6 0 0 1-12 0V4ZM8 21h8m-4-4v4m-5 0h10",
@@ -26,7 +26,8 @@ const ICONS: Record<IconName, string | string[]> = {
   facebook: "M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z",
   tiktok:   "M12.53.15C13.82.14 15 .21 15 .21v4.3s-1.16-.08-2.3.43c-.83.37-1.35 1.08-1.35 2.19v3.17c0 3.12-1.28 5.4-4.8 5.4-2.73 0-5-2-5-5.26 0-3.1 2.37-5.18 5.23-5.02v4.21c-.81-.13-1.43.32-1.43 1.04 0 .97.83 1.1 1.43 1.1 1.25 0 1.47-.79 1.47-1.74V0h4.3a6.83 6.83 0 0 0 3.98 2.54V0z",
   close:    "M18 6L6 18M6 6l12 12",
-  share:    ["M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8", "M16 6l-4-4-4 4", "M12 2v13"]
+  share:    ["M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8", "M16 6l-4-4-4 4", "M12 2v13"],
+  instagram: ["M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"]
 };
 
 function SvgIcon({ name, size = 20, color = "currentColor", strokeWidth = 1.8 }: {
@@ -75,6 +76,15 @@ function SvgIcon({ name, size = 20, color = "currentColor", strokeWidth = 1.8 }:
     );
   }
 
+  if (name === 'instagram') {
+    const arr = paths as string[];
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+        {arr.map((p, i) => <path key={i} d={p} />)}
+      </svg>
+    );
+  }
+
   const pathsArr = Array.isArray(paths) ? paths : [paths];
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
@@ -103,7 +113,7 @@ export default function GiveawayPage() {
     address: ''
   });
   const [loading, setLoading] = useState(false);
-  const [clicked, setClicked] = useState({ facebook: false, tiktok: false, share: false });
+  const [clicked, setClicked] = useState({ whatsapp: false, facebook: false, tiktok: false, instagram: false, share: false });
 
   const [dialog, setDialog] = useState<DialogState>({
     isOpen: false,
@@ -128,16 +138,18 @@ export default function GiveawayPage() {
     }
 
     const missing = [
-      !clicked.facebook && 'فيسبوك',
-      !clicked.tiktok   && 'تيك توك',
-      !clicked.share    && 'مشاركة الرابط',
+      !clicked.whatsapp   && 'قناة واتساب',
+      !clicked.tiktok     && 'تيك توك',
+      !clicked.facebook   && 'فيسبوك',
+      !clicked.instagram  && 'انستغرام',
+      !clicked.share      && 'مشاركة الرابط',
     ].filter(Boolean) as string[];
 
     if (missing.length > 0) {
       setDialog({
         isOpen: true,
         type: 'error',
-        message: `يجب أولاً إتمام الشروط التالية قبل التسجيل:\n• ${missing.join('\n• ')}`,
+        message: 'يجب إتمام شروط المتابعة أولاً — اذهب لأسفل الصفحة واضغط على جميع أزرار المتابعة ومشاركة الرابط.',
       });
       return;
     }
@@ -352,7 +364,10 @@ export default function GiveawayPage() {
                     <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginBottom: "6px" }}>شروط المشاركة</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                       {[
-                        "متابعة صفحاتنا على مواقع التواصل الإجتماعي",
+                        "متابعة قناة واتساب",
+                        "متابعة تيك توك",
+                        "متابعة فيسبوك",
+                        "متابعة انستغرام",
                         "مشاركة رابط المسابقة",
                       ].map((cond, ci) => (
                         <div key={ci} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
@@ -433,19 +448,6 @@ export default function GiveawayPage() {
                 </label>
               </div>
 
-              {/* تنبيه الشروط المتبقية */}
-              {(!clicked.facebook || !clicked.tiktok || !clicked.share) && (
-                <div style={{
-                  marginBottom: "12px", padding: "10px 14px",
-                  background: "#FEF9EC", border: "1.5px solid #D4A017",
-                  borderRadius: "12px", fontSize: "12px", color: "#7c5e10", lineHeight: 1.7,
-                }}>
-                  <div style={{ fontWeight: "700", marginBottom: "4px" }}>يجب إتمام الشروط أولاً:</div>
-                  {!clicked.tiktok   && <div>• متابعة تيك توك ✗</div>}
-                  {!clicked.facebook && <div>• متابعة فيسبوك ✗</div>}
-                  {!clicked.share    && <div>• مشاركة رابط المسابقة ✗</div>}
-                </div>
-              )}
 
               <button type="submit" disabled={loading} style={{
                 width: "100%", padding: "14px",
@@ -512,25 +514,35 @@ export default function GiveawayPage() {
           <img src={myLogo} alt="نوفا" style={{ maxWidth: "80px", height: "auto", display: "block" }} />
 
           <div style={{ width: "100%", textAlign: "center" }}>
-            <div style={{ fontSize: "13px", opacity: 0.7, marginBottom: "12px", fontWeight: "600" }}>تواصل معنا وتابع صفحاتنا </div>
-            
-            <div style={{ 
-              display: "flex", 
-              flexDirection: isMobile ? "column" : "row", 
-              gap: "10px", 
+            <div style={{ fontSize: "13px", opacity: 0.7, marginBottom: "12px", fontWeight: "600" }}>تابعنا على</div>
+
+            <div style={{
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              flexWrap: "wrap",
+              gap: "10px",
               justifyContent: "center",
               width: "100%",
               maxWidth: isMobile ? "280px" : "100%",
               margin: "0 auto"
             }}>
-              {/* زر واتساب */}
-              <a href="https://wa.me/249120243000" target="_blank" rel="noreferrer" style={{ 
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                padding: "12px 20px", background: "#25D366", color: "#fff", 
-                borderRadius: "12px", textDecoration: "none", fontSize: "14px", fontWeight: "700",
-                boxShadow: "0 4px 12px rgba(37,211,102,0.25)"
-              }}>
-                <SvgIcon name="whatsapp" size={18} color="#fff" />
+              {/* زر واتساب — قناة */}
+              <a
+                href="https://whatsapp.com/channel/0029VbD8mWN05MUkO800qo2b"
+                target="_blank" rel="noreferrer"
+                onClick={() => setClicked(p => ({ ...p, whatsapp: true }))}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                  padding: "12px 20px",
+                  background: clicked.whatsapp ? "#166534" : "#25D366",
+                  color: "#fff",
+                  border: clicked.whatsapp ? "1.5px solid #4ade80" : "none",
+                  borderRadius: "12px", textDecoration: "none", fontSize: "14px", fontWeight: "700",
+                  boxShadow: "0 4px 12px rgba(37,211,102,0.25)", transition: "background 0.3s",
+                }}>
+                {clicked.whatsapp
+                  ? <SvgIcon name="check" size={18} color="#4ade80" strokeWidth={3} />
+                  : <SvgIcon name="whatsapp" size={18} color="#fff" />}
                 واتساب
               </a>
 
@@ -572,6 +584,26 @@ export default function GiveawayPage() {
                   ? <SvgIcon name="check" size={16} color="#4ade80" strokeWidth={3} />
                   : <SvgIcon name="facebook" size={16} color="#fff" />}
                 فيسبوك
+              </a>
+
+              {/* زر انستغرام */}
+              <a
+                href="https://www.instagram.com/novafurnished?utm_source=qr"
+                target="_blank" rel="noreferrer"
+                onClick={() => setClicked(p => ({ ...p, instagram: true }))}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                  padding: "12px 20px",
+                  background: clicked.instagram ? "#166534" : "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
+                  color: "#fff",
+                  border: clicked.instagram ? "1.5px solid #4ade80" : "none",
+                  borderRadius: "12px", textDecoration: "none", fontSize: "14px", fontWeight: "700",
+                  boxShadow: "0 4px 12px rgba(220,39,67,0.3)", transition: "background 0.3s",
+                }}>
+                {clicked.instagram
+                  ? <SvgIcon name="check" size={16} color="#4ade80" strokeWidth={3} />
+                  : <SvgIcon name="instagram" size={16} color="#fff" />}
+                انستغرام
               </a>
 
               {/* زر مشاركة الرابط */}
