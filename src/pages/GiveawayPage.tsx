@@ -241,7 +241,7 @@ export default function GiveawayPage() {
           }}>
             <SvgIcon name="trophy" size={14} color="#D4A017" />
             <span style={{ fontSize: isMobile ? "12px" : "14px", color: "#F0C040", fontWeight: "700" }}>
-              5 فائزين × $100 لكل فائز
+              5 فائزين — $100 لكل فائز
             </span>
           </div>
 
@@ -294,7 +294,7 @@ export default function GiveawayPage() {
             }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "16px", flex: 1 }}>
                 {[
-                  { icon: "trophy"   as IconName, label: "الجوائز",       value: "5 فائزين × $100 لكل فائز" },
+                  { icon: "trophy"   as IconName, label: "الجوائز",       value: "5 فائزين — $100 لكل فائز" },
                   { icon: "calendar" as IconName, label: "تاريخ السحب",   value: "سيتم الإعلان في صفحتنا" },
                   { icon: "list"     as IconName, label: "شروط المشاركة", value: "متابعة صفحاتنا على مواقع التواصل الإجتماعي" },
                 ].map((item, i) => (
