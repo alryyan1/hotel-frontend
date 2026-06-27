@@ -23,6 +23,7 @@ import {
   Sparkles,
   Calculator,
   ChevronRight,
+  Trophy,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import apiClient from "../api/axios";
@@ -131,6 +132,17 @@ const navigationGroups = [
         to: "/services",
         label: "خدمات اضافية",
         icon: <Sparkles className="size-5" />,
+      },
+    ],
+  },
+  {
+    title: "السحب والجوائز",
+    icon: <Trophy className="size-5" />,
+    items: [
+      {
+        to: "/contest-participants",
+        label: "المشتركون في السحب",
+        icon: <Trophy className="size-5" />,
       },
     ],
   },

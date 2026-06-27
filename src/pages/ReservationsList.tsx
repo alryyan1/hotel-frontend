@@ -769,7 +769,7 @@ export default function ReservationsList() {
   }
 
   const handleServiceSubmit = async () => {
-    if (!selectedReservation || !serviceForm.room_id || !serviceForm.service_id || !serviceForm.amount) {
+    if (!selectedReservation || !serviceForm.room_id || !serviceForm.service_id) {
       toast.error('يرجى تعبئة جميع الحقول المطلوبة')
       return
     }
@@ -780,7 +780,7 @@ export default function ReservationsList() {
         reservation_id: selectedReservation.id,
         room_id: serviceForm.room_id,
         service_id: serviceForm.service_id,
-        amount: parseFloat(serviceForm.amount),
+        amount: serviceForm.amount ? parseFloat(serviceForm.amount) : null,
         payment_method: serviceForm.payment_method,
         notes: serviceForm.notes
       })
@@ -1875,13 +1875,13 @@ export default function ReservationsList() {
             </FormControl>
 
             <TextField
-              label="المبلغ (SDG)"
+              label="المبلغ (SDG) - اختياري"
               type="number"
               fullWidth
-              required
               inputProps={{ min: 0, step: 'any' }}
               value={serviceForm.amount}
               onChange={(e) => setServiceForm({ ...serviceForm, amount: e.target.value })}
+              helperText="يمكن تركه فارغاً وإضافة المبلغ لاحقاً عبر كشف الحساب"
             />
 
             <FormControl fullWidth required>
@@ -1913,7 +1913,7 @@ export default function ReservationsList() {
           <Button 
             onClick={handleServiceSubmit} 
             variant="contained" 
-            disabled={serviceLoading || !serviceForm.room_id || !serviceForm.service_id || !serviceForm.amount}
+            disabled={serviceLoading || !serviceForm.room_id || !serviceForm.service_id}
             startIcon={serviceLoading ? <CircularProgress size={16} /> : null}
           >
             إضافة الخدمة

@@ -37,6 +37,7 @@ import {
   AttachMoney as DollarSignIcon,
   Undo as UndoIcon,
   Print as PrintIcon,
+  RoomService as RoomServiceIcon,
 } from '@mui/icons-material'
 import { toast } from 'sonner'
 import dayjs from 'dayjs'
@@ -78,7 +79,8 @@ interface Customer {
 interface LedgerEntry {
   id: number
   reservation_id?: number
-  type: 'reservation' | 'payment' | 'refund'
+  reservation_service_id?: number
+  type: 'reservation' | 'payment' | 'refund' | 'service'
   date: string
   description: string
   rooms?: string
@@ -249,6 +251,31 @@ export default function CustomerLedger() {
       toast.success('تم فتح الفاتورة في نافذة جديدة')
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل في فتح الفاتورة')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleServiceInvoiceClick = async (reservationServiceId: number) => {
+    try {
+      setLoading(true)
+      const response = await apiClient.get(`/reservation-services/${reservationServiceId}/pdf`, {
+        responseType: 'blob'
+      })
+      const blob = new Blob([response.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const newWindow = window.open(url, '_blank')
+      if (!newWindow) {
+        toast.error('يرجى السماح بالنوافذ المنبثقة لعرض PDF')
+        window.URL.revokeObjectURL(url)
+        return
+      }
+      newWindow.addEventListener('load', () => {
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+      })
+      toast.success('تم فتح فاتورة الخدمة في نافذة جديدة')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في فتح فاتورة الخدمة')
     } finally {
       setLoading(false)
     }
@@ -474,7 +501,13 @@ export default function CustomerLedger() {
                   {ledgerEntries.map((entry) => (
                     <TableRow
                       key={`${entry.type}-${entry.id}`}
-                      sx={entry.type === 'refund' ? { bgcolor: 'warning.50', borderLeft: '4px solid', borderColor: 'warning.main' } : {}}
+                      sx={
+                        entry.type === 'refund'
+                          ? { bgcolor: 'warning.50', borderLeft: '4px solid', borderColor: 'warning.main' }
+                          : entry.type === 'service'
+                          ? { bgcolor: 'info.50', borderLeft: '4px solid', borderColor: 'info.light' }
+                          : {}
+                      }
                     >
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.date}
@@ -491,6 +524,24 @@ export default function CustomerLedger() {
                               '&:hover': { color: 'primary.dark' },
                             }}
                           >
+                            {entry.description}
+                          </Typography>
+                        ) : entry.type === 'service' && entry.reservation_service_id ? (
+                          <Typography
+                            component="span"
+                            onClick={() => handleServiceInvoiceClick(entry.reservation_service_id!)}
+                            sx={{
+                              cursor: 'pointer',
+                              color: 'info.dark',
+                              textDecoration: 'underline',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              justifyContent: 'center',
+                              '&:hover': { color: 'info.main' },
+                            }}
+                          >
+                            <RoomServiceIcon sx={{ fontSize: 16 }} />
                             {entry.description}
                           </Typography>
                         ) : entry.type === 'payment' ? (
@@ -521,6 +572,14 @@ export default function CustomerLedger() {
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.type === 'reservation' ? (
                           <Chip label={entry.rooms} variant="outlined" size="small" />
+                        ) : entry.type === 'service' ? (
+                          <Chip
+                            icon={<RoomServiceIcon sx={{ fontSize: 14 }} />}
+                            label="خدمة"
+                            color="info"
+                            size="small"
+                            variant="outlined"
+                          />
                         ) : entry.type === 'refund' ? (
                           <Chip
                             icon={<UndoIcon sx={{ fontSize: 14 }} />}

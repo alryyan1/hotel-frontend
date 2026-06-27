@@ -23,6 +23,7 @@ export const ALL_PAGES: PageDef[] = [
   { path: '/inventory-orders',      label: 'طلبات المخزون',     group: 'المخزون' },
   { path: '/inventory-receipts',    label: 'واردات المخزون',    group: 'المخزون' },
   { path: '/cleaning-notifications',label: 'تنبيهات النظافة',   group: 'العمليات' },
+  { path: '/contest-participants',   label: 'المشتركون في السحب', group: 'السحب والجوائز' },
   { path: '/users',                 label: 'المستخدمين',        group: 'الإدارة' },
   { path: '/settings',              label: 'الإعدادات',         group: 'الإدارة' },
 ]

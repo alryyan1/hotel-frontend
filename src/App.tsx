@@ -28,6 +28,8 @@ import InventoryOrders from "./pages/InventoryOrders";
 import InventoryReceipts from "./pages/InventoryReceipts";
 import CleaningNotifications from "./pages/CleaningNotifications";
 import PublicReservations from "./pages/PublicReservations";
+import GiveawayPage from "./pages/GiveawayPage";
+import ContestParticipantsPage from "./pages/ContestParticipantsPage";
 import Accountant from "./pages/Accountant";
 import MonthlyReport from "./pages/MonthlyReport";
 import ServicesPage from "./pages/ServicesPage";
@@ -79,6 +81,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/book" element={<PublicReservations />} />
+      <Route path="/giveaway" element={<GiveawayPage />} />
       <Route
         element={token ? <MainLayout /> : <Navigate to="/login" replace />}
       >
@@ -102,6 +105,7 @@ function AppRoutes() {
         <Route path="services" element={<PermissionGuard><ServicesPage /></PermissionGuard>} />
         <Route path="users" element={<PermissionGuard><Users /></PermissionGuard>} />
         <Route path="settings" element={<PermissionGuard><Settings /></PermissionGuard>} />
+        <Route path="contest-participants" element={<PermissionGuard><ContestParticipantsPage /></PermissionGuard>} />
       </Route>
       <Route
         path="*"
