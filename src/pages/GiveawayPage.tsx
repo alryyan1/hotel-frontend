@@ -568,7 +568,7 @@ export default function GiveawayPage() {
 
               {/* زر فيسبوك */}
               <a
-                href="https://www.facebook.com/share/1CRMuaVTfz/"
+                href="https://www.facebook.com/share/1ET64XYj6v/?mibextid=wwXIfr"
                 target="_blank" rel="noreferrer"
                 onClick={() => setClicked(p => ({ ...p, facebook: true }))}
                 style={{
