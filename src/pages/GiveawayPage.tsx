@@ -211,16 +211,16 @@ export default function GiveawayPage() {
             style={{ maxWidth: isMobile ? "95px" : "150px", height: "auto", marginBottom: "16px", margin: "0 auto 16px", display: "block" }} />
 
           <h1 style={{ fontSize: isMobile ? "18px" : "26px", fontWeight: "700", margin: "0 0 8px", color: "#fff", textShadow: "0 2px 8px rgba(0,0,0,0.5)", lineHeight: "1.4" }}>
-            أدخل بياناتك وشارك في السحب على جائزة نقدية بقيمة
+            أدخل بياناتك وشارك في السحب على جوائز نقدية بقيمة إجمالية
           </h1>
 
           <div style={{
             fontSize: isMobile ? "55px" : "100px", fontWeight: "900", color: "#D4A017",
-            lineHeight: 1, margin: "10px 0 28px",
+            lineHeight: 1, margin: "10px 0 8px",
             textShadow: "0 4px 24px rgba(212,160,23,0.5), 0 2px 10px rgba(0,0,0,0.6)",
             display: "flex", alignItems: "center", justifyContent: "center", gap: "14px",
           }}>
-            $300
+            $500
             <span style={{
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               width: isMobile ? "46px" : "76px", height: isMobile ? "46px" : "76px",
@@ -231,9 +231,23 @@ export default function GiveawayPage() {
             </span>
           </div>
 
+          {/* توضيح تفاصيل الجوائز */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+            margin: "0 0 20px",
+            background: "rgba(212,160,23,0.1)", border: "1px solid rgba(212,160,23,0.35)",
+            borderRadius: "50px", padding: isMobile ? "7px 16px" : "8px 22px",
+            width: "fit-content", marginLeft: "auto", marginRight: "auto",
+          }}>
+            <SvgIcon name="trophy" size={14} color="#D4A017" />
+            <span style={{ fontSize: isMobile ? "12px" : "14px", color: "#F0C040", fontWeight: "700" }}>
+              5 فائزين × $100 لكل فائز
+            </span>
+          </div>
+
           <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center" }}>
             {[
-              { icon: "trophy" as IconName, title: "جائزة واحدة",   sub: "300 دولار" },
+              { icon: "trophy" as IconName, title: "5 جوائز",        sub: "$100 لكل فائز" },
               { icon: "check"  as IconName, title: "مشاركة واحدة",  sub: "تكفي للدخول" },
               { icon: "shield" as IconName, title: "آمن وسريع",      sub: "100%" },
             ].map((b, i) => (
@@ -280,7 +294,7 @@ export default function GiveawayPage() {
             }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "16px", flex: 1 }}>
                 {[
-                  { icon: "trophy"   as IconName, label: "الجائزة",       value: "300 دولار أمريكي" },
+                  { icon: "trophy"   as IconName, label: "الجوائز",       value: "5 فائزين × $100 لكل فائز" },
                   { icon: "calendar" as IconName, label: "تاريخ السحب",   value: "سيتم الإعلان في صفحتنا" },
                   { icon: "list"     as IconName, label: "شروط المشاركة", value: "متابعة صفحاتنا على مواقع التواصل الإجتماعي" },
                 ].map((item, i) => (
