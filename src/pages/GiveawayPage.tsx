@@ -103,8 +103,8 @@ export default function GiveawayPage() {
     address: ''
   });
   const [loading, setLoading] = useState(false);
+  const [clicked, setClicked] = useState({ facebook: false, tiktok: false, share: false });
 
-  // حقول التحكم في الديالوق المطور الجديد
   const [dialog, setDialog] = useState<DialogState>({
     isOpen: false,
     type: 'success',
@@ -120,6 +120,28 @@ export default function GiveawayPage() {
 
  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const digits = formData.phone_number.replace(/\D/g, '');
+    if (digits.length < 10) {
+      setDialog({ isOpen: true, type: 'error', message: 'رقم الهاتف يجب أن يكون 10 أرقام على الأقل.' });
+      return;
+    }
+
+    const missing = [
+      !clicked.facebook && 'فيسبوك',
+      !clicked.tiktok   && 'تيك توك',
+      !clicked.share    && 'مشاركة الرابط',
+    ].filter(Boolean) as string[];
+
+    if (missing.length > 0) {
+      setDialog({
+        isOpen: true,
+        type: 'error',
+        message: `يجب أولاً إتمام الشروط التالية قبل التسجيل:\n• ${missing.join('\n• ')}`,
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch('https://backend.nova-suits.com/hotel-backend/public/api/public/participate', {
@@ -129,7 +151,6 @@ export default function GiveawayPage() {
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        // فتح ديالوق النجاح المخصص الفخم
         setDialog({
           isOpen: true,
           type: 'success',
@@ -137,20 +158,19 @@ export default function GiveawayPage() {
         });
         setFormData({ full_name: '', phone_number: '', address: '' });
       } else {
-        setDialog({
-          isOpen: true,
-          type: 'error',
-          message: data.message || 'حدث خطأ ما، يرجى التحقق من المدخلات.'
-        });
+        const firstError =
+          (data.errors ? Object.values(data.errors as Record<string, string[]>)[0]?.[0] : null)
+          ?? data.message
+          ?? 'حدث خطأ ما، يرجى التحقق من المدخلات.';
+        setDialog({ isOpen: true, type: 'error', message: firstError });
       }
     } catch {
       setDialog({
         isOpen: true,
         type: 'error',
-        message: 'تعذر الاتصال بالسيرفر، يرجى التحقق من جودة الإنترنت والخط المحلى لديك.'
+        message: 'تعذر الاتصال بالسيرفر، يرجى التحقق من جودة الإنترنت.'
       });
     } finally {
-      // تعديل دالة إلغاء التحميل هنا ليعود الزر لطبيعته
       setLoading(false);
     }
   };
@@ -413,6 +433,20 @@ export default function GiveawayPage() {
                 </label>
               </div>
 
+              {/* تنبيه الشروط المتبقية */}
+              {(!clicked.facebook || !clicked.tiktok || !clicked.share) && (
+                <div style={{
+                  marginBottom: "12px", padding: "10px 14px",
+                  background: "#FEF9EC", border: "1.5px solid #D4A017",
+                  borderRadius: "12px", fontSize: "12px", color: "#7c5e10", lineHeight: 1.7,
+                }}>
+                  <div style={{ fontWeight: "700", marginBottom: "4px" }}>يجب إتمام الشروط أولاً:</div>
+                  {!clicked.tiktok   && <div>• متابعة تيك توك ✗</div>}
+                  {!clicked.facebook && <div>• متابعة فيسبوك ✗</div>}
+                  {!clicked.share    && <div>• مشاركة رابط المسابقة ✗</div>}
+                </div>
+              )}
+
               <button type="submit" disabled={loading} style={{
                 width: "100%", padding: "14px",
                 background: loading ? "#ccc" : "linear-gradient(90deg, #b8862B 0%, #D4A017 100%)",
@@ -501,39 +535,64 @@ export default function GiveawayPage() {
               </a>
 
               {/* زر تيك توك */}
-              <a href="https://www.tiktok.com/@nova_apartment?_r=1&_t=ZS-97Okse5qhXu" target="_blank" rel="noreferrer" style={{ 
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                padding: "12px 20px", background: "#010101", color: "#fff", 
-                border: "1px solid rgba(255,255,255,0.15)",
-                borderRadius: "12px", textDecoration: "none", fontSize: "14px", fontWeight: "700",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
-              }}>
-                <SvgIcon name="tiktok" size={16} color="#fff" />
-               تيك توك
+              <a
+                href="https://www.tiktok.com/@nova_apartment?_r=1&_t=ZS-97Okse5qhXu"
+                target="_blank" rel="noreferrer"
+                onClick={() => setClicked(p => ({ ...p, tiktok: true }))}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                  padding: "12px 20px",
+                  background: clicked.tiktok ? "#166534" : "#010101",
+                  color: "#fff",
+                  border: clicked.tiktok ? "1.5px solid #4ade80" : "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: "12px", textDecoration: "none", fontSize: "14px", fontWeight: "700",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)", transition: "background 0.3s",
+                }}>
+                {clicked.tiktok
+                  ? <SvgIcon name="check" size={16} color="#4ade80" strokeWidth={3} />
+                  : <SvgIcon name="tiktok" size={16} color="#fff" />}
+                تيك توك
               </a>
 
               {/* زر فيسبوك */}
-              <a href="https://www.facebook.com/share/1CRMuaVTfz/" target="_blank" rel="noreferrer" style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                padding: "12px 20px", background: "#1877F2", color: "#fff",
-                borderRadius: "12px", textDecoration: "none", fontSize: "14px", fontWeight: "700",
-                boxShadow: "0 4px 12px rgba(24,119,242,0.25)"
-              }}>
-                <SvgIcon name="facebook" size={16} color="#fff" />
-               فيسبوك
+              <a
+                href="https://www.facebook.com/share/1CRMuaVTfz/"
+                target="_blank" rel="noreferrer"
+                onClick={() => setClicked(p => ({ ...p, facebook: true }))}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                  padding: "12px 20px",
+                  background: clicked.facebook ? "#166534" : "#1877F2",
+                  color: "#fff",
+                  border: clicked.facebook ? "1.5px solid #4ade80" : "none",
+                  borderRadius: "12px", textDecoration: "none", fontSize: "14px", fontWeight: "700",
+                  boxShadow: "0 4px 12px rgba(24,119,242,0.25)", transition: "background 0.3s",
+                }}>
+                {clicked.facebook
+                  ? <SvgIcon name="check" size={16} color="#4ade80" strokeWidth={3} />
+                  : <SvgIcon name="facebook" size={16} color="#fff" />}
+                فيسبوك
               </a>
 
               {/* زر مشاركة الرابط */}
-              <button onClick={handleShare} style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                padding: "12px 20px",
-                background: "linear-gradient(90deg, #b8862B 0%, #D4A017 100%)",
-                color: "#fff", border: "none",
-                borderRadius: "12px", fontSize: "14px", fontWeight: "700", cursor: "pointer",
-                boxShadow: "0 4px 12px rgba(212,160,23,0.3)",
-                fontFamily: "system-ui, -apple-system, sans-serif",
-              }}>
-                <SvgIcon name="share" size={16} color="#fff" />
+              <button
+                onClick={async () => {
+                  await handleShare();
+                  setClicked(p => ({ ...p, share: true }));
+                }}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+                  padding: "12px 20px",
+                  background: clicked.share ? "#166534" : "linear-gradient(90deg, #b8862B 0%, #D4A017 100%)",
+                  color: "#fff",
+                  border: clicked.share ? "1.5px solid #4ade80" : "none",
+                  borderRadius: "12px", fontSize: "14px", fontWeight: "700", cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(212,160,23,0.3)", transition: "background 0.3s",
+                  fontFamily: "system-ui, -apple-system, sans-serif",
+                }}>
+                {clicked.share
+                  ? <SvgIcon name="check" size={16} color="#4ade80" strokeWidth={3} />
+                  : <SvgIcon name="share" size={16} color="#fff" />}
                 شارك الرابط
               </button>
             </div>
