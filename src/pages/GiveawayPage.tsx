@@ -193,11 +193,15 @@ export default function GiveawayPage() {
       text: 'شارك في السحب واربح 100$ سجّل بياناتك الآن.',
       url: 'https://app.nova-suits.com/giveaway',
     };
-    if (navigator.share) {
-      await navigator.share(shareData);
-    } else {
-      await navigator.clipboard.writeText(shareData.url);
-      alert('تم نسخ الرابط!');
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        alert('تم نسخ الرابط!');
+      }
+    } catch {
+      // تجاهل إلغاء المستخدم لنافذة المشاركة أو أي خطأ آخر
     }
   };
 
@@ -608,9 +612,9 @@ export default function GiveawayPage() {
 
               {/* زر مشاركة الرابط */}
               <button
-                onClick={async () => {
-                  await handleShare();
+                onClick={() => {
                   setClicked(p => ({ ...p, share: true }));
+                  handleShare();
                 }}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
