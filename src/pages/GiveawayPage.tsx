@@ -113,7 +113,7 @@ export default function GiveawayPage() {
     address: ''
   });
   const [loading, setLoading] = useState(false);
-  const [clicked, setClicked] = useState({ whatsapp: false, facebook: false, tiktok: false, instagram: false, share: false });
+  const [clicked, setClicked] = useState({ whatsapp: false, facebook: false, tiktok: false, instagram: false });
 
   const [dialog, setDialog] = useState<DialogState>({
     isOpen: false,
@@ -142,14 +142,13 @@ export default function GiveawayPage() {
       !clicked.tiktok     && 'تيك توك',
       !clicked.facebook   && 'فيسبوك',
       !clicked.instagram  && 'انستغرام',
-      !clicked.share      && 'مشاركة الرابط',
     ].filter(Boolean) as string[];
 
     if (missing.length > 0) {
       setDialog({
         isOpen: true,
         type: 'error',
-        message: 'يجب إتمام شروط المتابعة أولاً — اذهب لأسفل الصفحة واضغط على جميع أزرار المتابعة ومشاركة الرابط.',
+        message: 'يجب إتمام شروط المتابعة أولاً — اذهب لأسفل الصفحة واضغط على جميع أزرار المتابعة.',
       });
       return;
     }
@@ -184,24 +183,6 @@ export default function GiveawayPage() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleShare = async () => {
-    const shareData = {
-      title: 'مسابقة شقق نوفا الفندقية',
-      text: 'شارك في السحب واربح 100$ سجّل بياناتك الآن.',
-      url: 'https://app.nova-suits.com/giveaway',
-    };
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareData.url);
-        alert('تم نسخ الرابط!');
-      }
-    } catch {
-      // تجاهل إلغاء المستخدم لنافذة المشاركة أو أي خطأ آخر
     }
   };
 
@@ -372,7 +353,6 @@ export default function GiveawayPage() {
                         "متابعة تيك توك",
                         "متابعة فيسبوك",
                         "متابعة انستغرام",
-                        "مشاركة رابط المسابقة",
                       ].map((cond, ci) => (
                         <div key={ci} style={{ display: "flex", gap: "8px", alignItems: "flex-start" }}>
                           <span style={{ fontSize: "12px", fontWeight: "800", color: "#D4A017", flexShrink: 0 }}>{ci + 1}.</span>
@@ -609,28 +589,6 @@ export default function GiveawayPage() {
                   : <SvgIcon name="instagram" size={16} color="#fff" />}
                 انستغرام
               </a>
-
-              {/* زر مشاركة الرابط */}
-              <button
-                onClick={() => {
-                  setClicked(p => ({ ...p, share: true }));
-                  handleShare();
-                }}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
-                  padding: "12px 20px",
-                  background: clicked.share ? "#166534" : "linear-gradient(90deg, #b8862B 0%, #D4A017 100%)",
-                  color: "#fff",
-                  border: clicked.share ? "1.5px solid #4ade80" : "none",
-                  borderRadius: "12px", fontSize: "14px", fontWeight: "700", cursor: "pointer",
-                  boxShadow: "0 4px 12px rgba(212,160,23,0.3)", transition: "background 0.3s",
-                  fontFamily: "system-ui, -apple-system, sans-serif",
-                }}>
-                {clicked.share
-                  ? <SvgIcon name="check" size={16} color="#4ade80" strokeWidth={3} />
-                  : <SvgIcon name="share" size={16} color="#fff" />}
-                شارك الرابط
-              </button>
             </div>
           </div>
 
