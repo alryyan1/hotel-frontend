@@ -85,6 +85,9 @@ interface LedgerEntry {
   description: string
   rooms?: string
   days?: number
+  period?: string
+  rate?: number | null
+  is_extension?: boolean
   paymentMethod?: string
   debit: number
   credit: number
@@ -217,11 +220,17 @@ export default function CustomerLedger() {
     }
   }
 
-  const handleInvoiceClick = async (reservationId: number) => {
+  const handleInvoiceClick = async (reservationId: number, extensionTransactionId?: number) => {
     try {
       setLoading(true)
-      
-      const response = await apiClient.get(`/reservations/${reservationId}/invoice/pdf`, {
+
+      // Extension segments open a scoped invoice (extended nights + amount only)
+      // instead of the full reservation invoice covering every segment.
+      const endpoint = extensionTransactionId
+        ? `/reservations/${reservationId}/extension-invoice/pdf?transaction_id=${extensionTransactionId}`
+        : `/reservations/${reservationId}/invoice/pdf`
+
+      const response = await apiClient.get(endpoint, {
         responseType: 'blob'
       })
 
@@ -492,6 +501,7 @@ export default function CustomerLedger() {
                     <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>الوصف</TableCell>
                     <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>الغرف / طريقة الدفع</TableCell>
                     <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>عدد الأيام</TableCell>
+                    <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>سعر الليلة</TableCell>
                     <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>مدين</TableCell>
                     <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>دائن</TableCell>
                     <TableCell align="center" className='text-2xl' sx={{fontSize: '1.4rem' }}>الرصيد</TableCell>
@@ -514,18 +524,29 @@ export default function CustomerLedger() {
                       </TableCell>
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.type === 'reservation' && entry.reservation_id ? (
-                          <Typography
-                            component="span"
-                            onClick={() => handleInvoiceClick(entry.reservation_id!)}
-                            sx={{
-                              cursor: 'pointer',
-                              color: 'primary.main',
-                              textDecoration: 'underline',
-                              '&:hover': { color: 'primary.dark' },
-                            }}
-                          >
-                            {entry.description}
-                          </Typography>
+                          <Box>
+                            <Typography
+                              component="span"
+                              onClick={() => handleInvoiceClick(entry.reservation_id!, entry.is_extension ? entry.id : undefined)}
+                              sx={{
+                                cursor: 'pointer',
+                                color: 'primary.main',
+                                textDecoration: 'underline',
+                                '&:hover': { color: 'primary.dark' },
+                              }}
+                            >
+                              {entry.description}
+                            </Typography>
+                            {entry.period && (
+                              <Typography
+                                component="div"
+                                variant="caption"
+                                sx={{ color: 'text.secondary', fontSize: '0.85rem', mt: 0.3 }}
+                              >
+                                {entry.period}
+                              </Typography>
+                            )}
+                          </Box>
                         ) : entry.type === 'service' && entry.reservation_service_id ? (
                           <Typography
                             component="span"
@@ -599,6 +620,9 @@ export default function CustomerLedger() {
                       </TableCell>
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.days || '-'}
+                      </TableCell>
+                      <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
+                        {entry.rate ? formatCurrency(entry.rate) : '-'}
                       </TableCell>
                       <TableCell className='text-2xl' sx={{ fontSize: '1.4rem' }} align="center">
                         {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}

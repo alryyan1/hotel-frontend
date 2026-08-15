@@ -97,6 +97,11 @@ interface Reservation {
     currency: string
     transaction_date: string
     notes?: string
+    room_id?: number
+    rate?: number
+    nights?: number
+    check_in_date?: string
+    check_out_date?: string
   }>
 }
 
@@ -760,11 +765,13 @@ export default function ReservationsList() {
     selectedReservation.rooms.forEach((room: any) => {
       const pivotRate = room.pivot?.rate !== undefined && room.pivot?.rate !== null ? Number(room.pivot.rate) : 0
       const typeRate = room.type?.base_price !== undefined && room.type?.base_price !== null ? Number(room.type.base_price) : 0
-      
-      const rate = pivotRate || typeRate || 0
+
+      // Extension nights are always priced at the room's current live rate
+      // (matches backend extend()), not the frozen rate stored at booking time.
+      const rate = typeRate || pivotRate || 0
       total += days * rate
     })
-    
+
     return total
   }
 
