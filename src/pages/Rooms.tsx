@@ -82,7 +82,8 @@ export default function Rooms() {
         apiClient.get('/floors'),
         apiClient.get('/room-types'),
         apiClient.get('/room-statuses'),
-        apiClient.get('/reservations').catch(() => ({ data: [] })) // Fetch reservations, but don't fail if it errors
+        // Fetch all reservations unpaginated so occupancy checks aren't limited to the newest page
+        apiClient.get('/reservations', { params: { per_page: 'all' } }).catch(() => ({ data: [] }))
       ])
       // alert('data loaded')
       console.log(roomsRes.data,'roomsRes.data')
