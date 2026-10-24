@@ -19,6 +19,7 @@ export const ALL_PAGES: PageDef[] = [
   { path: '/costs',                 label: 'المصاريف',          group: 'المالية' },
   { path: '/accountant',            label: 'الحسابات',          group: 'المالية' },
   { path: '/monthly-report',        label: 'التقرير الشهري',    group: 'المالية' },
+  { path: '/shifts',                label: 'الورديات',          group: 'المالية' },
   { path: '/inventory',             label: 'المخزون',           group: 'المخزون' },
   { path: '/inventory-orders',      label: 'طلبات المخزون',     group: 'المخزون' },
   { path: '/inventory-receipts',    label: 'واردات المخزون',    group: 'المخزون' },

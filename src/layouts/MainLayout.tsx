@@ -24,10 +24,13 @@ import {
   Calculator,
   ChevronRight,
   Trophy,
+  Clock,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
+import ShiftBar from "@/components/shifts/ShiftBar";
 import apiClient from "../api/axios";
 import { useAuth } from "../contexts/AuthContext";
+import { ShiftProvider } from "../contexts/ShiftContext";
 
 const drawerWidth = 250;
 
@@ -95,6 +98,11 @@ const navigationGroups = [
         to: "/monthly-report",
         label: "التقرير الشهري",
         icon: <List className="size-5" />,
+      },
+      {
+        to: "/shifts",
+        label: "الورديات",
+        icon: <Clock className="size-5" />,
       },
     ],
   },
@@ -239,7 +247,7 @@ export default function MainLayout() {
   };
 
   return (
-    <>
+    <ShiftProvider>
       <div
         className="min-h-screen bg-background"
         style={{ position: "relative", zIndex: 1 }}
@@ -461,11 +469,12 @@ export default function MainLayout() {
             }}
           >
             <div className="container max-w-7xl p-1 mx-auto w-full">
+              <ShiftBar />
               <Outlet />
             </div>
           </main>
         </div>
       </div>
-    </>
+    </ShiftProvider>
   );
 }

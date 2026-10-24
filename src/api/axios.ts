@@ -2,6 +2,13 @@ import axios, { AxiosError, AxiosResponse } from 'axios'
 import { toast } from 'sonner'
 import { API_BASE } from '../constansts'
 
+// Dispatched on a 423 (no open shift); ShiftProvider listens and offers to open one
+export const SHIFT_REQUIRED_EVENT = 'shift-required'
+
+// Dispatched after a successful financial write, so the shift bar's figures update without a reload
+export const SHIFT_CHANGED_EVENT = 'shift-changed'
+const FINANCIAL_WRITE_URL = /^\/?(transactions|costs|reservation-services)(\/|$)|^\/?reservations\/\d+\/check-out$/
+
 // Define error response structure
 interface ErrorResponse {
     message?: string
@@ -29,6 +36,10 @@ apiClient.interceptors.request.use((config)=>{
 // Response interceptor for centralized error handling
 apiClient.interceptors.response.use(
     (response: AxiosResponse) => {
+        const { method, url } = response.config
+        if (method && method !== 'get' && url && FINANCIAL_WRITE_URL.test(url.split('?')[0] ?? '')) {
+            window.dispatchEvent(new Event(SHIFT_CHANGED_EVENT))
+        }
         return response
     },
     async (error: AxiosError<ErrorResponse | Blob>) => {
@@ -103,6 +114,17 @@ apiClient.interceptors.response.use(
                 }
                 break
             
+            case 423:
+                // No open shift: offer to open one (handled by ShiftProvider)
+                toast.error((data as ErrorResponse)?.message || 'يجب فتح وردية أولاً', {
+                    duration: 6000,
+                    action: {
+                        label: 'فتح وردية',
+                        onClick: () => window.dispatchEvent(new Event(SHIFT_REQUIRED_EVENT)),
+                    },
+                })
+                return Promise.reject(error)
+
             case 429:
                 errorMessage = 'Too Many Requests'
                 errorDescription = 'You have made too many requests. Please try again later.'

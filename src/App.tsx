@@ -33,6 +33,7 @@ import ContestParticipantsPage from "./pages/ContestParticipantsPage";
 import Accountant from "./pages/Accountant";
 import MonthlyReport from "./pages/MonthlyReport";
 import ServicesPage from "./pages/ServicesPage";
+import Shifts from "./pages/Shifts";
 import MainLayout from "./layouts/MainLayout";
 import { Toaster } from "./components/ui/sonner";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -102,6 +103,7 @@ function AppRoutes() {
         <Route path="cleaning-notifications" element={<PermissionGuard><CleaningNotifications /></PermissionGuard>} />
         <Route path="accountant" element={<PermissionGuard><Accountant /></PermissionGuard>} />
         <Route path="monthly-report" element={<PermissionGuard><MonthlyReport /></PermissionGuard>} />
+        <Route path="shifts" element={<PermissionGuard><Shifts /></PermissionGuard>} />
         <Route path="services" element={<PermissionGuard><ServicesPage /></PermissionGuard>} />
         <Route path="users" element={<PermissionGuard><Users /></PermissionGuard>} />
         <Route path="settings" element={<PermissionGuard><Settings /></PermissionGuard>} />
