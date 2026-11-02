@@ -47,19 +47,18 @@ interface Reservation {
   customer_id: number
   check_in_date: string
   check_out_date: string
-  guest_count: number
   status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled'
-  notes?: string
   created_at: string
   updated_at: string
   rooms: Array<{
     id: number
     number: string
     room_type_id: number
+    price_usd: number
+    price_sdg: number
     type?: {
       id: number
       name: string
-      base_price: number
     }
   }>
 }

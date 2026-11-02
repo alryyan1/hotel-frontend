@@ -58,8 +58,7 @@ export const filterRooms = (
   return rooms.filter((room: any) => {
     const matchesSearch =
       (room.number || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (room.type?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (room.notes || '').toLowerCase().includes(searchTerm.toLowerCase())
+      (room.type?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFloor = !filterFloor || String(room.floor_id) === filterFloor
     const matchesType = !filterType || String(room.room_type_id) === filterType
     const matchesStatus = !filterStatus || String(room.room_status_id) === filterStatus

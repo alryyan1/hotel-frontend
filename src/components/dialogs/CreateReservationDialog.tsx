@@ -1,16 +1,18 @@
-import { 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  Button, 
-  TextField, 
-  FormLabel, 
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  FormLabel,
   Autocomplete,
   Box,
   Chip,
   Alert,
-  Typography
+  Typography,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material'
 import { Warning as WarningIcon } from '@mui/icons-material'
 
@@ -21,9 +23,9 @@ interface CreateReservationDialogProps {
   selectedRooms: any[]
   form: {
     customer_id: string
-    notes: string
+    currency: string
   }
-  onFormChange: (form: { customer_id: string; notes: string }) => void
+  onFormChange: (form: { customer_id: string; currency: string }) => void
   onCreateReservation: () => void
   onOpenCustomerDialog: () => void
   loading: boolean
@@ -115,23 +117,32 @@ export default function CreateReservationDialog({
             fullWidth
           />
           
-          <Button 
-            variant="outlined" 
+          <Button
+            variant="outlined"
             onClick={onOpenCustomerDialog}
             fullWidth
           >
             عميل جديد
           </Button>
-          
-          <TextField
-            label="ملاحظات"
-            value={form.notes}
-            onChange={(e) => onFormChange({ ...form, notes: e.target.value })}
-            fullWidth
-            multiline
-            rows={3}
-          />
-          
+
+          <Box>
+            <FormLabel sx={{ fontWeight: 'bold', mb: 1, display: 'block' }}>
+              عملة الفاتورة
+            </FormLabel>
+            <ToggleButtonGroup
+              value={form.currency}
+              exclusive
+              fullWidth
+              onChange={(_, value) => value && onFormChange({ ...form, currency: value })}
+            >
+              <ToggleButton value="SDG">جنيه سوداني (SDG)</ToggleButton>
+              <ToggleButton value="USD">دولار (USD)</ToggleButton>
+            </ToggleButtonGroup>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              سيتم احتساب الفاتورة بالكامل بهذه العملة
+            </Typography>
+          </Box>
+
           <Box>
             <FormLabel sx={{ fontWeight: 'bold', mb: 1, display: 'block' }}>
               الغرف المختارة ({selectedRooms.length})

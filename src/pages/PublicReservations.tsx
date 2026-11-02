@@ -13,11 +13,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Chip,
   CircularProgress,
   Container,
 } from '@mui/material'
-import { Search as SearchIcon, CalendarToday as CalendarIcon, People as PeopleIcon, Add as AddIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material'
+import { Search as SearchIcon, CalendarToday as CalendarIcon, Add as AddIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material'
 import { toast } from 'sonner'
 import CreateReservationDialog from '@/components/dialogs/CreateReservationDialog'
 import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
@@ -25,7 +24,6 @@ import CreateCustomerDialog from '@/components/dialogs/CreateCustomerDialog'
 export default function PublicReservations() {
   const [checkIn, setCheckIn] = useState<string>('')
   const [checkOut, setCheckOut] = useState<string>('')
-  const [guestCount, setGuestCount] = useState<number>(1)
   const [roomTypeId, setRoomTypeId] = useState<string>('')
   const [availableRooms, setAvailableRooms] = useState<any[]>([])
   const [roomTypes, setRoomTypes] = useState<any[]>([])
@@ -37,7 +35,7 @@ export default function PublicReservations() {
   const [customerForm, setCustomerForm] = useState({ name: '', phone: '', national_id: '', address: '', date_of_birth: '', gender: '' })
   const [form, setForm] = useState({
     customer_id: '',
-    notes: ''
+    currency: 'SDG'
   })
 
   useEffect(() => {
@@ -77,7 +75,6 @@ export default function PublicReservations() {
         check_out_date: checkOutDate,
       }
       if (roomTypeId && roomTypeId !== 'all') params.room_type_id = roomTypeId
-      if (guestCount) params.guest_count = guestCount
       const { data } = await publicApiClient.get('/availability', { params })
       const rooms = data?.data || data
       setAvailableRooms(rooms)
@@ -121,8 +118,7 @@ export default function PublicReservations() {
         customer_id: form.customer_id,
         check_in_date: checkIn,
         check_out_date: checkOut,
-        guest_count: guestCount,
-        notes: form.notes || '',
+        currency: form.currency,
         rooms: selectedRooms.map((r) => ({ id: r.id }))
       }
       const { data } = await publicApiClient.post('/reservations', payload)
@@ -143,8 +139,8 @@ export default function PublicReservations() {
       toast.success('تم إنشاء الحجز بنجاح')
       setOpenCreate(false)
       setSelectedRooms([])
-      setForm({ customer_id: '', notes: '' })
-      
+      setForm({ customer_id: '', currency: 'SDG' })
+
       // Refresh available rooms after successful reservation
       if (checkIn && checkOut) {
         await searchAvailability()
@@ -253,25 +249,7 @@ export default function PublicReservations() {
                   />
                 </Stack>
               </Grid>
-              <Grid size={{ xs: 12, md: 2 }}>
-                <Stack spacing={1}>
-                  <Stack direction="row" spacing={0.5} alignItems="center">
-                    <PeopleIcon sx={{ fontSize: 16 }} />
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      عدد الضيوف
-                    </Typography>
-                  </Stack>
-                  <TextField
-                    type="number"
-                    inputProps={{ min: 1 }}
-                    value={guestCount}
-                    onChange={(e) => setGuestCount(parseInt(e.target.value) || 1)}
-                    fullWidth
-                    size="small"
-                  />
-                </Stack>
-              </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Stack spacing={1}>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     نوع الغرفة
@@ -292,7 +270,7 @@ export default function PublicReservations() {
                   </FormControl>
                 </Stack>
               </Grid>
-              <Grid size={{ xs: 12, md: 1 }}>
+              <Grid size={{ xs: 12, md: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', height: '100%' }}>
                   <Button
                     variant="contained"
@@ -404,31 +382,6 @@ export default function PublicReservations() {
                                   الدور {room.floor?.number} • {room.type?.name}
                                 </Typography>
                               </Box>
-                            </Stack>
-                            <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
-                              <Chip
-                                label={`${room.type?.capacity} ضيوف`}
-                                size="small"
-                                variant="outlined"
-                                sx={{ fontSize: '0.75rem' }}
-                              />
-                              {room.type?.area && (
-                                <Chip
-                                  label={`${room.type.area} م²`}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{ fontSize: '0.75rem' }}
-                                />
-                              )}
-                              {Array.isArray(room.type?.amenities) && room.type.amenities.slice(0, 2).map((a: string, i: number) => (
-                                <Chip
-                                  key={i}
-                                  label={a}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{ fontSize: '0.75rem' }}
-                                />
-                              ))}
                             </Stack>
                           </Box>
                         </Grid>

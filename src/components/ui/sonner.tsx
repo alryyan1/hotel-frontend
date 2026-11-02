@@ -6,6 +6,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       theme="light"
       className="toaster group"
       position="bottom-left"
+      dir="ltr"
       toastOptions={{
         style: {
           background: 'white',

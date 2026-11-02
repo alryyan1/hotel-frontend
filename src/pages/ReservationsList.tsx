@@ -61,11 +61,10 @@ interface Reservation {
   customer_id: number
   check_in_date: string
   check_out_date: string
-  guest_count: number
+  currency: 'USD' | 'SDG'
   status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled'
   total_amount?: number
   paid_amount?: number
-  notes?: string
   created_at: string
   updated_at: string
   customer: {
@@ -80,10 +79,10 @@ interface Reservation {
     floor?: {
       number: number
     }
+    price_usd: number
+    price_sdg: number
     type?: {
       name: string
-      capacity: number
-      base_price: number
     }
     pivot?: {
       rate: number
@@ -114,6 +113,10 @@ interface Customer {
   contact_name_1?: string
   contact_name_2?: string
 }
+
+// A reservation bills in a single fixed currency; pick the matching room price.
+const roomRateFor = (room: { price_usd: number; price_sdg: number }, currency: string): number =>
+  currency === 'USD' ? Number(room.price_usd ?? 0) : Number(room.price_sdg ?? 0)
 
 const statusConfig = {
   pending: { label: 'في الانتظار', color: 'warning', icon: AccessTimeIcon },
@@ -764,11 +767,11 @@ export default function ReservationsList() {
     let total = 0
     selectedReservation.rooms.forEach((room: any) => {
       const pivotRate = room.pivot?.rate !== undefined && room.pivot?.rate !== null ? Number(room.pivot.rate) : 0
-      const typeRate = room.type?.base_price !== undefined && room.type?.base_price !== null ? Number(room.type.base_price) : 0
+      const roomRate = roomRateFor(room, selectedReservation.currency)
 
       // Extension nights are always priced at the room's current live rate
       // (matches backend extend()), not the frozen rate stored at booking time.
-      const rate = typeRate || pivotRate || 0
+      const rate = roomRate || pivotRate || 0
       total += days * rate
     })
 
@@ -810,7 +813,7 @@ export default function ReservationsList() {
     let pricePerDay = 0
     selectedReservation.rooms.forEach((room: any) => {
       const rate = room.pivot?.rate !== undefined && room.pivot?.rate !== null ? Number(room.pivot.rate) : 0
-      const base = room.type?.base_price ? Number(room.type.base_price) : 0
+      const base = roomRateFor(room, selectedReservation.currency)
       pricePerDay += rate || base || 0
     })
     const oldAmount = oldDays * pricePerDay
@@ -891,8 +894,8 @@ export default function ReservationsList() {
     const newRoom = availableRooms.find(r => r.id.toString() === transferNewRoomId)
     if (!oldRoom || !newRoom) return null
     const days = Math.max(1, dayjs(selectedReservation.check_out_date).diff(dayjs(selectedReservation.check_in_date), 'day'))
-    const oldRate = oldRoom.pivot?.rate !== undefined && oldRoom.pivot?.rate !== null ? Number(oldRoom.pivot.rate) : Number(oldRoom.type?.base_price ?? 0)
-    const newRate = Number(newRoom.type?.base_price ?? 0)
+    const oldRate = oldRoom.pivot?.rate !== undefined && oldRoom.pivot?.rate !== null ? Number(oldRoom.pivot.rate) : roomRateFor(oldRoom, selectedReservation.currency)
+    const newRate = roomRateFor(newRoom, selectedReservation.currency)
     return { oldRate, newRate, days, oldTotal: days * oldRate, newTotal: days * newRate, diff: days * (newRate - oldRate) }
   }
 
@@ -1067,7 +1070,6 @@ export default function ReservationsList() {
                     <TableCell align="center">الغرف</TableCell>
                     <TableCell align="center">تاريخ الوصول</TableCell>
                     <TableCell align="center">تاريخ المغادرة</TableCell>
-                    <TableCell align="center">عدد الضيوف</TableCell>
                     <TableCell align="center">الحالة</TableCell>
                     <TableCell align="center">الإجراءات</TableCell>
                   </TableRow>
@@ -1126,7 +1128,6 @@ export default function ReservationsList() {
                             {getRelativeDate(reservation.check_out_date)}
                           </Typography>
                         </TableCell>
-                        <TableCell align="center">{reservation.guest_count}</TableCell>
                         <TableCell align="center">
                           {getStatusChip(reservation.status)}
                         </TableCell>
@@ -1264,20 +1265,12 @@ export default function ReservationsList() {
                     <Paper key={room.id} sx={{ p: 2, mb: 1 }}>
                       <Typography fontWeight="medium">غرفة {room.number}</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {room.floor ? `الدور ${room.floor.number}` : 'الدور غير محدد'} • {room.type?.name || 'نوع غير محدد'} • {room.type?.capacity || 0} ضيوف
+                        {room.floor ? `الدور ${room.floor.number}` : 'الدور غير محدد'} • {room.type?.name || 'نوع غير محدد'}
                       </Typography>
                     </Paper>
                   )) || <Typography variant="body2" color="text.secondary">لا توجد غرف</Typography>}
                 </Box>
               </Grid>
-              {selectedReservation.notes && (
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="caption" color="text.secondary">ملاحظات</Typography>
-                  <Paper sx={{ p: 2, mt: 1, bgcolor: 'grey.100' }}>
-                    <Typography variant="body2">{selectedReservation.notes}</Typography>
-                  </Paper>
-                </Grid>
-              )}
             </Grid>
           )}
         </DialogContent>
@@ -1669,13 +1662,16 @@ export default function ReservationsList() {
                   label="الغرفة المراد التحويل منها"
                   onChange={(e) => setTransferOldRoomId(e.target.value)}
                 >
-                  {selectedReservation?.rooms.map(room => (
-                    <MenuItem key={room.id} value={room.id.toString()}>
-                      غرفة {room.number}
-                      {room.type?.name ? ` — ${room.type.name}` : ''}
-                      {(room.pivot?.rate || room.type?.base_price) ? ` (${(room.pivot?.rate || room.type?.base_price)?.toLocaleString()} SDG/ليلة)` : ''}
-                    </MenuItem>
-                  ))}
+                  {selectedReservation?.rooms.map(room => {
+                    const rate = room.pivot?.rate || roomRateFor(room, selectedReservation.currency)
+                    return (
+                      <MenuItem key={room.id} value={room.id.toString()}>
+                        غرفة {room.number}
+                        {room.type?.name ? ` — ${room.type.name}` : ''}
+                        {rate ? ` (${rate.toLocaleString()} ${selectedReservation.currency}/ليلة)` : ''}
+                      </MenuItem>
+                    )
+                  })}
                 </Select>
               </FormControl>
 
@@ -1690,13 +1686,16 @@ export default function ReservationsList() {
                   {availableRooms.length === 0 && !loadingAvailableRooms ? (
                     <MenuItem disabled value="">لا توجد غرف أخرى</MenuItem>
                   ) : (
-                    availableRooms.map((room: any) => (
-                      <MenuItem key={room.id} value={room.id.toString()}>
-                        غرفة {room.number}
-                        {room.type?.name ? ` — ${room.type.name}` : ''}
-                        {room.type?.base_price ? ` (${Number(room.type.base_price).toLocaleString()} SDG/ليلة)` : ''}
-                      </MenuItem>
-                    ))
+                    availableRooms.map((room: any) => {
+                      const rate = selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0
+                      return (
+                        <MenuItem key={room.id} value={room.id.toString()}>
+                          غرفة {room.number}
+                          {room.type?.name ? ` — ${room.type.name}` : ''}
+                          {rate ? ` (${rate.toLocaleString()} ${selectedReservation?.currency}/ليلة)` : ''}
+                        </MenuItem>
+                      )
+                    })
                   )}
                 </Select>
               </FormControl>
@@ -1711,26 +1710,26 @@ export default function ReservationsList() {
                     <Stack spacing={1}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2">سعر الغرفة القديمة:</Typography>
-                        <Typography variant="body2">{diff.oldRate.toLocaleString()} SDG/ليلة</Typography>
+                        <Typography variant="body2">{diff.oldRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2">سعر الغرفة الجديدة:</Typography>
-                        <Typography variant="body2" fontWeight="bold">{diff.newRate.toLocaleString()} SDG/ليلة</Typography>
+                        <Typography variant="body2" fontWeight="bold">{diff.newRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Typography>
                       </Box>
                       <Divider />
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2">إجمالي قديم ({diff.days} يوم):</Typography>
-                        <Typography variant="body2">{diff.oldTotal.toLocaleString()} SDG</Typography>
+                        <Typography variant="body2">{diff.oldTotal.toLocaleString()} {selectedReservation?.currency}</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Typography variant="body2" fontWeight="bold">إجمالي جديد:</Typography>
                         <Typography variant="body2" fontWeight="bold" color={isSamePrice ? 'success.dark' : isExtra ? 'warning.dark' : 'info.dark'}>
-                          {diff.newTotal.toLocaleString()} SDG
+                          {diff.newTotal.toLocaleString()} {selectedReservation?.currency}
                         </Typography>
                       </Box>
                       {!isSamePrice && (
                         <Typography variant="caption" color="text.secondary">
-                          {isExtra ? `فرق إضافي: +${diff.diff.toLocaleString()} SDG` : `خصم: ${diff.diff.toLocaleString()} SDG`} — سيتم تعديل كشف الحساب تلقائياً.
+                          {isExtra ? `فرق إضافي: +${diff.diff.toLocaleString()} ${selectedReservation?.currency}` : `خصم: ${diff.diff.toLocaleString()} ${selectedReservation?.currency}`} — سيتم تعديل كشف الحساب تلقائياً.
                         </Typography>
                       )}
                     </Stack>

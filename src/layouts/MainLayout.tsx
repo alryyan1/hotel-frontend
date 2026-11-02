@@ -28,7 +28,6 @@ import {
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import ShiftBar from "@/components/shifts/ShiftBar";
-import apiClient from "../api/axios";
 import { useAuth } from "../contexts/AuthContext";
 import { ShiftProvider } from "../contexts/ShiftContext";
 
@@ -176,8 +175,6 @@ export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string>("");
-  const [logoError, setLogoError] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { hasPermission, user } = useAuth();
@@ -202,26 +199,6 @@ export default function MainLayout() {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  // Fetch hotel logo
-  useEffect(() => {
-    const fetchLogo = async () => {
-      try {
-        const { data } = await apiClient.get("/settings/hotel");
-        if (data?.logo_url) {
-          setLogoUrl(data.logo_url);
-        } else if (data?.logo_path) {
-          const baseUrl =
-            (import.meta as any).env?.VITE_API_BASE?.replace("/api", "") ||
-            "http://127.0.0.1:8000";
-          setLogoUrl(`${baseUrl}/storage/${data.logo_path}`);
-        }
-      } catch (e) {
-        console.error("Failed to fetch logo", e);
-      }
-    };
-    fetchLogo();
   }, []);
 
   function handleLogout() {
@@ -273,18 +250,11 @@ export default function MainLayout() {
               onClick={() => navigate("/")}
               title="الانتقال إلى لوحة التحكم"
             >
-              {logoUrl && !logoError ? (
-                <img
-                  src={logoUrl}
-                  alt="Logo"
-                  className="h-8 w-8 rounded-lg object-contain shadow-md"
-                  onError={() => setLogoError(true)}
-                />
-              ) : (
-                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground font-bold text-sm shadow-md">
-                  🏨
-                </div>
-              )}
+              <img
+                src="/logo.png"
+                alt="Logo"
+                className="h-8 w-8 rounded-lg object-contain shadow-md"
+              />
               <div>
                 <div className="font-bold text-base leading-none">
                   نظام إدارة الفنادق
@@ -348,18 +318,11 @@ export default function MainLayout() {
                   justifyContent: "center",
                 }}
               >
-                {logoUrl && !logoError ? (
-                  <img
-                    src={logoUrl}
-                    alt="Logo"
-                    className="h-10 w-10 rounded-lg object-contain"
-                    onError={() => setLogoError(true)}
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground font-bold text-sm">
-                    🏨
-                  </div>
-                )}
+                <img
+                  src="/logo.png"
+                  alt="Logo"
+                  className="h-10 w-10 rounded-lg object-contain"
+                />
               </div>
             </div>
             <Menu

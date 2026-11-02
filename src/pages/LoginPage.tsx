@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { User, Lock, Eye, EyeOff, LogIn, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import apiClient from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
@@ -17,55 +18,29 @@ interface LoginFormData {
 export default function LoginPage() {
   const navigate = useNavigate()
   const { setUser } = useAuth()
-  const [formData, setFormData] = useState<LoginFormData>({
-    username: '',
-    password: ''
-  })
-  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [hotelSettings, setHotelSettings] = useState<{ official_name: string, logo_url: string | null }>({ official_name: '', logo_url: null })
+  const [showPassword, setShowPassword] = useState(false)
+  const [form, setForm] = useState<LoginFormData>({ username: '', password: '' })
+  const [errors, setErrors] = useState<Partial<LoginFormData>>({})
 
-  useEffect(() => {
-    const fetchPublicSettings = async () => {
-      try {
-        const { data } = await apiClient.get('/public/settings/hotel')
-        if (data) {
-          setHotelSettings({
-            official_name: data.official_name || '',
-            logo_url: data.logo_url || null
-          })
-        }
-      } catch (err) {
-        console.error('Failed to fetch public settings', err)
-      }
-    }
-    fetchPublicSettings()
-  }, [])
-
-  const handleInputChange = (field: keyof LoginFormData) => (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormData(prev => ({ ...prev, [field]: e.target.value }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    
-    // Validation
-    if (!formData.username || !formData.password) {
-      toast.error('الرجاء إدخال اسم المستخدم وكلمة المرور')
-      return
-    }
+
+    const nextErrors: Partial<LoginFormData> = {}
+    if (!form.username) nextErrors.username = 'الرجاء إدخال اسم المستخدم'
+    if (!form.password) nextErrors.password = 'الرجاء إدخال كلمة المرور'
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
 
     setLoading(true)
 
     try {
       const { data } = await apiClient.post('/login', {
-        username: formData.username,
-        password: formData.password,
-        device_name: 'web'
+        username: form.username,
+        password: form.password,
+        device_name: 'web',
       })
-      
+
       localStorage.setItem('token', data.token)
       if (data.user) setUser(data.user)
 
@@ -77,191 +52,105 @@ export default function LoginPage() {
         ? '/reservations-list'
         : (user?.permissions?.[0] ?? '/')
       navigate(firstPage, { replace: true })
-    } catch (err: any) {
-      const message = err?.response?.data?.message || err?.message || 'فشل تسجيل الدخول'
-    //  toast.error(message)
+    } catch {
+      // Error toast is already shown by the apiClient response interceptor
     } finally {
       setLoading(false)
     }
   }
 
   const handleForgotPassword = () => {
-    alert('اتصل بالمشرف لإعادة تعيين كلمة المرور')
-  }
-
-  const togglePasswordVisibility = () => {
-    setShowPassword(prev => !prev)
+    toast.info('اتصل بالمشرف لإعادة تعيين كلمة المرور')
   }
 
   return (
-    <div className="fixed inset-0 bg-background text-foreground overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(0,0,0,0.04)_0%,transparent_40%)]" />
-
-      {/* Responsive grid: left brand panel (md+), right form */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 h-full">
-        {/* Left brand/hero - hidden on mobile */}
-        <div className="hidden md:flex flex-col justify-between bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-10 lg:p-14">
-          <div className="flex items-center justify-center min-h-[160px]">
-            {hotelSettings.logo_url && (
-              <img 
-                src={hotelSettings.logo_url} 
-                alt={hotelSettings.official_name} 
-                className="h-32 w-32 lg:h-40 lg:w-40 rounded-xl bg-primary-foreground/20 object-contain p-3 shadow-md"
-              />
-            )}
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-[400px]">
+        <CardContent className="px-6 flex flex-col items-center gap-2 pb-2">
+          <img src="/logo.png" alt="" className="w-28 h-28 object-contain" />
+          <div className="text-center">
+            <h1 className="text-lg font-bold">تسجيل الدخول</h1>
+            <p className="text-sm text-muted-foreground">
+              ادخل بيانات حسابك للمتابعة
+            </p>
           </div>
-          <div>
-            <div className="text-4xl lg:text-5xl font-extrabold leading-snug mb-4 text-center">
-              {hotelSettings.official_name}
+        </CardContent>
+
+        <CardContent className="px-6">
+          <form onSubmit={handleSubmit} noValidate dir="ltr" className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="username">اسم المستخدم</Label>
+              <div className="relative">
+                <User className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="username"
+                  placeholder="أدخل اسم المستخدم"
+                  autoComplete="off"
+                  autoFocus
+                  disabled={loading}
+                  value={form.username}
+                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                  aria-invalid={!!errors.username}
+                  className="ps-9"
+                />
+              </div>
+              {errors.username && (
+                <p className="text-destructive text-xs">{errors.username}</p>
+              )}
             </div>
-            <div className="mt-8 grid grid-cols-2 gap-4 max-w-lg text-center mx-auto">
-              <div className="rounded-xl bg-primary-foreground/10 p-4 border border-primary-foreground/10">
-                <div className="text-2xl mb-1">⚡</div>
-                <div className="font-semibold">سرعة</div>
-                <div className="text-sm opacity-80">تنفيذ المهام اليومية بسرعة وكفاءة.</div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="password">كلمة المرور</Label>
+              <div className="relative">
+                <Lock className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="أدخل كلمة المرور"
+                  autoComplete="off"
+                  disabled={loading}
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  aria-invalid={!!errors.password}
+                  className="ps-9 pe-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
-              <div className="rounded-xl bg-primary-foreground/10 p-4 border border-primary-foreground/10">
-                <div className="text-2xl mb-1">🔒</div>
-                <div className="font-semibold">أمان</div>
-                <div className="text-sm opacity-80">حماية بياناتك بكامل العناية.</div>
-              </div>
-              <div className="rounded-xl bg-primary-foreground/10 p-4 border border-primary-foreground/10">
-                <div className="text-2xl mb-1">📊</div>
-                <div className="font-semibold">تقارير</div>
-                <div className="text-sm opacity-80">اطّلع على رؤية واضحة للأداء.</div>
-              </div>
-              <div className="rounded-xl bg-primary-foreground/10 p-4 border border-primary-foreground/10">
-                <div className="text-2xl mb-1">💬</div>
-                <div className="font-semibold">دعم</div>
-                <div className="text-sm opacity-80">فريقنا جاهز للمساعدة دائماً.</div>
-              </div>
+              {errors.password && (
+                <p className="text-destructive text-xs">{errors.password}</p>
+              )}
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="self-start text-xs text-primary hover:underline"
+              >
+                نسيت كلمة المرور؟
+              </button>
             </div>
-          </div>
-          <div className="text-xs opacity-80">© {new Date().getFullYear()} Hotel Admin</div>
-        </div>
 
-        {/* Right form panel */}
-        <div className="flex items-center justify-center p-4 sm:p-6 md:p-8 h-full overflow-hidden">
-          <div className="w-full max-w-md">
-            <Card className="border-border/40 shadow-2xl backdrop-blur-xl bg-card/95">
-              <CardHeader className="text-center space-y-4 pb-6">
-                <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg md:w-20 md:h-20 p-2">
-                  {hotelSettings.logo_url && (
-                    <img 
-                      src={hotelSettings.logo_url} 
-                      alt={hotelSettings.official_name} 
-                      className="w-full h-full object-contain"
-                    />
-                  )}
-                </div>
-                <div>
-                  <CardTitle className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-                    تسجيل الدخول
-                  </CardTitle>
-                  <CardDescription className="text-sm md:text-base mt-2">
-                    ادخل بيانات حسابك للمتابعة
-                  </CardDescription>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-5">
-
-                  {/* Username Field */}
-                  <div className="space-y-2">
-                    <Label htmlFor="username" className="text-sm font-medium">
-                      اسم المستخدم
-                    </Label>
-                    <div className="relative group">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                      <Input
-                        id="username"
-                        type="text"
-                        value={formData.username}
-                        onChange={handleInputChange('username')}
-                        required
-                        autoComplete="off"
-                        className="pl-10 h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                        placeholder="أدخل اسم المستخدم"
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Password Field with toggle visibility */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="password" className="text-sm font-medium">
-                        كلمة المرور
-                      </Label>
-                      <button
-                        type="button"
-                        onClick={handleForgotPassword}
-                        className="text-xs text-primary hover:underline transition-colors"
-                        tabIndex={-1}
-                      >
-                        نسيت كلمة المرور؟
-                      </button>
-                    </div>
-                    <div className="relative group">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                      <Input
-                        id="password"
-                        type={showPassword ? 'text' : 'password'}
-                        value={formData.password}
-                        onChange={handleInputChange('password')}
-                        required
-                        autoComplete="off"
-                        className="pl-10 pr-10 h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                        placeholder="أدخل كلمة المرور"
-                        disabled={loading}
-                      />
-                      <button
-                        type="button"
-                        onClick={togglePasswordVisibility}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        tabIndex={-1}
-                        aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="size-4" />
-                        ) : (
-                          <Eye className="size-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Submit Button */}
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full h-11 text-base font-bold shadow-lg hover:shadow-xl transition-all mt-4 text-primary-foreground"
-                  >
-                    {loading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        جارٍ تسجيل الدخول...
-                      </div>
-                    ) : (
-                      <>
-                        <LogIn className="size-4 mr-2" />
-                        تسجيل الدخول
-                      </>
-                    )}
-                  </Button>
-
-                  {/* Mobile-only footer */}
-                  <div className="md:hidden text-center pt-4 border-t border-border/40">
-                    <span className="text-xs text-muted-foreground">© {new Date().getFullYear()} Hotel Admin</span>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+            <Button type="submit" size="lg" disabled={loading} className="w-full">
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  جارٍ تسجيل الدخول...
+                </>
+              ) : (
+                <>
+                  <LogIn className="h-4 w-4" />
+                  تسجيل الدخول
+                </>
+              )}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

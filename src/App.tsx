@@ -6,7 +6,10 @@ import createCache from "@emotion/cache";
 import rtlPlugin from "stylis-plugin-rtl";
 import { prefixer } from "stylis";
 import CssBaseline from "@mui/material/CssBaseline";
+import { ConfigProvider } from "antd";
+import arEG from "antd/locale/ar_EG";
 import theme from "./theme";
+import antdTheme from "./antdTheme";
 
 import "./App.css";
 import LoginPage from "./pages/LoginPage";
@@ -122,13 +125,15 @@ function App() {
     <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <BrowserRouter>
-          <AuthProvider>
-            <DynamicSettings />
-            <AppRoutes />
-            <Toaster />
-          </AuthProvider>
-        </BrowserRouter>
+        <ConfigProvider direction="rtl" locale={arEG} theme={antdTheme}>
+          <BrowserRouter>
+            <AuthProvider>
+              <DynamicSettings />
+              <AppRoutes />
+              <Toaster />
+            </AuthProvider>
+          </BrowserRouter>
+        </ConfigProvider>
       </ThemeProvider>
     </CacheProvider>
   );

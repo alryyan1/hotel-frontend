@@ -1,37 +1,58 @@
- import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import apiClient from "../api/axios";
 import {
-  Box,
-  Button,
-  TextField,
   Card,
-  CardContent,
-  Typography,
-  Stack,
-  Grid,
-  FormControl,
-  InputLabel,
+  Row,
+  Col,
+  DatePicker,
   Select,
-  MenuItem,
-  Chip,
-  CircularProgress,
-} from "@mui/material";
+  Button,
+  Tag,
+  Empty,
+  Typography,
+  Space,
+  Avatar,
+  Flex,
+} from "antd";
 import {
-  Search as SearchIcon,
-  CalendarToday as CalendarIcon,
-  People as PeopleIcon,
-  Add as AddIcon,
-  CheckCircle as CheckCircleIcon,
-} from "@mui/icons-material";
+  SearchOutlined,
+  PlusOutlined,
+  CheckCircleFilled,
+  ClockCircleOutlined,
+  ExclamationCircleFilled,
+} from "@ant-design/icons";
+import dayjs from "dayjs";
 import { toast } from "sonner";
 import CreateReservationDialog from "@/components/dialogs/CreateReservationDialog";
 import CreateCustomerDialog from "@/components/dialogs/CreateCustomerDialog";
+
+const { Text, Title } = Typography;
+const { RangePicker } = DatePicker;
 
 const getDateNDaysFromToday = (days: number): string => {
   const date = new Date();
   date.setDate(date.getDate() + days);
   const [isoDate] = date.toISOString().split("T");
   return isoDate ?? "";
+};
+
+// Days remaining until an occupied room's current guest is due to leave.
+const daysUntil = (checkOutDate: string): number =>
+  dayjs(checkOutDate).startOf("day").diff(dayjs().startOf("day"), "day");
+
+const daysLeftLabel = (checkOutDate: string): string => {
+  const days = daysUntil(checkOutDate);
+  if (days < 0) return `متأخر عن المغادرة بـ ${Math.abs(days)} يوم`;
+  if (days === 0) return "يغادر اليوم";
+  return `متبقي ${days} يوم للمغادرة`;
+};
+
+// Room prices come back from the API as decimal strings in some cases, so
+// coerce before formatting rather than calling toLocaleString on a string.
+const formatCurrency = (value: number | string | null | undefined): string => {
+  const num = typeof value === "string" ? parseFloat(value) : value;
+  if (num === null || num === undefined || isNaN(num)) return "0";
+  return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
 };
 
 export default function Reservations() {
@@ -41,8 +62,7 @@ export default function Reservations() {
   const [checkOut, setCheckOut] = useState<string>(() =>
     getDateNDaysFromToday(2)
   );
-  const [guestCount, setGuestCount] = useState<number>(1);
-  const [roomTypeId, setRoomTypeId] = useState<string>("");
+  const [roomTypeId, setRoomTypeId] = useState<string>("all");
   const [allRooms, setAllRooms] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,7 +80,7 @@ export default function Reservations() {
   });
   const [form, setForm] = useState({
     customer_id: "",
-    notes: "",
+    currency: "SDG",
   });
 
   useEffect(() => {
@@ -77,14 +97,6 @@ export default function Reservations() {
     }
   };
 
-  const fetchCustomers = async () => {
-    try {
-      const { data } = await apiClient.get("/customers");
-      setCustomers(data?.data || data);
-    } catch (e) {
-      console.error("Failed to fetch customers", e);
-    }
-  };
   const fetchAllCustomers = async () => {
     try {
       const { data } = await apiClient.get("/customers/all");
@@ -111,12 +123,10 @@ export default function Reservations() {
         check_out_date: checkOutDate,
       };
       if (roomTypeId && roomTypeId !== "all") params.room_type_id = roomTypeId;
-      if (guestCount) params.guest_count = guestCount;
       const { data } = await apiClient.get("/availability", { params });
       const rooms = data?.data || data || [];
       setAllRooms(Array.isArray(rooms) ? rooms : []);
 
-      // Show message if no rooms found
       if (!rooms || rooms.length === 0) {
         toast.info("لا توجد غرف للتواريخ المحددة");
       }
@@ -127,6 +137,24 @@ export default function Reservations() {
       setLoading(false);
     }
   };
+
+  // Available rooms first (bookable right now), then occupied rooms ordered
+  // by soonest departure date so staff can see which room frees up next.
+  const sortedRooms = useMemo(() => {
+    return [...allRooms].sort((a, b) => {
+      if (!!a.is_occupied !== !!b.is_occupied) return a.is_occupied ? 1 : -1;
+      if (a.is_occupied && b.is_occupied) {
+        const dateA = a.current_reservation?.check_out_date;
+        const dateB = b.current_reservation?.check_out_date;
+        if (dateA && dateB) {
+          return new Date(dateA).getTime() - new Date(dateB).getTime();
+        }
+      }
+      return String(a.number ?? "").localeCompare(String(b.number ?? ""), undefined, {
+        numeric: true,
+      });
+    });
+  }, [allRooms]);
 
   const toggleRoom = (room: any) => {
     setSelectedRooms((prev) => {
@@ -152,7 +180,6 @@ export default function Reservations() {
         return;
       }
 
-      // Check for occupied rooms and show warnings
       const occupiedRooms = selectedRooms.filter(
         (r: any) => r.is_occupied && r.current_reservation
       );
@@ -172,13 +199,11 @@ export default function Reservations() {
         customer_id: form.customer_id,
         check_in_date: checkIn,
         check_out_date: checkOut,
-        guest_count: guestCount,
-        notes: form.notes || "",
+        currency: form.currency,
         rooms: selectedRooms.map((r) => ({ id: r.id })),
       };
       const { data } = await apiClient.post("/reservations", payload);
 
-      // Handle SMS result
       if (data.sms_result) {
         if (data.sms_result.success) {
           toast.success("تم إرسال رسالة تأكيد الحجز بنجاح", {
@@ -187,9 +212,7 @@ export default function Reservations() {
         } else {
           toast.warning(
             `فشل إرسال الرسالة: ${data.sms_result.error || "خطأ غير معروف"}`,
-            {
-              position: "top-right",
-            }
+            { position: "top-right" }
           );
         }
       }
@@ -197,9 +220,8 @@ export default function Reservations() {
       toast.success("تم إنشاء الحجز بنجاح");
       setOpenCreate(false);
       setSelectedRooms([]);
-      setForm({ customer_id: "", notes: "" });
+      setForm({ customer_id: "", currency: "SDG" });
 
-      // Refresh available rooms after successful reservation
       if (checkIn && checkOut) {
         await searchAvailability();
       }
@@ -227,450 +249,253 @@ export default function Reservations() {
         gender: "",
       });
       toast.success("تم إنشاء العميل");
-    } catch (err: any) {
-      // toast.error(err?.response?.data?.message || 'فشل إنشاء العميل')
+    } catch {
+      // Error toast is already shown by the apiClient response interceptor
     } finally {
       setLoading(false);
     }
   };
 
-  const isRoomSelected = (roomId: number) => {
-    return selectedRooms.some((r) => r.id === roomId);
-  };
+  const isRoomSelected = (roomId: number) =>
+    selectedRooms.some((r) => r.id === roomId);
+
+  const hasSearched = checkIn && checkOut;
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 3, p: 3 }}>
-      <style>{`
-        @keyframes heartbeat {
-          0%, 100% {
-            transform: scale(1);
-          }
-          10%, 30% {
-            transform: scale(1.05);
-          }
-          20%, 40% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.08);
-          }
-        }
-      `}</style>
-
-      <Card sx={{ boxShadow: 3 }}>
-        <CardContent sx={{ pt: 2 }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-            <SearchIcon color="primary" />
-            <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-              البحث عن توفر الغرف
-            </Typography>
-          </Stack>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <Stack spacing={1}>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <CalendarIcon sx={{ fontSize: 16 }} />
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    تاريخ الوصول
-                  </Typography>
-                </Stack>
-                <TextField
-                  type="date"
-                  value={checkIn}
-                  onChange={(e) => setCheckIn(e.target.value)}
-                  fullWidth
-                  size="small"
-                  inputProps={{
-                    min: getDateNDaysFromToday(0)
-                  }}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <Stack spacing={1}>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <CalendarIcon sx={{ fontSize: 16 }} />
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    تاريخ المغادرة
-                  </Typography>
-                </Stack>
-                <TextField
-                  type="date"
-                  value={checkOut}
-                  onChange={(e) => {
-                    const newCheckOut = e.target.value;
-                    setCheckOut(newCheckOut);
-                    // Trigger search if check-in date is also set
-                    if (checkIn && newCheckOut) {
-                      setTimeout(
-                        () => searchAvailability(checkIn, newCheckOut),
-                        100
-                      );
-                    }
-                  }}
-                  fullWidth
-                  size="small"
-                  inputProps={{
-                    min: checkIn || getDateNDaysFromToday(0)
-                  }}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                />
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
-              <Stack spacing={1}>
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <PeopleIcon sx={{ fontSize: 16 }} />
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    عدد الضيوف
-                  </Typography>
-                </Stack>
-                <TextField
-                  type="number"
-                  inputProps={{ min: 1 }}
-                  value={guestCount}
-                  onChange={(e) => setGuestCount(parseInt(e.target.value) || 1)}
-                  fullWidth
-                  size="small"
-                />
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <Stack spacing={1}>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  نوع الغرفة
-                </Typography>
-                <FormControl fullWidth size="small">
-                  <InputLabel id="room-type-label">الكل</InputLabel>
-                  <Select
-                    labelId="room-type-label"
-                    value={roomTypeId}
-                    onChange={(e) => setRoomTypeId(e.target.value)}
-                    label="الكل"
-                  >
-                    <MenuItem value="all">الكل</MenuItem>
-                    {roomTypes.map((t: any) => (
-                      <MenuItem key={t.id} value={String(t.id)}>
-                        {t.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
-            </Grid>
-            <Grid size={{ xs: 12, md: 1 }}>
-              <Box
-                sx={{ display: "flex", alignItems: "flex-end", height: "100%" }}
+    <div className="flex flex-col gap-4 p-4">
+      <Card>
+        <Space align="center" style={{ marginBottom: 16 }}>
+          <SearchOutlined style={{ color: "var(--ant-color-primary, #1677ff)" }} />
+          <Title level={5} style={{ margin: 0 }}>
+            البحث عن توفر الغرف
+          </Title>
+        </Space>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={8}>
+            <Space orientation="vertical" size={4} style={{ width: "100%" }}>
+              <Text strong style={{ fontSize: 13 }}>
+                تاريخ الوصول والمغادرة
+              </Text>
+              <RangePicker
+                style={{ width: "100%" }}
+                value={checkIn && checkOut ? [dayjs(checkIn), dayjs(checkOut)] : null}
+                disabledDate={(current) => !!current && current < dayjs().startOf("day")}
+                onChange={(_, dateStrings) => {
+                  const [newCheckIn, newCheckOut] = dateStrings;
+                  setCheckIn(newCheckIn ?? "");
+                  setCheckOut(newCheckOut ?? "");
+                  if (newCheckIn && newCheckOut) {
+                    searchAvailability(newCheckIn, newCheckOut);
+                  }
+                }}
+              />
+            </Space>
+          </Col>
+          <Col xs={24} sm={12} md={8}>
+            <Space orientation="vertical" size={4} style={{ width: "100%" }}>
+              <Text strong style={{ fontSize: 13 }}>
+                نوع الغرفة
+              </Text>
+              <Select
+                value={roomTypeId}
+                onChange={setRoomTypeId}
+                style={{ width: "100%" }}
+                options={[
+                  { value: "all", label: "الكل" },
+                  ...roomTypes.map((t: any) => ({
+                    value: String(t.id),
+                    label: t.name,
+                  })),
+                ]}
+              />
+            </Space>
+          </Col>
+          <Col xs={24} md={8}>
+            <Space orientation="vertical" size={4} style={{ width: "100%" }}>
+              <Text style={{ fontSize: 13, opacity: 0 }}>بحث</Text>
+              <Button
+                type="primary"
+                icon={<SearchOutlined />}
+                loading={loading}
+                onClick={() => searchAvailability()}
+                block
               >
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={() => searchAvailability()}
-                  disabled={loading}
-                  sx={{ height: 40, boxShadow: 2 }}
-                >
-                  {loading ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    "بحث"
-                  )}
-                </Button>
-              </Box>
-            </Grid>
-          </Grid>
-        </CardContent>
+                بحث
+              </Button>
+            </Space>
+          </Col>
+        </Row>
       </Card>
 
-      {/* Show results section when search has been performed */}
-      {(allRooms?.length > 0 ||
-        (allRooms?.length === 0 && !loading && checkIn && checkOut)) && (
-        <Card sx={{ boxShadow: 3 }}>
-          <CardContent sx={{ pt: 2 }}>
-            {allRooms?.length > 0 ? (
-              <>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  sx={{ mb: 3 }}
-                >
-                  <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                    جميع الغرف ({allRooms.length})
-                  </Typography>
-                </Stack>
-                <Grid container spacing={2} sx={{ p: 1 }}>
-                  {allRooms.map((room: any) => {
-                    const isSelected = isRoomSelected(room.id);
-                    const isOccupied = room.is_occupied || false;
-                    const currentReservation = room.current_reservation;
+      {hasSearched && (
+        <Card>
+          {sortedRooms.length > 0 ? (
+            <>
+              <Title level={5} style={{ marginBottom: 16 }}>
+                جميع الغرف ({sortedRooms.length})
+              </Title>
+              <Row gutter={[16, 16]}>
+                {sortedRooms.map((room: any) => {
+                  const isSelected = isRoomSelected(room.id);
+                  const isOccupied = !!room.is_occupied;
+                  const currentReservation = room.current_reservation;
+                  const overdue =
+                    isOccupied && currentReservation
+                      ? daysUntil(currentReservation.check_out_date) < 0
+                      : false;
 
-                    return (
-                      <Grid key={room.id} size={{ xs: 12, sm: 6, lg: 4 }}>
-                        <Box
-                          onClick={() => {
-                            toggleRoom(room);
-                            if (isOccupied && currentReservation) {
-                              toast.warning(
-                                `هذه الغرفة محجوزة حتى ${new Date(
-                                  currentReservation.check_out_date
-                                ).toLocaleDateString("en-US")}`,
-                                { duration: 4000 }
-                              );
-                            }
-                          }}
-                          sx={{
-                            cursor: "pointer",
-                            borderRadius: 2,
-                            border: 2,
-                            borderColor: isSelected
-                              ? "primary.main"
-                              : isOccupied
-                              ? ""
-                              : "divider",
-                            bgcolor: isOccupied
-                              ? ""
-                              : "background.paper",
-                            p: 2,
-                            transition: "all 0.2s",
-                            position: "relative",
-                            "&:hover": {
-                              boxShadow: 3,
-                              borderColor: isSelected
-                                ? "primary.main"
-                                : isOccupied
-                                ? ""
-                                : "primary.light",
-                            },
-                            boxShadow: isSelected ? 2 : isOccupied ? 1 : 0,
-                            opacity: isOccupied ? 0.95 : 1,
-                          }}
-                        >
-                          {/* Occupied Badge */}
-                          {isOccupied && (
-                            <Chip
-                              label="محجوز"
-                              color="warning"
-                              size="small"
-                              sx={{
-                                position: "absolute",
-                                top: 8,
-                                left: 8,
-                                fontWeight: "bold",
-                                fontSize: "0.7rem",
-                              }}
-                            />
-                          )}
-
-                          <Stack direction="row" spacing={1.5} sx={{ mb: 1.5 }}>
-                            <Box
-                              sx={{
-                                width: 56,
-                                height: 56,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                borderRadius: 2,
-                                bgcolor: isOccupied ? "" : "primary.light",
-                                color: isOccupied
-                                  ? ""
-                                  : "primary.main",
-                                fontWeight: "bold",
-                                fontSize: "1.125rem",
-                                boxShadow: 1,
-                                position: "relative",
+                  return (
+                    <Col key={room.id} xs={24} sm={12} lg={8}>
+                      <Card
+                        hoverable
+                        size="small"
+                        onClick={() => {
+                          toggleRoom(room);
+                          if (isOccupied && currentReservation) {
+                            toast.warning(
+                              `هذه الغرفة محجوزة حتى ${new Date(
+                                currentReservation.check_out_date
+                              ).toLocaleDateString("en-US")}`,
+                              { duration: 4000 }
+                            );
+                          }
+                        }}
+                        style={{
+                          cursor: "pointer",
+                          borderColor: isSelected ? "#1677ff" : "#f0f0f0",
+                          borderWidth: isSelected ? 2 : 1,
+                          boxShadow: isSelected
+                            ? "0 0 0 3px rgba(22, 119, 255, 0.12)"
+                            : undefined,
+                          transition: "box-shadow 0.15s, border-color 0.15s",
+                        }}
+                        styles={{ body: { padding: 16 } }}
+                      >
+                        <Flex justify="space-between" align="flex-start" style={{ marginBottom: 14 }}>
+                          <Space align="center" size={12}>
+                            <Avatar
+                              shape="square"
+                              size={48}
+                              style={{
+                                background: isOccupied ? "#fa8c16" : "#1677ff",
+                                fontWeight: 700,
+                                fontSize: 16,
                               }}
                             >
                               {room.number}
-                              {isSelected && (
-                                <Box
-                                  sx={{
-                                    position: "absolute",
-                                    top: -4,
-                                    right: -4,
-                                    width: 20,
-                                    height: 20,
-                                    borderRadius: "50%",
-                                    bgcolor: "primary.main",
-                                    color: "primary.contrastText",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: "0.75rem",
-                                    border: 2,
-                                    borderColor: "background.paper",
-                                  }}
-                                >
-                                  <CheckCircleIcon sx={{ fontSize: 14 }} />
-                                </Box>
-                              )}
-                            </Box>
-                            <Box sx={{ flex: 1 }}>
-                              <Typography
-                                variant="body1"
-                                sx={{ fontWeight: "bold" }}
-                              >
+                            </Avatar>
+                            <div>
+                              <Text strong style={{ fontSize: 15 }}>
                                 غرفة {room.number}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                الدور {room.floor?.number} • {room.type?.name}
-                              </Typography>
-                              {/* Price Display */}
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  fontWeight: "bold",
-                                  color: "primary.main",
-                                  mt: 0.5,
-                                }}
-                              >
-                                {(room.rate || room.base_price || 0).toLocaleString('en-US')} $ / ليلة
-                              </Typography>
-                              {room.total_price && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  الإجمالي: {room.total_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $
-                                </Typography>
-                              )}
-                            </Box>
-                          </Stack>
-
-                          {/* Occupancy Warning */}
-                          {isOccupied && currentReservation && (
-                            <Box
-                              sx={{
-                                bgcolor: "",
-                                border: "1px solid",
-                                borderColor: "",
-                                borderRadius: 1,
-                                p: 1,
-                                mb: 1,
-                              }}
-                            >
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  fontWeight: "bold",
-                                  color: "warning.dark",
-                                  display: "block",
-                                }}
-                              >
-                                ⚠️ محجوزة حالياً
-                              </Typography>
-                              <Typography
-                              >
-                                العميل: {currentReservation.customer_name}
-                              </Typography>
-                              <Typography
-                                sx={{  display: "block" }}
-                              >
-                                تاريخ المغادرة:{" "}
-                                {new Date(
-                                  currentReservation.check_out_date
-                                ).toLocaleDateString("en-US")}
-                              </Typography>
-                            </Box>
+                              </Text>
+                              <div>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  الدور {room.floor?.number} · {room.type?.name}
+                                </Text>
+                              </div>
+                            </div>
+                          </Space>
+                          {isSelected ? (
+                            <CheckCircleFilled style={{ color: "#1677ff", fontSize: 20 }} />
+                          ) : isOccupied ? (
+                            <Tag color={overdue ? "red" : "orange"} icon={<ClockCircleOutlined />} style={{ margin: 0 }}>
+                              محجوز
+                            </Tag>
+                          ) : (
+                            <Tag color="green" style={{ margin: 0 }}>متاحة</Tag>
                           )}
+                        </Flex>
 
-                          <Stack
-                            direction="row"
-                            spacing={0.5}
-                            flexWrap="wrap"
-                            gap={0.5}
-                            sx={{ mb: isSelected ? 2 : 0 }}
+                        <div
+                          style={{
+                            background: "#fafafa",
+                            border: "1px solid #f0f0f0",
+                            borderRadius: 8,
+                            padding: "8px 12px",
+                            marginBottom: isOccupied || isSelected ? 12 : 0,
+                          }}
+                        >
+                          <Flex justify="space-between" align="baseline">
+                            <div>
+                              <Text style={{ fontSize: 18, fontWeight: 700, color: "#389e0d" }}>
+                                {formatCurrency(room.price_sdg)} ج.س
+                              </Text>
+                              <Text type="secondary" style={{ fontSize: 12 }}> / ليلة</Text>
+                            </div>
+                            {room.total_price_sdg ? (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                الإجمالي: {formatCurrency(room.total_price_sdg)} ج.س
+                              </Text>
+                            ) : null}
+                          </Flex>
+                          <Flex justify="space-between" align="baseline" style={{ marginTop: 2 }}>
+                            <div>
+                              <Text style={{ fontSize: 15, fontWeight: 700, color: "#1677ff" }}>
+                                ${formatCurrency(room.price_usd)}
+                              </Text>
+                              <Text type="secondary" style={{ fontSize: 12 }}> / ليلة</Text>
+                            </div>
+                            {room.total_price_usd ? (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                الإجمالي: ${formatCurrency(room.total_price_usd)}
+                              </Text>
+                            ) : null}
+                          </Flex>
+                        </div>
+
+                        {isOccupied && currentReservation && (
+                          <div
+                            style={{
+                              background: "#fffbe6",
+                              border: "1px solid #ffe58f",
+                              borderRadius: 8,
+                              padding: 10,
+                              marginBottom: isSelected ? 12 : 0,
+                            }}
                           >
-                            <Chip
-                              label={`${room.type?.capacity} ضيوف`}
-                              size="small"
-                              variant="outlined"
-                              sx={{ fontSize: "0.75rem" }}
-                            />
-                            {room.type?.area && (
-                              <Chip
-                                label={`${room.type.area} م²`}
-                                size="small"
-                                variant="outlined"
-                                sx={{ fontSize: "0.75rem" }}
-                              />
-                            )}
-                            {Array.isArray(room.type?.amenities) &&
-                              room.type.amenities
-                                .slice(0, 2)
-                                .map((a: string, i: number) => (
-                                  <Chip
-                                    key={i}
-                                    label={a}
-                                    size="small"
-                                    variant="outlined"
-                                    sx={{ fontSize: "0.75rem" }}
-                                  />
-                                ))}
-                          </Stack>
+                            <Flex align="center" gap={6} style={{ marginBottom: 2 }}>
+                              <ExclamationCircleFilled style={{ color: "#d48806", fontSize: 13 }} />
+                              <Text strong style={{ fontSize: 12, color: "#874d00" }}>
+                                محجوزة حالياً — {currentReservation.customer_name}
+                              </Text>
+                            </Flex>
+                            <Tag color={overdue ? "red" : "gold"} style={{ marginTop: 2 }}>
+                              {daysLeftLabel(currentReservation.check_out_date)}
+                            </Tag>
+                          </div>
+                        )}
 
-                          {/* Action Button inside Selected Room */}
-                          {isSelected && (
-                            <Button
-                              variant="contained"
-                              fullWidth
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openCreateDialog();
-                              }}
-                              startIcon={<AddIcon />}
-                              sx={{
-                                mt: 1,
-                                py: 0.5,
-                                fontSize: "0.85rem",
-                                fontWeight: "bold",
-                                borderRadius: 1.5,
-                                boxShadow: 2,
-                                animation: "heartbeat 1.5s ease-in-out infinite",
-                              }}
-                            >
-                              إتمام الحجز
-                            </Button>
-                          )}
-                        </Box>
-                      </Grid>
-                    );
-                  })}
-                </Grid>
-              </>
-            ) : (
-              <Box sx={{ textAlign: "center", py: 6 }}>
-                <Typography variant="h2" sx={{ mb: 2, opacity: 0.5 }}>
-                  🏨
-                </Typography>
-                <Typography
-                  variant="h6"
-                  color="text.secondary"
-                  sx={{ fontWeight: 500, mb: 1 }}
-                >
-                  لا توجد غرف
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 1 }}
-                >
-                  للتواريخ المحددة ({checkIn} - {checkOut})
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  جرب تواريخ أخرى أو نوع غرفة مختلف
-                </Typography>
-              </Box>
-            )}
-          </CardContent>
+                        {isSelected && (
+                          <Button
+                            type="primary"
+                            block
+                            icon={<PlusOutlined />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCreateDialog();
+                            }}
+                          >
+                            إتمام الحجز
+                          </Button>
+                        )}
+                      </Card>
+                    </Col>
+                  );
+                })}
+              </Row>
+            </>
+          ) : (
+            !loading && (
+              <Empty
+                description={
+                  <>
+                    <div>لا توجد غرف للتواريخ المحددة ({checkIn} - {checkOut})</div>
+                    <div>جرب تواريخ أخرى أو نوع غرفة مختلف</div>
+                  </>
+                }
+              />
+            )
+          )}
         </Card>
       )}
 
@@ -694,6 +519,6 @@ export default function Reservations() {
         onCreateCustomer={createCustomer}
         loading={loading}
       />
-    </Box>
+    </div>
   );
 }

@@ -1,16 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import apiClient from '../api/axios'
-import { Box, Button, Card, CardContent, Grid, Stack, CircularProgress, Typography } from '@mui/material'
-import { List as ListIcon, Filter as FilterIcon } from '@mui/icons-material'
+import { Table, Input, Select, Button, Tag, Space, Typography, Badge, Card, Row, Col, Statistic } from 'antd'
+import type { ColumnsType } from 'antd/es/table'
+import { PlusOutlined, SearchOutlined, CalendarOutlined, HomeOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
 import { toast } from 'sonner'
 import CreateRoomDialog from '@/components/dialogs/CreateRoomDialog'
-import RoomDetailsDialog from '@/components/dialogs/RoomDetailsDialog'
-import RoomReservationsDialog from '@/components/dialogs/RoomReservationsDialog'
-import FiltersDialog from '@/components/rooms/FiltersDialog'
-import GridView from '@/components/rooms/GridView'
-import TableView from '@/components/rooms/TableView'
-import EmptyState from '@/components/rooms/EmptyState'
-import Pagination from '@/components/rooms/Pagination'
 import {
   formatNumber,
   getStatusColor,
@@ -21,73 +15,41 @@ import {
   filterRooms as filterRoomsUtil,
 } from '@/utils/roomHelpers'
 
+const { Text, Title } = Typography
+
 export default function Rooms() {
   const [rooms, setRooms] = useState<any[]>([])
-  const [filteredRooms, setFilteredRooms] = useState<any[]>([])
-  const [displayedRooms, setDisplayedRooms] = useState<any[]>([])
   const [floors, setFloors] = useState<any[]>([])
   const [roomTypes, setRoomTypes] = useState<any[]>([])
   const [roomStatuses, setRoomStatuses] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [openDialog, setOpenDialog] = useState(false)
-  const [openDetailsDialog, setOpenDetailsDialog] = useState(false)
-  const [openFiltersDialog, setOpenFiltersDialog] = useState(false)
   const [editingRoom, setEditingRoom] = useState<any>(null)
-  const [selectedRoom, setSelectedRoom] = useState<any>(null)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterFloor, setFilterFloor] = useState('')
   const [filterType, setFilterType] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
-  const [page, setPage] = useState(0)
-  const [rowsPerPage, setRowsPerPage] = useState(9)
   const [dataLoaded, setDataLoaded] = useState(false)
-  const [highlightedRoomId, setHighlightedRoomId] = useState<number | null>(null)
   const [reservations, setReservations] = useState<any[]>([])
-  const [openReservationsDialog, setOpenReservationsDialog] = useState(false)
-  const [selectedRoomForReservations, setSelectedRoomForReservations] = useState<any>(null)
-  const hasFetchedRef = useRef(false) // Use ref to prevent double calls in StrictMode
+  const hasFetchedRef = useRef(false)
 
   useEffect(() => {
-    // Only fetch once on mount
     if (hasFetchedRef.current || dataLoaded) return
-    
     hasFetchedRef.current = true
-    let isMounted = true
     fetchData()
-    
-    return () => {
-      isMounted = false
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty dependency array - only run once on mount
-// alert('useEffect')
-  useEffect(() => {
-    filterRooms()
-  }, [rooms, searchTerm, filterFloor, filterType, filterStatus])
-
-  useEffect(() => {
-    const start = page * rowsPerPage
-    const end = start + rowsPerPage
-    setDisplayedRooms(filteredRooms.slice(start, end))
-  }, [filteredRooms, page, rowsPerPage])
+  }, [])
 
   const fetchData = async (): Promise<void> => {
-    // alert('fetchData')
     try {
       setLoading(true)
-      setDataLoaded(false) // Reset flag for manual refresh
+      setDataLoaded(false)
       const [roomsRes, floorsRes, roomTypesRes, roomStatusesRes, reservationsRes] = await Promise.all([
         apiClient.get('/rooms'),
         apiClient.get('/floors'),
         apiClient.get('/room-types'),
         apiClient.get('/room-statuses'),
-        // Fetch all reservations unpaginated so occupancy checks aren't limited to the newest page
-        apiClient.get('/reservations', { params: { per_page: 'all' } }).catch(() => ({ data: [] }))
+        apiClient.get('/reservations', { params: { per_page: 'all' } }).catch(() => ({ data: [] })),
       ])
-      // alert('data loaded')
-      console.log(roomsRes.data,'roomsRes.data')
-      // Backend returns grouped data, flatten it for filtering
       const groupedRooms = roomsRes.data || []
       const allRooms = groupedRooms.flatMap((group: any) => group.rooms || [])
       setRooms(allRooms)
@@ -104,11 +66,15 @@ export default function Rooms() {
     }
   }
 
-  const filterRooms = () => {
-    const filtered = filterRoomsUtil(rooms, searchTerm, filterFloor, filterType, filterStatus)
-    setFilteredRooms(filtered)
-    setPage(0)
-  }
+  const filteredRooms = useMemo(
+    () => filterRoomsUtil(rooms, searchTerm, filterFloor, filterType, filterStatus),
+    [rooms, searchTerm, filterFloor, filterType, filterStatus]
+  )
+
+  const occupiedCount = useMemo(
+    () => rooms.filter((r: any) => hasActiveReservations(r.id, reservations)).length,
+    [rooms, reservations]
+  )
 
   const clearFilters = () => {
     setSearchTerm('')
@@ -117,28 +83,10 @@ export default function Rooms() {
     setFilterStatus('')
   }
 
-  const handleDialogSuccess = async (roomId?: number) => {
-    if (editingRoom) {
-      toast.success('تم تحديث الغرفة بنجاح')
-    } else {
-      toast.success('تم إنشاء الغرفة بنجاح')
-    }
+  const handleDialogSuccess = async () => {
+    toast.success(editingRoom ? 'تم تحديث الغرفة بنجاح' : 'تم إنشاء الغرفة بنجاح')
     setEditingRoom(null)
-    
-    // Fetch data first, then highlight the updated/new room
     await fetchData()
-    
-    // Highlight the updated/new room after data is loaded
-    if (roomId) {
-      // Small delay to ensure DOM is updated
-      setTimeout(() => {
-        setHighlightedRoomId(roomId)
-        // Clear highlight after animation completes (3 seconds for 2 iterations)
-        setTimeout(() => {
-          setHighlightedRoomId(null)
-        }, 3000)
-      }, 100)
-    }
   }
 
   const handleDialogError = (message: string) => {
@@ -150,200 +98,185 @@ export default function Rooms() {
     setOpenDialog(true)
   }
 
-  // Helper functions that use reservations
   const checkActiveReservations = (roomId: number) => hasActiveReservations(roomId, reservations)
   const getDaysRemainingForRoom = (roomId: number) => getDaysRemaining(roomId, reservations)
   const getReservationsCountForRoom = (roomId: number) => getReservationsCount(roomId, reservations)
 
-  const handleViewReservations = (room: any) => {
-    setSelectedRoomForReservations(room)
-    setOpenReservationsDialog(true)
-  }
-
-
-  const handleView = (room: any) => {
-    setSelectedRoom(room)
-    setOpenDetailsDialog(true)
-  }
-
-  const handleDetailsSuccess = async (roomId?: number) => {
-    toast.success('تم تحديث حالة الغرفة')
-    setSelectedRoom(null)
-    
-    // Fetch data first, then highlight the updated room
-    await fetchData()
-    
-    // Highlight the updated room after data is loaded
-    if (roomId) {
-      // Small delay to ensure DOM is updated
-      setTimeout(() => {
-        setHighlightedRoomId(roomId)
-        // Clear highlight after animation completes (3 seconds for 2 iterations)
-        setTimeout(() => {
-          setHighlightedRoomId(null)
-        }, 3000)
-      }, 100)
-    }
-  }
+  const columns: ColumnsType<any> = [
+    {
+      title: 'الغرفة',
+      key: 'number',
+      align: 'center',
+      render: (_, room) => {
+        const occupied = checkActiveReservations(room.id)
+        const daysRemaining = occupied ? getDaysRemainingForRoom(room.id) : null
+        return (
+          <Space orientation="vertical" size={2} align="center">
+            <Space size={6}>
+              <Text strong>غرفة {room.number}</Text>
+              <Badge status={occupied ? 'error' : 'success'} />
+            </Space>
+            {daysRemaining !== null && (
+              <Tag icon={<CalendarOutlined />} color="orange" style={{ margin: 0, fontSize: 11 }}>
+                متاح خلال {daysRemaining === 0 ? 'اليوم' : daysRemaining === 1 ? 'يوم واحد' : `${daysRemaining} أيام`}
+              </Tag>
+            )}
+          </Space>
+        )
+      },
+    },
+    {
+      title: 'الطابق',
+      key: 'floor',
+      align: 'center',
+      responsive: ['sm'],
+      render: (_, room) => room.floor?.number,
+    },
+    {
+      title: 'النوع',
+      key: 'type',
+      align: 'center',
+      responsive: ['md'],
+      render: (_, room) => room.type?.name,
+    },
+    {
+      title: 'السعر',
+      key: 'price',
+      align: 'center',
+      responsive: ['lg'],
+      render: (_, room) => (
+        <Space orientation="vertical" size={0}>
+          <Text strong style={{ color: '#389e0d' }}>{formatNumber(room.price_sdg)} ج.س</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>${formatNumber(room.price_usd)}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'الحالة',
+      key: 'status',
+      align: 'center',
+      render: (_, room) => (
+        <Tag color={getStatusColor(room.status)} style={{ color: '#fff' }}>
+          {getStatusName(room.status)}
+        </Tag>
+      ),
+    },
+    {
+      title: 'الحجوزات',
+      key: 'reservations',
+      align: 'center',
+      render: (_, room) => <Tag>{getReservationsCountForRoom(room.id)}</Tag>,
+    },
+    {
+      title: 'إجراءات',
+      key: 'actions',
+      align: 'center',
+      render: (_, room) => (
+        <Button size="small" onClick={() => handleEdit(room)}>تعديل</Button>
+      ),
+    },
+  ]
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
-      {/* Action Bar */}
-      <Box sx={{ pt: 0.5 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: { xs: 'flex-start', sm: 'center' },
-            justifyContent: 'space-between',
-            gap: 2,
-          }}
-        >
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-            <Typography component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-              {filteredRooms.length}
-            </Typography>{' '}
-            من أصل{' '}
-            <Typography component="span" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-              {rooms.length}
-            </Typography>{' '}
-            غرفة
-          </Typography>
-          <Stack
-            direction={{ xs: 'column', sm: 'row' }}
-            spacing={1}
-            sx={{ width: { xs: '100%', sm: 'auto' } }}
-          >
-            <Button
-              variant={viewMode === 'list' ? 'contained' : 'outlined'}
-              onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-              startIcon={<ListIcon />}
-              sx={{ width: { xs: '100%', sm: 'auto' }, height: 36 }}
-            >
-              {viewMode === 'list' ? 'عرض الشبكة' : 'عرض الجدول'}
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setOpenFiltersDialog(true)}
-              startIcon={<FilterIcon />}
-              sx={{ width: { xs: '100%', sm: 'auto' }, height: 36 }}
-            >
-              الفلاتر والبحث
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => setOpenDialog(true)}
-              sx={{ width: { xs: '100%', sm: 'auto' }, height: 36, boxShadow: 2 }}
-            >
-              إضافة غرفة جديدة
-            </Button>
-          </Stack>
-        </Box>
-      </Box>
+    <div className="flex flex-col gap-4 p-4">
+      <Space align="center" size={10}>
+        <HomeOutlined style={{ fontSize: 20, color: '#1677ff' }} />
+        <Title level={4} style={{ margin: 0 }}>إدارة الغرف</Title>
+      </Space>
 
-      {/* Filters Dialog */}
-      <FiltersDialog
-        open={openFiltersDialog}
-        onClose={() => setOpenFiltersDialog(false)}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        filterFloor={filterFloor}
-        onFilterFloorChange={setFilterFloor}
-        filterType={filterType}
-        onFilterTypeChange={setFilterType}
-        filterStatus={filterStatus}
-        onFilterStatusChange={setFilterStatus}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        floors={floors}
-        roomTypes={roomTypes}
-        roomStatuses={roomStatuses}
-        onClearFilters={clearFilters}
-      />
+      <Row gutter={16}>
+        <Col xs={24} sm={8}>
+          <Card size="small">
+            <Statistic title="إجمالي الغرف" value={rooms.length} prefix={<HomeOutlined />} />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card size="small">
+            <Statistic
+              title="غرف متاحة"
+              value={rooms.length - occupiedCount}
+              valueStyle={{ color: '#3f8600' }}
+              prefix={<CheckCircleOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card size="small">
+            <Statistic
+              title="غرف مشغولة"
+              value={occupiedCount}
+              valueStyle={{ color: '#cf1322' }}
+              prefix={<CloseCircleOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
 
-      {/* Content */}
-      {loading ? (
-        <Grid container spacing={2}>
-          {Array.from({ length: 8 }).map((_, index) => (
-            <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={index}>
-              <Card sx={{ height: 288 }}>
-                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <CircularProgress size={48} />
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ height: 16, bgcolor: 'grey.300', borderRadius: 1, mb: 1, width: '75%' }} />
-                      <Box sx={{ height: 12, bgcolor: 'grey.200', borderRadius: 1, width: '50%' }} />
-                    </Box>
-                  </Box>
-                  <Stack spacing={1}>
-                    <Box sx={{ height: 12, bgcolor: 'grey.300', borderRadius: 1 }} />
-                    <Box sx={{ height: 12, bgcolor: 'grey.200', borderRadius: 1, width: '83%' }} />
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <>
-          {viewMode === 'grid' ? (
-            <GridView
-              rooms={displayedRooms}
-              highlightedRoomId={highlightedRoomId}
-              hasActiveReservations={checkActiveReservations}
-              getDaysRemaining={getDaysRemainingForRoom}
-              onView={handleView}
-              onEdit={handleEdit}
-              onViewReservations={handleViewReservations}
-            />
-          ) : (
-            <TableView
-              rooms={displayedRooms}
-              highlightedRoomId={highlightedRoomId}
-              hasActiveReservations={checkActiveReservations}
-              getDaysRemaining={getDaysRemainingForRoom}
-              getReservationsCount={getReservationsCountForRoom}
-              getStatusColor={getStatusColor}
-              getStatusName={getStatusName}
-              formatNumber={formatNumber}
-              onView={handleView}
-              onEdit={handleEdit}
-              onViewReservations={handleViewReservations}
-            />
+      <Card
+        title={
+          <Text type="secondary">
+            عرض <Text strong>{filteredRooms.length}</Text> من أصل <Text strong>{rooms.length}</Text> غرفة
+          </Text>
+        }
+        extra={
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpenDialog(true)}>
+            إضافة غرفة جديدة
+          </Button>
+        }
+      >
+        <Space wrap style={{ width: '100%', marginBottom: 16 }}>
+          <Input
+            placeholder="بحث برقم الغرفة أو النوع..."
+            prefix={<SearchOutlined />}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: 220 }}
+            allowClear
+          />
+          <Select
+            placeholder="الطابق"
+            value={filterFloor || undefined}
+            onChange={(v) => setFilterFloor(v ?? '')}
+            style={{ width: 150 }}
+            allowClear
+            options={floors.map((f: any) => ({ value: String(f.id), label: `الدور ${f.number}` }))}
+          />
+          <Select
+            placeholder="نوع الغرفة"
+            value={filterType || undefined}
+            onChange={(v) => setFilterType(v ?? '')}
+            style={{ width: 150 }}
+            allowClear
+            options={roomTypes.map((t: any) => ({ value: String(t.id), label: t.name }))}
+          />
+          <Select
+            placeholder="الحالة"
+            value={filterStatus || undefined}
+            onChange={(v) => setFilterStatus(v ?? '')}
+            style={{ width: 150 }}
+            allowClear
+            options={roomStatuses.map((s: any) => ({ value: String(s.id), label: s.name }))}
+          />
+          {(searchTerm || filterFloor || filterType || filterStatus) && (
+            <Button onClick={clearFilters}>مسح الفلاتر</Button>
           )}
+        </Space>
 
-          {filteredRooms.length === 0 && !loading && (
-            <EmptyState
-              hasFilters={!!(searchTerm || filterFloor || filterType || filterStatus)}
-              onCreateRoom={() => setOpenDialog(true)}
-            />
-          )}
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={filteredRooms}
+          loading={loading}
+          pagination={{ pageSize: 10, showSizeChanger: true }}
+          scroll={{ x: 'max-content' }}
+        />
+      </Card>
 
-          {filteredRooms.length > 0 && (
-            <Pagination
-              currentPage={page + 1}
-              totalPages={Math.ceil(filteredRooms.length / rowsPerPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(value) => {
-                setRowsPerPage(value)
-                setPage(0)
-              }}
-              onPreviousPage={() => setPage((p) => Math.max(p - 1, 0))}
-              onNextPage={() => setPage((p) => p + 1)}
-              hasNextPage={(page + 1) * rowsPerPage < filteredRooms.length}
-            />
-          )}
-        </>
-      )}
-
-      {/* Create/Edit Dialog */}
       <CreateRoomDialog
         open={openDialog}
         onOpenChange={(open) => {
           setOpenDialog(open)
-          if (!open) {
-            setEditingRoom(null)
-          }
+          if (!open) setEditingRoom(null)
         }}
         editingRoom={editingRoom}
         floors={floors}
@@ -352,34 +285,6 @@ export default function Rooms() {
         onSuccess={handleDialogSuccess}
         onError={handleDialogError}
       />
-
-      {/* Details Dialog */}
-      <RoomDetailsDialog
-        open={openDetailsDialog}
-        onOpenChange={(open) => {
-          setOpenDetailsDialog(open)
-          if (!open) {
-            setSelectedRoom(null)
-          }
-        }}
-        selectedRoom={selectedRoom}
-        roomStatuses={roomStatuses}
-        onSuccess={handleDetailsSuccess}
-        onError={handleDialogError}
-      />
-
-      {/* Reservations Dialog */}
-      <RoomReservationsDialog
-        open={openReservationsDialog}
-        onOpenChange={(open) => {
-          setOpenReservationsDialog(open)
-          if (!open) {
-            setSelectedRoomForReservations(null)
-          }
-        }}
-        roomId={selectedRoomForReservations?.id || null}
-        roomNumber={selectedRoomForReservations?.number || ''}
-      />
-    </Box>
+    </div>
   )
 }
