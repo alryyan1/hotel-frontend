@@ -1,20 +1,8 @@
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  FormLabel,
-  Autocomplete,
-  Box,
-  Chip,
-  Alert,
-  Typography,
-  ToggleButton,
-  ToggleButtonGroup,
-} from '@mui/material'
-import { Warning as WarningIcon } from '@mui/icons-material'
+import { Modal, Button, Segmented, Tag, Alert, Space, Typography } from 'antd'
+import { WarningOutlined } from '@ant-design/icons'
+import { Autocomplete, TextField } from '@mui/material'
+
+const { Text } = Typography
 
 interface CreateReservationDialogProps {
   open: boolean
@@ -40,139 +28,124 @@ export default function CreateReservationDialog({
   onFormChange,
   onCreateReservation,
   onOpenCustomerDialog,
-  loading
+  loading,
 }: CreateReservationDialogProps) {
   const occupiedRooms = selectedRooms.filter((r: any) => r.is_occupied && r.current_reservation)
-  
+
+  const selectedCustomer = customers.find((c: any) => String(c.id) === String(form.customer_id)) || null
+
   return (
-    <Dialog 
-      open={open} 
-      onClose={() => onOpenChange(false)}
-      maxWidth="sm"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '12px',
-          maxWidth: '500px'
-        }
-      }}
+    <Modal
+      open={open}
+      onCancel={() => onOpenChange(false)}
+      title="إنشاء حجز"
+      width={500}
+      footer={[
+        <Button key="cancel" onClick={() => onOpenChange(false)}>إلغاء</Button>,
+        <Button key="submit" type="primary" loading={loading} onClick={onCreateReservation}>
+          حفظ
+        </Button>,
+      ]}
     >
-      <DialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>إنشاء حجز</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-          {/* Occupied Rooms Warning */}
-          {occupiedRooms.length > 0 && (
-            <Alert 
-              severity="warning" 
-              icon={<WarningIcon />}
-              sx={{ mb: 1 }}
-            >
-              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                تحذير: بعض الغرف المختارة محجوزة حالياً
-              </Typography>
-              <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                {occupiedRooms.map((room: any) => (
-                  <li key={room.id}>
-                    <Typography variant="caption" component="span">
-                      <strong>غرفة {room.number}</strong>: محجوزة حتى{' '}
-                      {new Date(room.current_reservation.check_out_date).toLocaleDateString('ar-SA')}
-                      {' '}(العميل: {room.current_reservation.customer_name})
-                    </Typography>
-                  </li>
-                ))}
-              </Box>
-              <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-                سيتم إنشاء الحجز، ولكن يرجى التأكد من أن الضيوف الحاليين سيغادرون في التاريخ المحدد.
-              </Typography>
-            </Alert>
-          )}
-          
+      <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
+        {occupiedRooms.length > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            icon={<WarningOutlined />}
+            message="تحذير: بعض الغرف المختارة محجوزة حالياً"
+            description={
+              <div>
+                <ul style={{ margin: 0, paddingInlineStart: 18 }}>
+                  {occupiedRooms.map((room: any) => (
+                    <li key={room.id}>
+                      <Text style={{ fontSize: 12 }}>
+                        <strong>غرفة {room.number}</strong>: محجوزة حتى{' '}
+                        {new Date(room.current_reservation.check_out_date).toLocaleDateString('ar-SA')}
+                        {' '}(العميل: {room.current_reservation.customer_name})
+                      </Text>
+                    </li>
+                  ))}
+                </ul>
+                <Text style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                  سيتم إنشاء الحجز، ولكن يرجى التأكد من أن الضيوف الحاليين سيغادرون في التاريخ المحدد.
+                </Text>
+              </div>
+            }
+          />
+        )}
+
+        <div>
+          <Text strong style={{ display: 'block', marginBottom: 6 }}>العميل</Text>
           <Autocomplete
             options={customers}
-            getOptionLabel={(option: any) => `${option.name} — ${option.phone || option.email || ''}`}
-            value={customers.find((c: any) => String(c.id) === form.customer_id) || null}
-            onChange={(_, newValue: any) => {
-              onFormChange({ ...form, customer_id: newValue ? String(newValue.id) : '' })
+            value={selectedCustomer}
+            onChange={(_, value: any) => onFormChange({ ...form, customer_id: value ? String(value.id) : '' })}
+            getOptionLabel={(c: any) => c.name || ''}
+            isOptionEqualToValue={(a: any, b: any) => String(a.id) === String(b.id)}
+            filterOptions={(options, { inputValue }) => {
+              const q = inputValue.toLowerCase()
+              return options.filter((c: any) => {
+                const contacts = [c.contact_name_1, c.contact_name_2].filter(Boolean).join(' ')
+                const text = [c.name, contacts, c.phone, c.email].filter(Boolean).join(' ').toLowerCase()
+                return text.includes(q)
+              })
             }}
-            renderOption={(props, option: any) => (
-              <li {...props} key={option.id}>
-                <div>
-                  <div>{option.name}</div>
-                  {option.type === 'company' && (option.contact_name_1 || option.contact_name_2) && (
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(0,0,0,0.54)' }}>
-                      {[option.contact_name_1, option.contact_name_2].filter(Boolean).join(' • ')}
-                    </div>
-                  )}
-                  {(option.phone || option.email) && (
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(0,0,0,0.54)' }}>
-                      {option.phone || option.email}
-                    </div>
-                  )}
-                </div>
-              </li>
-            )}
+            renderOption={(props, c: any) => {
+              const contacts = [c.contact_name_1, c.contact_name_2].filter(Boolean).join(' • ')
+              return (
+                <li {...props} key={c.id}>
+                  <div>
+                    <div>{c.name}</div>
+                    {c.type === 'company' && contacts && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>{contacts}</Text>
+                    )}
+                    {(c.phone || c.email) && (
+                      <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                        {c.phone || c.email}
+                      </Text>
+                    )}
+                  </div>
+                </li>
+              )
+            }}
             renderInput={(params) => (
-              <TextField {...params} label="العميل" />
+              <TextField {...params} placeholder="اختر العميل" size="small" />
             )}
-            fullWidth
           />
-          
-          <Button
-            variant="outlined"
-            onClick={onOpenCustomerDialog}
-            fullWidth
-          >
-            عميل جديد
-          </Button>
+        </div>
 
-          <Box>
-            <FormLabel sx={{ fontWeight: 'bold', mb: 1, display: 'block' }}>
-              عملة الفاتورة
-            </FormLabel>
-            <ToggleButtonGroup
-              value={form.currency}
-              exclusive
-              fullWidth
-              onChange={(_, value) => value && onFormChange({ ...form, currency: value })}
-            >
-              <ToggleButton value="SDG">جنيه سوداني (SDG)</ToggleButton>
-              <ToggleButton value="USD">دولار (USD)</ToggleButton>
-            </ToggleButtonGroup>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              سيتم احتساب الفاتورة بالكامل بهذه العملة
-            </Typography>
-          </Box>
+        <Button block onClick={onOpenCustomerDialog}>عميل جديد</Button>
 
-          <Box>
-            <FormLabel sx={{ fontWeight: 'bold', mb: 1, display: 'block' }}>
-              الغرف المختارة ({selectedRooms.length})
-            </FormLabel>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {selectedRooms.map((r: any) => (
-                <Chip 
-                  key={r.id} 
-                  label={`غرفة ${r.number}${r.is_occupied ? ' (محجوزة)' : ''}`}
-                  size="small"
-                  variant={r.is_occupied ? "filled" : "outlined"}
-                  color={r.is_occupied ? "warning" : "default"}
-                />
-              ))}
-            </Box>
-          </Box>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ padding: '16px 24px', gap: '8px' }}>
-        <Button variant="outlined" onClick={() => onOpenChange(false)}>
-          إلغاء
-        </Button>
-        <Button 
-          variant="contained" 
-          onClick={onCreateReservation} 
-          disabled={loading}
-        >
-          حفظ
-        </Button>
-      </DialogActions>
-    </Dialog>
+        <div>
+          <Text strong style={{ display: 'block', marginBottom: 6 }}>عملة الفاتورة</Text>
+          <Segmented
+            value={form.currency}
+            onChange={(value) => onFormChange({ ...form, currency: value as string })}
+            block
+            options={[
+              { label: 'جنيه سوداني (SDG)', value: 'SDG' },
+              { label: 'دولار (USD)', value: 'USD' },
+            ]}
+          />
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+            سيتم احتساب الفاتورة بالكامل بهذه العملة
+          </Text>
+        </div>
+
+        <div>
+          <Text strong style={{ display: 'block', marginBottom: 6 }}>
+            الغرف المختارة ({selectedRooms.length})
+          </Text>
+          <Space wrap>
+            {selectedRooms.map((r: any) => (
+              <Tag key={r.id} color={r.is_occupied ? 'orange' : 'default'}>
+                غرفة {r.number}{r.is_occupied ? ' (محجوزة)' : ''}
+              </Tag>
+            ))}
+          </Space>
+        </div>
+      </Space>
+    </Modal>
   )
 }

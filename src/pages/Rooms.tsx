@@ -156,7 +156,7 @@ export default function Rooms() {
       key: 'status',
       align: 'center',
       render: (_, room) => (
-        <Tag color={getStatusColor(room.status)} style={{ color: '#fff' }}>
+        <Tag color={getStatusColor(room.status)} variant="solid">
           {getStatusName(room.status)}
         </Tag>
       ),

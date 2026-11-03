@@ -1,37 +1,15 @@
-import { 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  Typography,
-  Button, 
-  TextField, 
-  FormControl,
-  InputLabel,
-  Select, 
-  MenuItem,
-  Box,
-  Grid,
-  Divider,
-  Stack,
-  IconButton,
-  InputAdornment,
-  CircularProgress,
-  ToggleButton,
-  ToggleButtonGroup
-} from '@mui/material'
+import { Modal, Input, Select, Segmented, DatePicker, Button, Row, Col, Divider, Typography } from 'antd'
 import {
-  Person as PersonIcon,
-  Phone as PhoneIcon,
-  Badge as BadgeIcon,
-  Home as HomeIcon,
-  CalendarToday as CalendarIcon,
-  Wc as GenderIcon,
-  Close as CloseIcon,
-  Save as SaveIcon,
-  Business as CompanyIcon,
-  PersonOutline as IndividualIcon
-} from '@mui/icons-material'
+  UserOutlined,
+  PhoneOutlined,
+  IdcardOutlined,
+  CalendarOutlined,
+  BankOutlined,
+  SaveOutlined,
+} from '@ant-design/icons'
+import dayjs from 'dayjs'
+
+const { Text } = Typography
 
 interface CreateCustomerDialogProps {
   open: boolean
@@ -70,437 +48,166 @@ export default function CreateCustomerDialog({
   customerForm,
   onCustomerFormChange,
   onCreateCustomer,
-  loading
+  loading,
 }: CreateCustomerDialogProps) {
+  const isCompany = customerForm.type === 'company'
+
   const handleClose = () => {
-    if (!loading) {
-      onOpenChange(false)
-    }
+    if (!loading) onOpenChange(false)
+  }
+
+  const set = (patch: Partial<typeof customerForm>) =>
+    onCustomerFormChange({ ...customerForm, ...patch })
+
+  const handleEnterSubmit = () => {
+    if (!loading && customerForm.name.trim()) onCreateCustomer()
   }
 
   return (
-    <Dialog 
-      open={open} 
-      onClose={handleClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-          maxWidth: '600px'
-        }
-      }}
+    <Modal
+      open={open}
+      onCancel={handleClose}
+      title="إضافة عميل جديد"
+      width={640}
+      mask={{ closable: !loading }}
+      closable={!loading}
+      footer={[
+        <Button key="cancel" onClick={handleClose} disabled={loading}>إلغاء</Button>,
+        <Button
+          key="submit"
+          type="primary"
+          icon={<SaveOutlined />}
+          loading={loading}
+          disabled={!customerForm.name.trim()}
+          onClick={onCreateCustomer}
+        >
+          حفظ العميل
+        </Button>,
+      ]}
     >
-      <DialogTitle 
-        sx={{ 
-          fontWeight: 'bold', 
-          fontSize: '1.5rem',
-          pb: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          color: 'white',
-          borderRadius: '16px 16px 0 0',
-          px: 3,
-          pt: 2.5
-        }}
-      >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '10px',
-              bgcolor: 'rgba(255, 255, 255, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backdropFilter: 'blur(10px)'
-            }}
-          >
-            <PersonIcon sx={{ fontSize: 24 }} />
-          </Box>
-          <Typography variant="h6" sx={{ fontWeight: 'bold', m: 0 }}>
-            إضافة عميل جديد
-          </Typography>
-        </Stack>
-        <IconButton
-          onClick={handleClose}
-          disabled={loading}
-          sx={{
-            color: 'white',
-            '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.2)' }
-          }}
-          size="small"
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      
-      <DialogContent sx={{ px: 3, pt: 3, pb: 2 }}>
-        <Typography 
-          variant="body2" 
-          color="text.secondary" 
-          sx={{ mb: 3, px: 0.5 }}
-        >
-          يرجى ملء المعلومات التالية لإضافة عميل جديد إلى النظام
-        </Typography>
+      <Text type="secondary">يرجى ملء المعلومات التالية لإضافة عميل جديد إلى النظام</Text>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Base Selection Section */}
-          <Box>
-            <Typography 
-              variant="subtitle2" 
-              sx={{ 
-                fontWeight: 'bold', 
-                mb: 2,
-                color: 'primary.main',
-                fontSize: '0.875rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}
-            >
-              فئة العميل
-            </Typography>
-            <Stack direction="row" spacing={2}>
-              <ToggleButtonGroup
-                value={customerForm.type}
-                exclusive
-                onChange={(_, newValue) => {
-                  if (newValue !== null) {
-                    onCustomerFormChange({ ...customerForm, type: newValue });
-                  }
-                }}
-                fullWidth
-                sx={{
-                  '& .MuiToggleButton-root': {
-                    borderRadius: '12px',
-                    py: 1,
-                    '&.Mui-selected': {
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      color: 'white',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)',
-                      }
-                    }
-                  }
-                }}
-              >
-                <ToggleButton value="individual">
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <IndividualIcon />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>عميل عادي</Typography>
-                  </Stack>
-                </ToggleButton>
-                <ToggleButton value="company">
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <CompanyIcon />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>شركة</Typography>
-                  </Stack>
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Stack>
-          </Box>
+      <Divider titlePlacement="end" plain style={{ margin: '16px 0' }}>فئة العميل</Divider>
+      <Segmented
+        value={customerForm.type}
+        onChange={(value) => set({ type: value as string })}
+        block
+        options={[
+          { label: 'عميل عادي', value: 'individual', icon: <UserOutlined /> },
+          { label: 'شركة', value: 'company', icon: <BankOutlined /> },
+        ]}
+      />
 
-          {/* Main Information Section */}
-          <Box>
-            <Typography 
-              variant="subtitle2" 
-              sx={{ 
-                fontWeight: 'bold', 
-                mb: 2,
-                color: 'primary.main',
-                fontSize: '0.875rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}
-            >
-              {customerForm.type === 'company' ? 'بيانات الشركة' : 'المعلومات الشخصية'}
-            </Typography>
-            <Stack spacing={2}>
-              <TextField
-                label={customerForm.type === 'company' ? 'اسم الشركة' : 'الاسم الكامل'}
-                value={customerForm.name}
-                onChange={(e) => onCustomerFormChange({ ...customerForm, name: e.target.value })}
-                fullWidth
-                required
-                size="medium"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      {customerForm.type === 'company' ? <CompanyIcon sx={{ color: 'text.secondary', fontSize: 20 }} /> : <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />}
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                  },
-                }}
+      <Divider titlePlacement="end" plain style={{ margin: '20px 0 16px' }}>
+        {isCompany ? 'بيانات الشركة' : 'المعلومات الشخصية'}
+      </Divider>
+      <Row gutter={[16, 16]}>
+        <Col span={24}>
+          <Input
+            placeholder={isCompany ? 'اسم الشركة' : 'الاسم الكامل'}
+            prefix={isCompany ? <BankOutlined /> : <UserOutlined />}
+            value={customerForm.name}
+            onChange={(e) => set({ name: e.target.value })}
+            onPressEnter={handleEnterSubmit}
+          />
+        </Col>
+
+        {isCompany && (
+          <>
+            <Col xs={24} sm={12}>
+              <Input
+                placeholder="اسم العميل 1"
+                prefix={<UserOutlined />}
+                value={customerForm.contact_name_1 || ''}
+                onChange={(e) => set({ contact_name_1: e.target.value })}
+                onPressEnter={handleEnterSubmit}
               />
-
-              {customerForm.type === 'company' && (
-                <Stack direction="row" spacing={2}>
-                  <TextField
-                    label="اسم العميل 1"
-                    value={customerForm.contact_name_1 || ''}
-                    onChange={(e) => onCustomerFormChange({ ...customerForm, contact_name_1: e.target.value })}
-                    fullWidth
-                    size="medium"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                  />
-                  <TextField
-                    label="اسم العميل 2"
-                    value={customerForm.contact_name_2 || ''}
-                    onChange={(e) => onCustomerFormChange({ ...customerForm, contact_name_2: e.target.value })}
-                    fullWidth
-                    size="medium"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <PersonIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                  />
-                </Stack>
-              )}
-
-              <Stack direction="row" spacing={2}>
-                <TextField
-                  label="رقم الهاتف"
-                  value={customerForm.phone}
-                  onChange={(e) => onCustomerFormChange({ ...customerForm, phone: e.target.value })}
-                  fullWidth
-                  size="medium"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PhoneIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '12px',
-                    },
-                  }}
-                />
-                <TextField
-                  label={customerForm.type === 'company' ? 'رقم السجل التجاري' : 'الرقم الوطني'}
-                  value={customerForm.national_id}
-                  onChange={(e) => onCustomerFormChange({ ...customerForm, national_id: e.target.value })}
-                  fullWidth
-                  size="medium"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <BadgeIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '12px',
-                    },
-                  }}
-                />
-              </Stack>
-
-              {customerForm.type === 'company' && (
-                <TextField
-                  label="البريد الالكتروني"
-                  type="email"
-                  value={customerForm.email}
-                  onChange={(e) => onCustomerFormChange({ ...customerForm, email: e.target.value })}
-                  fullWidth
-                  size="medium"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '12px',
-                    },
-                  }}
-                />
-              )}
-            </Stack>
-          </Box>
-
-          {/* Address Section */}
-          {customerForm.type === 'company' && (
-            <Box>
-              <Typography 
-                variant="subtitle2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  mb: 2,
-                  color: 'primary.main',
-                  fontSize: '0.875rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}
-              >
-                العنوان
-              </Typography>
-              <TextField
-                label="العنوان الكامل"
-                value={customerForm.address}
-                onChange={(e) => onCustomerFormChange({ ...customerForm, address: e.target.value })}
-                fullWidth
-                multiline
-                rows={3}
-                size="medium"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                      <HomeIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                  },
-                }}
+            </Col>
+            <Col xs={24} sm={12}>
+              <Input
+                placeholder="اسم العميل 2"
+                prefix={<UserOutlined />}
+                value={customerForm.contact_name_2 || ''}
+                onChange={(e) => set({ contact_name_2: e.target.value })}
+                onPressEnter={handleEnterSubmit}
               />
-            </Box>
-          )}
+            </Col>
+          </>
+        )}
 
-          {/* Individual Specific Section */}
-          {customerForm.type === 'individual' && (
-            <Box>
-              <Typography 
-                variant="subtitle2" 
-                sx={{ 
-                  fontWeight: 'bold', 
-                  mb: 2,
-                  color: 'primary.main',
-                  fontSize: '0.875rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
-                }}
-              >
-                معلومات إضافية
-              </Typography>
-              <Stack direction="row" spacing={2}>
-                  <TextField
-                    label="تاريخ الميلاد"
-                    type="date"
-                    value={customerForm.date_of_birth}
-                    onChange={(e) => onCustomerFormChange({ ...customerForm, date_of_birth: e.target.value })}
-                    fullWidth
-                    size="medium"
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <CalendarIcon sx={{ color: 'text.secondary', fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '12px',
-                      },
-                    }}
-                  />
-                  <FormControl fullWidth size="medium">
-                    <InputLabel>النوع</InputLabel>
-                    <Select
-                      value={customerForm.gender}
-                      onChange={(e) => onCustomerFormChange({ ...customerForm, gender: e.target.value as string })}
-                      label="النوع"
-                      sx={{
-                        borderRadius: '12px',
-                        '& .MuiOutlinedInput-notchedOutline': {
-                          borderRadius: '12px',
-                        },
-                      }}
-                    >
-                      <MenuItem value="male">
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <GenderIcon sx={{ fontSize: 18 }} />
-                          <span>ذكر</span>
-                        </Box>
-                      </MenuItem>
-                      <MenuItem value="female">
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <GenderIcon sx={{ fontSize: 18 }} />
-                          <span>أنثى</span>
-                        </Box>
-                      </MenuItem>
-                    </Select>
-                  </FormControl>
-              </Stack>
-            </Box>
-          )}
-        </Box>
-      </DialogContent>
-      
-      <DialogActions 
-        sx={{ 
-          padding: '20px 24px',
-          gap: '12px',
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'grey.50'
-        }}
-      >
-        <Button 
-          variant="outlined" 
-          onClick={handleClose}
-          disabled={loading}
-          startIcon={<CloseIcon />}
-          sx={{
-            borderRadius: '10px',
-            px: 3,
-            py: 1,
-            textTransform: 'none',
-            fontWeight: 600,
-            borderWidth: 2,
-            '&:hover': {
-              borderWidth: 2,
-            }
-          }}
-        >
-          إلغاء
-        </Button>
-        <Button 
-          variant="contained" 
-          onClick={onCreateCustomer} 
-          disabled={loading || !customerForm.name.trim()}
-          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
-          sx={{
-            borderRadius: '10px',
-            px: 4,
-            py: 1,
-            textTransform: 'none',
-            fontWeight: 600,
-            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%)',
-              boxShadow: '0 6px 16px rgba(102, 126, 234, 0.5)',
-            },
-            '&:disabled': {
-              background: 'grey.300',
-            }
-          }}
-        >
-          {loading ? 'جاري الحفظ...' : 'حفظ العميل'}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        <Col xs={24} sm={12}>
+          <Input
+            placeholder="رقم الهاتف"
+            prefix={<PhoneOutlined />}
+            value={customerForm.phone}
+            onChange={(e) => set({ phone: e.target.value })}
+            onPressEnter={handleEnterSubmit}
+          />
+        </Col>
+        <Col xs={24} sm={12}>
+          <Input
+            placeholder={isCompany ? 'رقم السجل التجاري' : 'الرقم الوطني'}
+            prefix={<IdcardOutlined />}
+            value={customerForm.national_id}
+            onChange={(e) => set({ national_id: e.target.value })}
+            onPressEnter={handleEnterSubmit}
+          />
+        </Col>
+
+        {isCompany && (
+          <Col span={24}>
+            <Input
+              type="email"
+              placeholder="البريد الالكتروني"
+              value={customerForm.email || ''}
+              onChange={(e) => set({ email: e.target.value })}
+              onPressEnter={handleEnterSubmit}
+            />
+          </Col>
+        )}
+      </Row>
+
+      {isCompany && (
+        <>
+          <Divider titlePlacement="end" plain style={{ margin: '20px 0 16px' }}>العنوان</Divider>
+          <Input.TextArea
+            placeholder="العنوان الكامل"
+            value={customerForm.address}
+            onChange={(e) => set({ address: e.target.value })}
+            rows={3}
+          />
+        </>
+      )}
+
+      {!isCompany && (
+        <>
+          <Divider titlePlacement="end" plain style={{ margin: '20px 0 16px' }}>معلومات إضافية</Divider>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12}>
+              <DatePicker
+                placeholder="تاريخ الميلاد"
+                suffixIcon={<CalendarOutlined />}
+                style={{ width: '100%' }}
+                value={customerForm.date_of_birth ? dayjs(customerForm.date_of_birth) : null}
+                onChange={(_, dateString) => set({ date_of_birth: (dateString as string) || '' })}
+              />
+            </Col>
+            <Col xs={24} sm={12}>
+              <Select
+                placeholder="النوع"
+                style={{ width: '100%' }}
+                value={customerForm.gender || undefined}
+                onChange={(value) => set({ gender: value })}
+                options={[
+                  { value: 'male', label: 'ذكر' },
+                  { value: 'female', label: 'أنثى' },
+                ]}
+              />
+            </Col>
+          </Row>
+        </>
+      )}
+
+    </Modal>
   )
 }

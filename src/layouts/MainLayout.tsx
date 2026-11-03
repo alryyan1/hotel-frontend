@@ -27,7 +27,8 @@ import {
   Clock,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
-import ShiftBar from "@/components/shifts/ShiftBar";
+import NotificationServiceStatus from "@/components/NotificationServiceStatus";
+import ShiftAppBarControl from "@/components/shifts/ShiftAppBarControl";
 import { useAuth } from "../contexts/AuthContext";
 import { ShiftProvider } from "../contexts/ShiftContext";
 
@@ -265,6 +266,8 @@ export default function MainLayout() {
               </div>
             </div>
             <div className="ms-auto flex items-center gap-2">
+              <ShiftAppBarControl />
+              <NotificationServiceStatus />
               <NotificationBell />
               <Button
                 variant="ghost"
@@ -345,6 +348,15 @@ export default function MainLayout() {
                 }),
               }}
             >
+              {hasPermission("/") && (
+                <MenuItem
+                  icon={<Home className="size-5" />}
+                  component={<NavLink to="/" end />}
+                  onClick={() => { if (isMobile) setMobileOpen(false); }}
+                >
+                  لوحة التحكم
+                </MenuItem>
+              )}
               {navigationGroups.map((group) => {
                 // Filter items by permission
                 const visibleItems = group.items.filter(
@@ -431,8 +443,7 @@ export default function MainLayout() {
                   : 0,
             }}
           >
-            <div className="container max-w-7xl p-1 mx-auto w-full">
-              <ShiftBar />
+            <div className={`container p-1 mx-auto w-full ${location.pathname.startsWith('/reservations-list') ? '' : 'max-w-7xl'}`}>
               <Outlet />
             </div>
           </main>

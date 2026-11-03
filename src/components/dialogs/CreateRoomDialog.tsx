@@ -97,7 +97,7 @@ export default function CreateRoomDialog({
       </Text>
 
       <Form form={form} layout="vertical" style={{ marginTop: 20 }}>
-        <Divider orientation="right" plain style={{ margin: '0 0 16px' }}>المعلومات الأساسية</Divider>
+        <Divider titlePlacement="end" plain style={{ margin: '0 0 16px' }}>المعلومات الأساسية</Divider>
         <Row gutter={16}>
           <Col xs={24} sm={12}>
             <Form.Item label="رقم الغرفة" name="number" rules={[{ required: true, message: 'رقم الغرفة مطلوب' }]}>
@@ -133,7 +133,7 @@ export default function CreateRoomDialog({
           </Col>
         </Row>
 
-        <Divider orientation="right" plain style={{ margin: '0 0 16px' }}>الموقع والتصنيف</Divider>
+        <Divider titlePlacement="end" plain style={{ margin: '0 0 16px' }}>الموقع والتصنيف</Divider>
         <Row gutter={16}>
           <Col xs={24} sm={8}>
             <Form.Item label="الدور" name="floor_id" rules={[{ required: true, message: 'الرجاء اختيار الدور' }]}>

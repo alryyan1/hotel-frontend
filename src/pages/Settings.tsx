@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
 import apiClient from '../api/axios'
+import { Card, Tabs, Input, Button, Switch, Upload, Modal, Typography, Row, Col, Space, Divider } from 'antd'
+import type { UploadFile } from 'antd/es/upload/interface'
 import {
-  Box,
-  Button,
-  TextField,
-  Card,
-  CardContent,
-  Typography,
-  Stack,
-  Grid,
-  Divider,
-  CircularProgress,
-} from '@mui/material'
-import { Upload as UploadIcon, Save as SaveIcon, Delete as DeleteIcon } from '@mui/icons-material'
+  UploadOutlined,
+  SaveOutlined,
+  SettingOutlined,
+  InfoCircleOutlined,
+  BankOutlined,
+  PictureOutlined,
+  BellOutlined,
+} from '@ant-design/icons'
 import { toast } from 'sonner'
+import WhatsAppNumberList from '@/components/settings/WhatsAppNumberList'
+
+const { Text, Title } = Typography
 
 export default function Settings() {
   const [form, setForm] = useState({
@@ -40,6 +41,8 @@ export default function Settings() {
   const [footerPreview, setFooterPreview] = useState('')
   const [e_stampFile, setEStampFile] = useState<File | null>(null)
   const [e_stampPreview, setEStampPreview] = useState('')
+  const [smsEnabled, setSmsEnabled] = useState(true)
+  const [whatsappEnabled, setWhatsappEnabled] = useState(true)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -61,31 +64,29 @@ export default function Settings() {
             bank_account_number_2: data.bank_account_number_2 || '',
             bank_account_name_2: data.bank_account_name_2 || '',
           })
+          setSmsEnabled(data.sms_notifications_enabled ?? true)
+          setWhatsappEnabled(data.whatsapp_notifications_enabled ?? true)
           if (data.logo_url) {
             setLogoPreview(data.logo_url)
           } else if (data.logo_path) {
-            // Fallback: construct URL if backend doesn't provide logo_url
             const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setLogoPreview(`${baseUrl}/storage/${data.logo_path}`)
           }
           if (data.stamp_url) {
             setStampPreview(data.stamp_url)
           } else if (data.stamp_path) {
-            // Fallback: construct URL if backend doesn't provide stamp_url
             const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setStampPreview(`${baseUrl}/storage/${data.stamp_path}`)
           }
           if (data.header_url) {
             setHeaderPreview(data.header_url)
           } else if (data.header_path) {
-            // Fallback: construct URL if backend doesn't provide header_url
             const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setHeaderPreview(`${baseUrl}/storage/${data.header_path}`)
           }
           if (data.footer_url) {
             setFooterPreview(data.footer_url)
           } else if (data.footer_path) {
-            // Fallback: construct URL if backend doesn't provide footer_url
             const baseUrl = window.location.origin.replace(':5173', '') + '/hotel-backend/public'
             setFooterPreview(`${baseUrl}/storage/${data.footer_path}`)
           }
@@ -106,12 +107,13 @@ export default function Settings() {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function handleSubmit() {
     setLoading(true)
     try {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ''))
+      fd.append('sms_notifications_enabled', smsEnabled ? '1' : '0')
+      fd.append('whatsapp_notifications_enabled', whatsappEnabled ? '1' : '0')
       if (logoFile) fd.append('logo', logoFile)
       if (stampFile) fd.append('stamp', stampFile)
       if (headerFile) fd.append('header', headerFile)
@@ -121,40 +123,19 @@ export default function Settings() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       toast.success('تم حفظ الإعدادات بنجاح')
-      if (data.logo_url) {
-        setLogoPreview(data.logo_url)
-      } else if (data.logo_path) {
-        // Fallback: construct URL if backend doesn't provide logo_url
-        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
-        setLogoPreview(`${baseUrl}/storage/${data.logo_path}`)
-      }
-      if (data.stamp_url) {
-        setStampPreview(data.stamp_url)
-      } else if (data.stamp_path) {
-        // Fallback: construct URL if backend doesn't provide stamp_url
-        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
-        setStampPreview(`${baseUrl}/storage/${data.stamp_path}`)
-      }
-      if (data.header_url) {
-        setHeaderPreview(data.header_url)
-      } else if (data.header_path) {
-        // Fallback: construct URL if backend doesn't provide header_url
-        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
-        setHeaderPreview(`${baseUrl}/storage/${data.header_path}`)
-      }
-      if (data.footer_url) {
-        setFooterPreview(data.footer_url)
-      } else if (data.footer_path) {
-        // Fallback: construct URL if backend doesn't provide footer_url
-        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
-        setFooterPreview(`${baseUrl}/storage/${data.footer_path}`)
-      }
-      if (data.e_stamp_url) {
-        setEStampPreview(data.e_stamp_url)
-      } else if (data.e_stamp_path) {
-        const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
-        setEStampPreview(`${baseUrl}/storage/${data.e_stamp_path}`)
-      }
+      setSmsEnabled(data.sms_notifications_enabled ?? smsEnabled)
+      setWhatsappEnabled(data.whatsapp_notifications_enabled ?? whatsappEnabled)
+      const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
+      if (data.logo_url) setLogoPreview(data.logo_url)
+      else if (data.logo_path) setLogoPreview(`${baseUrl}/storage/${data.logo_path}`)
+      if (data.stamp_url) setStampPreview(data.stamp_url)
+      else if (data.stamp_path) setStampPreview(`${baseUrl}/storage/${data.stamp_path}`)
+      if (data.header_url) setHeaderPreview(data.header_url)
+      else if (data.header_path) setHeaderPreview(`${baseUrl}/storage/${data.header_path}`)
+      if (data.footer_url) setFooterPreview(data.footer_url)
+      else if (data.footer_path) setFooterPreview(`${baseUrl}/storage/${data.footer_path}`)
+      if (data.e_stamp_url) setEStampPreview(data.e_stamp_url)
+      else if (data.e_stamp_path) setEStampPreview(`${baseUrl}/storage/${data.e_stamp_path}`)
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err.message || 'فشل الحفظ')
     } finally {
@@ -163,33 +144,15 @@ export default function Settings() {
   }
 
   async function handleDeleteImage(type: 'logo' | 'stamp' | 'header' | 'footer' | 'e_stamp') {
-    if (!window.confirm('هل أنت متأكد من حذف هذه الصورة؟')) return
-    
     try {
       setLoading(true)
-      await apiClient.delete('/settings/hotel/image', {
-        data: { type }
-      })
-      
+      await apiClient.delete('/settings/hotel/image', { data: { type } })
       toast.success('تم حذف الصورة بنجاح')
-      
-      // Clear specific preview and file
-      if (type === 'logo') {
-        setLogoPreview('')
-        setLogoFile(null)
-      } else if (type === 'stamp') {
-        setStampPreview('')
-        setStampFile(null)
-      } else if (type === 'header') {
-        setHeaderPreview('')
-        setHeaderFile(null)
-      } else if (type === 'footer') {
-        setFooterPreview('')
-        setFooterFile(null)
-      } else if (type === 'e_stamp') {
-        setEStampPreview('')
-        setEStampFile(null)
-      }
+      if (type === 'logo') { setLogoPreview(''); setLogoFile(null) }
+      else if (type === 'stamp') { setStampPreview(''); setStampFile(null) }
+      else if (type === 'header') { setHeaderPreview(''); setHeaderFile(null) }
+      else if (type === 'footer') { setFooterPreview(''); setFooterFile(null) }
+      else if (type === 'e_stamp') { setEStampPreview(''); setEStampFile(null) }
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err.message || 'فشل حذف الصورة')
     } finally {
@@ -197,544 +160,247 @@ export default function Settings() {
     }
   }
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setLogoFile(file)
-      setLogoPreview(URL.createObjectURL(file))
-    }
+  function confirmDeleteImage(type: 'logo' | 'stamp' | 'header' | 'footer' | 'e_stamp') {
+    Modal.confirm({
+      title: 'هل أنت متأكد من حذف هذه الصورة؟',
+      okText: 'حذف',
+      okType: 'danger',
+      cancelText: 'إلغاء',
+      onOk: () => handleDeleteImage(type),
+    })
   }
 
-  const handleStampChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setStampFile(file)
-      setStampPreview(URL.createObjectURL(file))
-    }
+  const toFileList = (url: string): UploadFile[] =>
+    url ? [{ uid: '-1', name: 'image', status: 'done', url }] : []
+
+  function ImageUpload({
+    label,
+    preview,
+    onSelect,
+    onRemove,
+  }: {
+    label: string
+    preview: string
+    onSelect: (file: File) => void
+    onRemove: () => void
+  }) {
+    return (
+      <div>
+        <Text style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>{label}</Text>
+        <Upload
+          listType="picture-card"
+          fileList={toFileList(preview)}
+          beforeUpload={(file) => { onSelect(file); return false }}
+          onRemove={() => { onRemove(); return false }}
+          maxCount={1}
+        >
+          {!preview && (
+            <div>
+              <UploadOutlined />
+              <div style={{ marginTop: 8, fontSize: 12 }}>رفع</div>
+            </div>
+          )}
+        </Upload>
+      </div>
+    )
   }
 
-  const handleHeaderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setHeaderFile(file)
-      setHeaderPreview(URL.createObjectURL(file))
-    }
-  }
+  const basicTab = (
+    <Space orientation="vertical" size={20} style={{ width: '100%' }}>
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 12 }}>المعلومات الأساسية</Text>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+          <div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>الاسم الرسمي *</Text>
+            <Input value={form.official_name} onChange={(e) => updateField('official_name', e.target.value)} />
+          </div>
+          <div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>العنوان</Text>
+            <Input value={form.address_line} onChange={(e) => updateField('address_line', e.target.value)} />
+          </div>
+          <div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>المدينة</Text>
+            <Input value={form.city} onChange={(e) => updateField('city', e.target.value)} />
+          </div>
+        </Space>
+      </div>
 
-  const handleFooterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setFooterFile(file)
-      setFooterPreview(URL.createObjectURL(file))
-    }
-  }
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 12 }}>معلومات الاتصال</Text>
+        <Row gutter={16}>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>الهاتف</Text>
+            <Input value={form.phone} onChange={(e) => updateField('phone', e.target.value)} />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>الهاتف 2</Text>
+            <Input value={form.phone_2} onChange={(e) => updateField('phone_2', e.target.value)} />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>البريد الإلكتروني</Text>
+            <Input type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
+          </Col>
+        </Row>
+      </div>
+    </Space>
+  )
 
-  const handleEStampChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setEStampFile(file)
-      setEStampPreview(URL.createObjectURL(file))
-    }
-  }
+  const bankTab = (
+    <Space orientation="vertical" size={20} style={{ width: '100%' }}>
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 12 }}>الحساب الأول</Text>
+        <Row gutter={16}>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>اسم البنك</Text>
+            <Input value={form.bank_name_1} onChange={(e) => updateField('bank_name_1', e.target.value)} />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>رقم الحساب</Text>
+            <Input value={form.bank_account_number_1} onChange={(e) => updateField('bank_account_number_1', e.target.value)} />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>اسم الحساب</Text>
+            <Input value={form.bank_account_name_1} onChange={(e) => updateField('bank_account_name_1', e.target.value)} />
+          </Col>
+        </Row>
+      </div>
+
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 12 }}>الحساب الثاني</Text>
+        <Row gutter={16}>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>اسم البنك</Text>
+            <Input value={form.bank_name_2} onChange={(e) => updateField('bank_name_2', e.target.value)} />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>رقم الحساب</Text>
+            <Input value={form.bank_account_number_2} onChange={(e) => updateField('bank_account_number_2', e.target.value)} />
+          </Col>
+          <Col xs={24} md={8}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>اسم الحساب</Text>
+            <Input value={form.bank_account_name_2} onChange={(e) => updateField('bank_account_name_2', e.target.value)} />
+          </Col>
+        </Row>
+      </div>
+    </Space>
+  )
+
+  const imagesTab = (
+    <Space orientation="vertical" size={20} style={{ width: '100%' }}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={8}>
+          <ImageUpload
+            label="الشعار"
+            preview={logoPreview}
+            onSelect={(file) => { setLogoFile(file); setLogoPreview(URL.createObjectURL(file)) }}
+            onRemove={() => confirmDeleteImage('logo')}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <ImageUpload
+            label="الختم"
+            preview={stampPreview}
+            onSelect={(file) => { setStampFile(file); setStampPreview(URL.createObjectURL(file)) }}
+            onRemove={() => confirmDeleteImage('stamp')}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <ImageUpload
+            label="الختم الإلكتروني"
+            preview={e_stampPreview}
+            onSelect={(file) => { setEStampFile(file); setEStampPreview(URL.createObjectURL(file)) }}
+            onRemove={() => confirmDeleteImage('e_stamp')}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <ImageUpload
+            label="الرأسية (Header)"
+            preview={headerPreview}
+            onSelect={(file) => { setHeaderFile(file); setHeaderPreview(URL.createObjectURL(file)) }}
+            onRemove={() => confirmDeleteImage('header')}
+          />
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <ImageUpload
+            label="التذييل (Footer)"
+            preview={footerPreview}
+            onSelect={(file) => { setFooterFile(file); setFooterPreview(URL.createObjectURL(file)) }}
+            onRemove={() => confirmDeleteImage('footer')}
+          />
+        </Col>
+      </Row>
+    </Space>
+  )
+
+  const notificationsTab = (
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      <div className="flex items-center justify-between max-w-md">
+        <Text>رسائل SMS عند تأكيد الحجز</Text>
+        <Switch checked={smsEnabled} onChange={setSmsEnabled} />
+      </div>
+      <div className="flex items-center justify-between max-w-md">
+        <Text>رسائل واتساب عند تأكيد الحجز</Text>
+        <Switch checked={whatsappEnabled} onChange={setWhatsappEnabled} />
+      </div>
+
+      <Divider style={{ margin: '8px 0' }} />
+
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: 4 }}>أرقام تنبيه إضافية عبر واتساب</Text>
+        <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 12 }}>
+          هذه الأرقام تُحفظ مباشرة ولا تحتاج الضغط على "حفظ الإعدادات"
+        </Text>
+        <Space orientation="vertical" size={20} style={{ width: '100%' }}>
+          <WhatsAppNumberList
+            event="confirmation"
+            title="عند تأكيد الحجز"
+            description="يستلم نفس رسالة تأكيد الحجز بجانب العميل"
+          />
+          <WhatsAppNumberList
+            event="cancellation"
+            title="عند إلغاء الحجز"
+            description="يستلم نفس رسالة إلغاء الحجز بجانب العميل"
+          />
+          <WhatsAppNumberList
+            event="cleaning"
+            title="تنبيه النظافة عند تسجيل المغادرة"
+            description="رسالة نظافة بالغرفة لكل غرفة عند تسجيل المغادرة"
+          />
+        </Space>
+      </div>
+    </Space>
+  )
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, p: 3 }}>
-      <Box>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-          ⚙️ إعدادات الفندق
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          تحديث معلومات الفندق والشعار والختم
-        </Typography>
-      </Box>
+    <div className="flex flex-col gap-4 p-4">
+      <Space align="center" size={10}>
+        <SettingOutlined style={{ fontSize: 20, color: '#1677ff' }} />
+        <Title level={4} style={{ margin: 0 }}>إعدادات الفندق</Title>
+      </Space>
+      <Text type="secondary">تحديث معلومات الفندق والشعار والختم</Text>
 
-      <Card sx={{ boxShadow: 3 }}>
-        <CardContent sx={{ pt: 3 }}>
-          <form onSubmit={handleSubmit}>
-            <Stack spacing={3}>
-              {/* Basic Information Section */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
-                  المعلومات الأساسية
-                </Typography>
-                <Stack spacing={2}>
-                  <TextField
-                    fullWidth
-                    label="الاسم الرسمي"
-                    value={form.official_name}
-                    onChange={(e) => updateField('official_name', e.target.value)}
-                    required
-                    size="small"
-                  />
-                  <TextField
-                    fullWidth
-                    label="العنوان"
-                    value={form.address_line}
-                    onChange={(e) => updateField('address_line', e.target.value)}
-                    size="small"
-                  />
-                  <TextField
-                    fullWidth
-                    label="المدينة"
-                    value={form.city}
-                    onChange={(e) => updateField('city', e.target.value)}
-                    size="small"
-                  />
-                </Stack>
-              </Box>
+      <Card>
+        <Tabs
+          items={[
+            { key: 'basic', label: 'المعلومات الأساسية', icon: <InfoCircleOutlined />, children: basicTab },
+            { key: 'bank', label: 'الحسابات البنكية', icon: <BankOutlined />, children: bankTab },
+            { key: 'images', label: 'الشعار والصور', icon: <PictureOutlined />, children: imagesTab },
+            { key: 'notifications', label: 'الإشعارات', icon: <BellOutlined />, children: notificationsTab },
+          ]}
+        />
 
-              <Divider />
-
-              {/* Contact Information Section */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
-                  معلومات الاتصال
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="الهاتف"
-                      value={form.phone}
-                      onChange={(e) => updateField('phone', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="الهاتف 2"
-                      value={form.phone_2}
-                      onChange={(e) => updateField('phone_2', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      type="email"
-                      label="البريد الإلكتروني"
-                      value={form.email}
-                      onChange={(e) => updateField('email', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-
-              <Divider />
-
-              {/* Bank Account Section */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
-                  معلومات الحساب البنكي
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>الحساب الأول</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="اسم البنك الأول"
-                      value={form.bank_name_1}
-                      onChange={(e) => updateField('bank_name_1', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="رقم الحساب الأول"
-                      value={form.bank_account_number_1}
-                      onChange={(e) => updateField('bank_account_number_1', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="اسم الحساب الأول"
-                      value={form.bank_account_name_1}
-                      onChange={(e) => updateField('bank_account_name_1', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>الحساب الثاني</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="اسم البنك الثاني"
-                      value={form.bank_name_2}
-                      onChange={(e) => updateField('bank_name_2', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="رقم الحساب الثاني"
-                      value={form.bank_account_number_2}
-                      onChange={(e) => updateField('bank_account_number_2', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField
-                      fullWidth
-                      label="اسم الحساب الثاني"
-                      value={form.bank_account_name_2}
-                      onChange={(e) => updateField('bank_account_name_2', e.target.value)}
-                      size="small"
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-
-              <Divider />
-
-              {/* Logo and Stamp Section */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
-                  الشعار والختم
-                </Typography>
-                <Grid container spacing={3}>
-                  {/* Logo Upload */}
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Stack spacing={2}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        الشعار
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Button
-                          variant="outlined"
-                          component="label"
-                          startIcon={<UploadIcon />}
-                          size="small"
-                        >
-                          رفع الشعار
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={handleLogoChange}
-                          />
-                        </Button>
-                        {logoPreview && (
-                          <Box sx={{ position: 'relative' }}>
-                            <Box
-                              component="img"
-                              src={logoPreview}
-                              alt="Logo Preview"
-                              sx={{
-                                width: 64,
-                                height: 64,
-                                objectFit: 'cover',
-                                borderRadius: 1,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                boxShadow: 1,
-                              }}
-                            />
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteImage('logo')}
-                              sx={{
-                                position: 'absolute',
-                                top: -8,
-                                right: -8,
-                                minWidth: 0,
-                                p: 0.5,
-                                bgcolor: 'background.paper',
-                                borderRadius: '50%',
-                                boxShadow: 2,
-                                '&:hover': { bgcolor: 'error.light', color: 'white' }
-                              }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </Button>
-                          </Box>
-                        )}
-                      </Box>
-                    </Stack>
-                  </Grid>
-
-                  {/* Stamp Upload */}
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Stack spacing={2}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        الختم
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Button
-                          variant="outlined"
-                          component="label"
-                          startIcon={<UploadIcon />}
-                          size="small"
-                        >
-                          رفع الختم
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={handleStampChange}
-                          />
-                        </Button>
-                        {stampPreview && (
-                          <Box sx={{ position: 'relative' }}>
-                            <Box
-                              component="img"
-                              src={stampPreview}
-                              alt="Stamp Preview"
-                              sx={{
-                                width: 64,
-                                height: 64,
-                                objectFit: 'cover',
-                                borderRadius: 1,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                boxShadow: 1,
-                              }}
-                            />
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteImage('stamp')}
-                              sx={{
-                                position: 'absolute',
-                                top: -8,
-                                right: -8,
-                                minWidth: 0,
-                                p: 0.5,
-                                bgcolor: 'background.paper',
-                                borderRadius: '50%',
-                                boxShadow: 2,
-                                '&:hover': { bgcolor: 'error.light', color: 'white' }
-                              }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </Button>
-                          </Box>
-                        )}
-                      </Box>
-                    </Stack>
-                  </Grid>
-                  {/* E-Stamp Upload */}
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Stack spacing={2}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        الختم الإلكتروني
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Button
-                          variant="outlined"
-                          component="label"
-                          startIcon={<UploadIcon />}
-                          size="small"
-                        >
-                          رفع الختم الإلكتروني
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={handleEStampChange}
-                          />
-                        </Button>
-                        {e_stampPreview && (
-                          <Box sx={{ position: 'relative' }}>
-                            <Box
-                              component="img"
-                              src={e_stampPreview}
-                              alt="E-Stamp Preview"
-                              sx={{
-                                width: 64,
-                                height: 64,
-                                objectFit: 'cover',
-                                borderRadius: 1,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                boxShadow: 1,
-                              }}
-                            />
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteImage('e_stamp')}
-                              sx={{
-                                position: 'absolute',
-                                top: -8,
-                                right: -8,
-                                minWidth: 0,
-                                p: 0.5,
-                                bgcolor: 'background.paper',
-                                borderRadius: '50%',
-                                boxShadow: 2,
-                                '&:hover': { bgcolor: 'error.light', color: 'white' }
-                              }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </Button>
-                          </Box>
-                        )}
-                      </Box>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-
-              <Divider />
-
-              {/* Header and Footer Section */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600, color: 'text.primary' }}>
-                  الرأسية والتذييل
-                </Typography>
-                <Grid container spacing={3}>
-                  {/* Header Upload */}
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Stack spacing={2}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        الرأسية (Header)
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                        <Button
-                          variant="outlined"
-                          component="label"
-                          startIcon={<UploadIcon />}
-                          size="small"
-                        >
-                          رفع الرأسية
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={handleHeaderChange}
-                          />
-                        </Button>
-                        {headerPreview && (
-                          <Box sx={{ position: 'relative', width: 'fit-content' }}>
-                            <Box
-                              component="img"
-                              src={headerPreview}
-                              alt="Header Preview"
-                              sx={{
-                                maxWidth: '100%',
-                                maxHeight: 150,
-                                objectFit: 'contain',
-                                borderRadius: 1,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                boxShadow: 1,
-                              }}
-                            />
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteImage('header')}
-                              sx={{
-                                position: 'absolute',
-                                top: -8,
-                                right: -8,
-                                minWidth: 0,
-                                p: 0.5,
-                                bgcolor: 'background.paper',
-                                borderRadius: '50%',
-                                boxShadow: 2,
-                                '&:hover': { bgcolor: 'error.light', color: 'white' }
-                              }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </Button>
-                          </Box>
-                        )}
-                      </Box>
-                    </Stack>
-                  </Grid>
-
-                  {/* Footer Upload */}
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <Stack spacing={2}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        التذييل (Footer)
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                        <Button
-                          variant="outlined"
-                          component="label"
-                          startIcon={<UploadIcon />}
-                          size="small"
-                        >
-                          رفع التذييل
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={handleFooterChange}
-                          />
-                        </Button>
-                        {footerPreview && (
-                          <Box sx={{ position: 'relative', width: 'fit-content' }}>
-                            <Box
-                              component="img"
-                              src={footerPreview}
-                              alt="Footer Preview"
-                              sx={{
-                                maxWidth: '100%',
-                                maxHeight: 150,
-                                objectFit: 'contain',
-                                borderRadius: 1,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                boxShadow: 1,
-                              }}
-                            />
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => handleDeleteImage('footer')}
-                              sx={{
-                                position: 'absolute',
-                                top: -8,
-                                right: -8,
-                                minWidth: 0,
-                                p: 0.5,
-                                bgcolor: 'background.paper',
-                                borderRadius: '50%',
-                                boxShadow: 2,
-                                '&:hover': { bgcolor: 'error.light', color: 'white' }
-                              }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </Button>
-                          </Box>
-                        )}
-                      </Box>
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </Box>
-
-              <Divider />
-
-              {/* Submit Button */}
-              <Box sx={{ pt: 2 }}>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={loading}
-                  startIcon={loading ? <CircularProgress size={16} /> : <SaveIcon />}
-                  sx={{ boxShadow: 2 }}
-                >
-                  {loading ? 'جارٍ الحفظ...' : 'حفظ الإعدادات'}
-                </Button>
-              </Box>
-            </Stack>
-          </form>
-        </CardContent>
+        <div className="mt-4 pt-4 border-t border-border">
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={loading}
+            onClick={handleSubmit}
+            disabled={!form.official_name.trim()}
+          >
+            حفظ الإعدادات
+          </Button>
+        </div>
       </Card>
-    </Box>
+    </div>
   )
 }

@@ -1,60 +1,44 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import apiClient from '../api/axios'
 import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Divider,
-  Grid,
-  IconButton,
-  InputAdornment,
-  Paper,
-  Tab,
   Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tabs,
-  TextField,
-  Typography,
-  MenuItem,
+  Card,
+  Button,
+  Tag,
+  Modal,
   Select,
-  FormControl,
-  InputLabel,
-  CircularProgress,
+  DatePicker,
+  Input,
+  InputNumber,
+  Space,
+  Typography,
   Alert,
-  Stack,
-  Autocomplete,
-} from '@mui/material'
+  Tabs,
+  Tooltip,
+} from 'antd'
+import type { ColumnsType } from 'antd/es/table'
 import {
-  Search as SearchIcon,
-  Visibility as VisibilityIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  AccessTime as AccessTimeIcon,
-  HowToReg as PersonCheckIcon,
-  PersonRemove as PersonOffIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  CalendarToday as CalendarIcon,
-  Clear as ClearIcon,
-  FileDownload as FileDownloadIcon,
-  RoomService as RoomServiceIcon,
-  SwapHoriz as SwapRoomIcon,
-} from '@mui/icons-material'
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  LoginOutlined,
+  LogoutOutlined,
+  EditOutlined,
+  CalendarOutlined,
+  DownloadOutlined,
+  CustomerServiceOutlined,
+  SwapOutlined,
+  WarningOutlined,
+  WhatsAppOutlined,
+  FilePdfOutlined,
+} from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
+
+const { Text, Title } = Typography
+const { TextArea } = Input
 
 interface Reservation {
   id: number
@@ -65,6 +49,7 @@ interface Reservation {
   status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled'
   total_amount?: number
   paid_amount?: number
+  checkout_reminder_sent_at?: string | null
   created_at: string
   updated_at: string
   customer: {
@@ -118,12 +103,12 @@ interface Customer {
 const roomRateFor = (room: { price_usd: number; price_sdg: number }, currency: string): number =>
   currency === 'USD' ? Number(room.price_usd ?? 0) : Number(room.price_sdg ?? 0)
 
-const statusConfig = {
-  pending: { label: 'في الانتظار', color: 'warning', icon: AccessTimeIcon },
-  confirmed: { label: 'مؤكد', color: 'info', icon: CheckCircleIcon },
-  checked_in: { label: 'تم تسجيل الوصول', color: 'success', icon: PersonCheckIcon },
-  checked_out: { label: 'تم تسجيل المغادرة', color: 'default', icon: PersonOffIcon },
-  cancelled: { label: 'ملغي', color: 'error', icon: CancelIcon },
+const statusConfig: Record<Reservation['status'], { label: string; color: string; icon: any }> = {
+  pending: { label: 'في الانتظار', color: 'gold', icon: ClockCircleOutlined },
+  confirmed: { label: 'مؤكد', color: 'blue', icon: CheckCircleOutlined },
+  checked_in: { label: 'تم تسجيل الوصول', color: 'green', icon: LoginOutlined },
+  checked_out: { label: 'تم تسجيل المغادرة', color: 'default', icon: LogoutOutlined },
+  cancelled: { label: 'ملغي', color: 'red', icon: CloseCircleOutlined },
 }
 
 export default function ReservationsList() {
@@ -132,17 +117,21 @@ export default function ReservationsList() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
+  const [reminderLoading, setReminderLoading] = useState(false)
+  const [arrivalsPdfLoading, setArrivalsPdfLoading] = useState(false)
+  const [departuresPdfLoading, setDeparturesPdfLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<Record<number, string>>({})
   const [statusFilter, setStatusFilter] = useState<string>('all')
   // Single date filter based on reservation creation date (created_at)
   const [createdAtFilter, setCreatedAtFilter] = useState<string>('')
+  const [arrivalTodayFilter, setArrivalTodayFilter] = useState(false)
+  const [departureTodayFilter, setDepartureTodayFilter] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
-  const [openDetails, setOpenDetails] = useState(false)
   const [openConfirm, setOpenConfirm] = useState(false)
-  const [actionType, setActionType] = useState<'confirm' | 'checkin' | 'checkout' | 'cancel' | 'delete'>('confirm')
+  const [actionType, setActionType] = useState<'confirm' | 'checkin' | 'checkout' | 'cancel'>('confirm')
   const [customerBalance, setCustomerBalance] = useState<number | null>(null)
   const [occupiedRoomsError, setOccupiedRoomsError] = useState<any>(null)
   const [openOccupiedRoomsDialog, setOpenOccupiedRoomsDialog] = useState(false)
@@ -158,9 +147,6 @@ export default function ReservationsList() {
   const [refundMethod, setRefundMethod] = useState('cash')
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
-  const [openEditDates, setOpenEditDates] = useState(false)
-  const [editCheckInDate, setEditCheckInDate] = useState<string>('')
-  const [editCheckOutDate, setEditCheckOutDate] = useState<string>('')
   const [editDatesLoading, setEditDatesLoading] = useState(false)
   const [openEditReservation, setOpenEditReservation] = useState(false)
   const [editReservationTab, setEditReservationTab] = useState(0)
@@ -169,6 +155,8 @@ export default function ReservationsList() {
   const [transferOldRoomId, setTransferOldRoomId] = useState<string>('')
   const [transferNewRoomId, setTransferNewRoomId] = useState<string>('')
   const [transferLoading, setTransferLoading] = useState(false)
+  const [editCheckInDate, setEditCheckInDate] = useState<string>('')
+  const [editCheckOutDate, setEditCheckOutDate] = useState<string>('')
 
   // Fetch customers and services list
   useEffect(() => {
@@ -203,7 +191,7 @@ export default function ReservationsList() {
   // Fetch immediately for status, date, customer filters, and pagination
   useEffect(() => {
     fetchReservations()
-  }, [statusFilter, createdAtFilter, selectedCustomer, currentPage, perPage])
+  }, [statusFilter, createdAtFilter, arrivalTodayFilter, departureTodayFilter, selectedCustomer, currentPage, perPage])
 
   const fetchReservations = async () => {
     try {
@@ -219,13 +207,21 @@ export default function ReservationsList() {
         params.created_at_date = createdAtFilter
       }
 
+      if (arrivalTodayFilter) {
+        params.checkin_date = dayjs().format('YYYY-MM-DD')
+      }
+
+      if (departureTodayFilter) {
+        params.checkout_date = dayjs().format('YYYY-MM-DD')
+      }
+
       if (selectedCustomer) {
         params.customer_id = selectedCustomer.id
       }
-      
+
       params.page = currentPage
       params.per_page = perPage
-      
+
       const { data } = await apiClient.get('/reservations', { params })
       const reservationsData = data.data || []
       setReservations(reservationsData)
@@ -259,9 +255,9 @@ export default function ReservationsList() {
     }
   }
 
-  const handleAction = async (reservation: Reservation, action: 'confirm' | 'checkin' | 'checkout' | 'cancel' | 'delete', skipDialog: boolean = false) => {
+  const handleAction = async (reservation: Reservation, action: 'confirm' | 'checkin' | 'checkout' | 'cancel', skipDialog: boolean = false) => {
     // Show dialog for checkout and cancel actions
-    if (!skipDialog && (action === 'checkout' || action === 'cancel' || action === 'delete')) {
+    if (!skipDialog && (action === 'checkout' || action === 'cancel')) {
       setSelectedReservation(reservation)
       setActionType(action)
       // Fetch customer balance for checkout
@@ -279,25 +275,39 @@ export default function ReservationsList() {
 
     try {
       setActionLoading(prev => ({ ...prev, [reservation.id]: action }))
-      
+
       let updatedReservation: Reservation | null = null
-      
+
       switch (action) {
         case 'confirm':
           const { data } = await apiClient.post(`/reservations/${reservation.id}/confirm`)
           updatedReservation = data
           toast.success('تم تأكيد الحجز بنجاح')
-          
-          if (data.sms_result) {
+
+          if (data.sms_result && !data.sms_result.skipped) {
             if (data.sms_result.success) {
-              toast.success('تم إرسال رسالة تأكيد الحجز بنجاح', { 
+              toast.success('تم إرسال رسالة تأكيد الحجز بنجاح', {
                 position: 'top-right',
-                duration: 4000 
+                duration: 4000
               })
             } else {
-              toast.error(`فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`, { 
+              toast.error(`فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`, {
                 position: 'top-right',
-                duration: 5000 
+                duration: 5000
+              })
+            }
+          }
+
+          if (data.whatsapp_result && !data.whatsapp_result.skipped) {
+            if (data.whatsapp_result.success) {
+              toast.success('تم إرسال رسالة واتساب لتأكيد الحجز بنجاح', {
+                position: 'top-right',
+                duration: 4000
+              })
+            } else {
+              toast.error(`فشل إرسال رسالة واتساب: ${data.whatsapp_result.error || 'خطأ غير معروف'}`, {
+                position: 'top-right',
+                duration: 5000
               })
             }
           }
@@ -328,9 +338,6 @@ export default function ReservationsList() {
           }
           break
         case 'checkout':
-          // Check customer balance before checkout
-       
-          
           // Show warning toast if payment is not complete for this reservation
           if (!isPaymentComplete(reservation)) {
             const totalAmount = reservation.total_amount || 0
@@ -338,9 +345,9 @@ export default function ReservationsList() {
             const remaining = totalAmount - paidAmount
             toast.warning(
               `تم تسجيل المغادرة مع تحذير: المبلغ المتبقي ${remaining.toLocaleString()} `,
-              { 
+              {
                 position: 'top-right',
-                duration: 6000 
+                duration: 6000
               }
             )
           }
@@ -354,15 +361,23 @@ export default function ReservationsList() {
           const cancelData = await apiClient.post(`/reservations/${reservation.id}/cancel`)
           updatedReservation = cancelData.data
           toast.success('تم إلغاء الحجز بنجاح')
+
+          if (cancelData.data.whatsapp_result && !cancelData.data.whatsapp_result.skipped) {
+            if (cancelData.data.whatsapp_result.success) {
+              toast.success('تم إرسال إشعار الإلغاء عبر واتساب', {
+                position: 'top-right',
+                duration: 4000
+              })
+            } else {
+              toast.error(`فشل إرسال إشعار الإلغاء عبر واتساب: ${cancelData.data.whatsapp_result.error || 'خطأ غير معروف'}`, {
+                position: 'top-right',
+                duration: 5000
+              })
+            }
+          }
           break
-        case 'delete':
-          await apiClient.delete(`/reservations/${reservation.id}`)
-          setReservations(prev => prev.filter(r => r.id !== reservation.id))
-          setOpenConfirm(false)
-          setSelectedReservation(null)
-          return
       }
-      
+
       // Update reservation in list
       if (updatedReservation) {
         setReservations(prev => prev.map(r => {
@@ -375,7 +390,7 @@ export default function ReservationsList() {
           return r
         }))
       }
-      
+
       setOpenConfirm(false)
       setSelectedReservation(null)
     } catch (err: any) {
@@ -391,10 +406,6 @@ export default function ReservationsList() {
 
   const handleDialogAction = async () => {
     if (!selectedReservation) return
-    
-    // For checkout, check customer balance before proceeding
-   
-    
     await handleAction(selectedReservation, actionType, true)
   }
 
@@ -405,6 +416,14 @@ export default function ReservationsList() {
     setCreatedAtFilter('')
   }
 
+  const clearArrivalTodayFilter = () => {
+    setArrivalTodayFilter(false)
+  }
+
+  const clearDepartureTodayFilter = () => {
+    setDepartureTodayFilter(false)
+  }
+
   const clearCustomerFilter = () => {
     setSelectedCustomer(null)
   }
@@ -412,14 +431,14 @@ export default function ReservationsList() {
   const handleExportExcel = async () => {
     try {
       setExportLoading(true)
-      
+
       // Build query parameters from current filters
       const params: any = {}
 
       if (statusFilter && statusFilter !== 'all') {
         params.status = statusFilter
       }
-      
+
       if (selectedCustomer) {
         params.customer_id = selectedCustomer.id
       }
@@ -438,7 +457,7 @@ export default function ReservationsList() {
       if (response.data instanceof Blob) {
         // Check content type from response headers
         const contentType = response.headers['content-type'] || ''
-        
+
         if (contentType.includes('application/json') || response.data.type === 'application/json') {
           // Response is an error, read it as text
           const errorText = await response.data.text()
@@ -457,7 +476,7 @@ export default function ReservationsList() {
       const blob = new Blob([response.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       })
-      
+
       if (blob.size === 0) {
         toast.error('الملف فارغ')
         return
@@ -470,7 +489,7 @@ export default function ReservationsList() {
       link.setAttribute('download', filename)
       link.style.display = 'none'
       document.body.appendChild(link)
-      
+
       // Trigger download
       try {
         link.click()
@@ -486,11 +505,11 @@ export default function ReservationsList() {
         document.body.removeChild(link)
         window.URL.revokeObjectURL(url)
       }
-      
+
       toast.success('تم تصدير الملف بنجاح')
     } catch (err: any) {
       console.error('Failed to export Excel', err)
-      
+
       // If error response is a blob, try to parse it
       if (err?.response?.data instanceof Blob) {
         try {
@@ -508,16 +527,59 @@ export default function ReservationsList() {
     }
   }
 
-  const getStatusChip = (status: Reservation['status']) => {
+  const handleSendCheckoutReminders = async () => {
+    try {
+      setReminderLoading(true)
+      const { data } = await apiClient.post('/reservations/send-checkout-reminders')
+
+      if (data.notified?.length) {
+        const sentAtById = new Map<number, string>(
+          data.notified.map((n: { reservation_id: number; checkout_reminder_sent_at: string }) => [n.reservation_id, n.checkout_reminder_sent_at])
+        )
+        setReservations(prev => prev.map(r => (
+          sentAtById.has(r.id) ? { ...r, checkout_reminder_sent_at: sentAtById.get(r.id) } : r
+        )))
+      }
+
+      if (data.total === 0) {
+        toast.info('لا توجد حجوزات تغادر اليوم بحاجة لتذكير')
+      } else {
+        toast.success(`تم إرسال ${data.sent} من ${data.total} تذكير مغادرة عبر واتساب`)
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في إرسال تذكيرات المغادرة')
+    } finally {
+      setReminderLoading(false)
+    }
+  }
+
+  const handleOpenTodayPdf = async (type: 'arrivals' | 'departures') => {
+    const setPdfLoading = type === 'arrivals' ? setArrivalsPdfLoading : setDeparturesPdfLoading
+    try {
+      setPdfLoading(true)
+      const response = await apiClient.get(`/reservations/today/${type}/pdf`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+      const newWindow = window.open(url, '_blank')
+      if (!newWindow) {
+        toast.error('يرجى السماح بالنوافذ المنبثقة لعرض PDF')
+        window.URL.revokeObjectURL(url)
+        return
+      }
+      newWindow.addEventListener('load', () => setTimeout(() => window.URL.revokeObjectURL(url), 1000))
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في إنشاء ملف PDF')
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
+  const getStatusTag = (status: Reservation['status']) => {
     const config = statusConfig[status]
     const Icon = config.icon
     return (
-      <Chip
-        icon={<Icon />}
-        label={config.label}
-        color={config.color as any}
-        size="small"
-      />
+      <Tag color={config.color} variant="solid" icon={<Icon />}>
+        {config.label}
+      </Tag>
     )
   }
 
@@ -528,7 +590,7 @@ export default function ReservationsList() {
   const getRelativeDate = (dateString: string) => {
     const date = dayjs(dateString)
     const now = dayjs()
-    
+
     if (date.isSame(now, 'day')) {
       return 'اليوم'
     } else if (date.isSame(now.add(1, 'day'), 'day')) {
@@ -543,135 +605,127 @@ export default function ReservationsList() {
   }
 
   const getActionButtons = (reservation: Reservation) => {
-    const buttons = [];
-    const isLoading = actionLoading[reservation.id] !== undefined;
-    const currentAction = actionLoading[reservation.id];
+    const buttons = []
+    const isLoading = actionLoading[reservation.id] !== undefined
+    const currentAction = actionLoading[reservation.id]
 
-    const commonSx = {
-      py: 0.5,
-      px: 1,
-      minWidth: "auto",
-      fontSize: "0.75rem",
-      fontWeight: 600,
-      whiteSpace: "nowrap",
-    };
-
-    if (reservation.status === "pending") {
+    if (reservation.status === 'pending') {
       buttons.push(
         <Button
           key="confirm"
           size="small"
+          color="blue"
           variant="outlined"
-          onClick={() => handleAction(reservation, "confirm", true)}
+          onClick={() => handleAction(reservation, 'confirm', true)}
           disabled={isLoading}
-          color="info"
-          startIcon={
-            isLoading && currentAction === "confirm" ? (
-              <CircularProgress size={14} />
-            ) : undefined
-          }
-          sx={commonSx}
+          loading={isLoading && currentAction === 'confirm'}
         >
           تأكيد
         </Button>,
-      );
+      )
+    }
+    if (!['checked_in', 'checked_out', 'cancelled'].includes(reservation.status)) {
+      buttons.push(
+        <Button
+          key="cancel"
+          size="small"
+          danger
+          variant="outlined"
+          onClick={() => handleAction(reservation, 'cancel', false)}
+          disabled={isLoading}
+          loading={isLoading && currentAction === 'cancel'}
+        >
+          إلغاء
+        </Button>,
+      )
     }
 
-    if (reservation.status === "confirmed") {
+
+    if (reservation.status === 'confirmed') {
       buttons.push(
         <Button
           key="checkin"
           size="small"
+          color="green"
           variant="outlined"
-          onClick={() => handleAction(reservation, "checkin", true)}
+          onClick={() => handleAction(reservation, 'checkin', true)}
           disabled={isLoading}
-          color="success"
-          startIcon={
-            isLoading && currentAction === "checkin" ? (
-              <CircularProgress size={14} />
-            ) : undefined
-          }
-          sx={commonSx}
+          loading={isLoading && currentAction === 'checkin'}
         >
           تسجيل الوصول
         </Button>,
-      );
+      )
     }
 
-    if (reservation.status === "checked_in") {
+    if (reservation.status === 'checked_in') {
       buttons.push(
         <Button
           key="checkout"
           size="small"
           variant="outlined"
-          onClick={() => handleAction(reservation, "checkout", false)}
+          onClick={() => handleAction(reservation, 'checkout', false)}
           disabled={isLoading}
-          color="inherit"
-          startIcon={
-            isLoading && currentAction === "checkout" ? (
-              <CircularProgress size={14} />
-            ) : undefined
-          }
-          sx={commonSx}
+          loading={isLoading && currentAction === 'checkout'}
         >
           تسجيل المغادرة
         </Button>,
-      );
+      )
     }
-    if (["confirmed", "checked_in"].includes(reservation.status)) {
+
+    if (['confirmed', 'checked_in'].includes(reservation.status)) {
       buttons.push(
         <Button
           key="extend"
           size="small"
+          color="purple"
           variant="outlined"
+          icon={<CalendarOutlined />}
           onClick={() => {
-            setSelectedReservation(reservation);
+            setSelectedReservation(reservation)
             setNewCheckOutDate(
-              dayjs(reservation.check_out_date).add(1, "day").format("YYYY-MM-DD"),
-            );
-            setOpenExtend(true);
+              dayjs(reservation.check_out_date).add(1, 'day').format('YYYY-MM-DD'),
+            )
+            setOpenExtend(true)
           }}
           disabled={isLoading}
-          color="secondary"
-          startIcon={<CalendarIcon sx={{ fontSize: "1rem !important" }} />}
-          sx={commonSx}
         >
           تمديد
         </Button>,
-      );
+      )
 
       buttons.push(
         <Button
           key="service"
           size="small"
+          color="cyan"
           variant="outlined"
+          icon={<CustomerServiceOutlined />}
           onClick={() => {
-            setSelectedReservation(reservation);
+            setSelectedReservation(reservation)
             setServiceForm({
-              room_id: reservation.rooms?.[0]?.id?.toString() || "",
-              service_id: "",
-              amount: "",
-              payment_method: "cash",
-              notes: "",
-            });
-            setOpenService(true);
+              room_id: reservation.rooms?.[0]?.id?.toString() || '',
+              service_id: '',
+              amount: '',
+              payment_method: 'cash',
+              notes: '',
+            })
+            setOpenService(true)
           }}
           disabled={isLoading}
-          color="primary"
-          startIcon={<RoomServiceIcon sx={{ fontSize: "1rem !important" }} />}
-          sx={commonSx}
         >
           إضافة خدمة
         </Button>,
-      );
+      )
     }
 
-    if (!["checked_out", "cancelled"].includes(reservation.status) && hasPermission('/reservations-list/edit-dates')) {
+    if (!['checked_out', 'cancelled'].includes(reservation.status) && hasPermission('/reservations-list/edit-dates')) {
       buttons.push(
         <Button
           key="editreservation"
           size="small"
+          color="orange"
           variant="outlined"
+          icon={<EditOutlined />}
           onClick={() => {
             setSelectedReservation(reservation)
             setEditCheckInDate(dayjs(reservation.check_in_date).format('YYYY-MM-DD'))
@@ -683,56 +737,11 @@ export default function ReservationsList() {
             setOpenEditReservation(true)
           }}
           disabled={isLoading}
-          color="warning"
-          sx={{ ...commonSx, minWidth: 0, px: 0.75 }}
-        >
-          <EditIcon sx={{ fontSize: "1rem" }} />
-        </Button>,
+        />,
       )
     }
 
-    if (!["checked_in", "checked_out"].includes(reservation.status)) {
-      buttons.push(
-        <Button
-          key="cancel"
-          size="small"
-          variant="outlined"
-          onClick={() => handleAction(reservation, "cancel", false)}
-          disabled={isLoading}
-          color="error"
-          startIcon={
-            isLoading && currentAction === "cancel" ? (
-              <CircularProgress size={14} />
-            ) : undefined
-          }
-          sx={commonSx}
-        >
-          إلغاء
-        </Button>,
-      );
-    }
-
-    if (hasPermission('/reservations-list/delete')) {
-      buttons.push(
-        <Button
-          key="delete"
-          size="small"
-          variant="outlined"
-          onClick={() => handleAction(reservation, "delete", false)}
-          disabled={isLoading}
-          color="error"
-          sx={{ ...commonSx, minWidth: 0, px: 0.75 }}
-        >
-          {isLoading && currentAction === "delete" ? (
-            <CircularProgress size={14} />
-          ) : (
-            <DeleteIcon sx={{ fontSize: "1rem" }} />
-          )}
-        </Button>,
-      );
-    }
-
-    return buttons;
+    return buttons
   }
 
   const handleExtend = async () => {
@@ -743,7 +752,7 @@ export default function ReservationsList() {
       const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/extend`, {
         check_out_date: newCheckOutDate
       })
-      
+
       setReservations(prev => prev.map(r => r.id === data.id ? data : r))
       setOpenExtend(false)
       setSelectedReservation(null)
@@ -757,13 +766,13 @@ export default function ReservationsList() {
 
   const calculateExtensionPrice = () => {
     if (!selectedReservation || !newCheckOutDate) return 0
-    
+
     const oldOut = dayjs(selectedReservation.check_out_date)
     const newOut = dayjs(newCheckOutDate)
     const days = newOut.diff(oldOut, 'day')
-    
+
     if (days <= 0) return 0
-    
+
     let total = 0
     selectedReservation.rooms.forEach((room: any) => {
       const pivotRate = room.pivot?.rate !== undefined && room.pivot?.rate !== null ? Number(room.pivot.rate) : 0
@@ -794,7 +803,7 @@ export default function ReservationsList() {
         payment_method: serviceForm.payment_method,
         notes: serviceForm.notes
       })
-      
+
       toast.success('تمت إضافة الخدمة بنجاح')
       setOpenService(false)
     } catch (err: any) {
@@ -836,7 +845,6 @@ export default function ReservationsList() {
       if (editCheckOutDate) payload.check_out_date = editCheckOutDate
       const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/update-dates`, payload)
       setReservations(prev => prev.map(r => r.id === data.id ? { ...data, rooms: data.rooms || r.rooms } : r))
-      setOpenEditDates(false)
       setOpenEditReservation(false)
       setSelectedReservation(null)
       toast.success('تم تعديل التواريخ بنجاح')
@@ -899,1033 +907,770 @@ export default function ReservationsList() {
     return { oldRate, newRate, days, oldTotal: days * oldRate, newTotal: days * newRate, diff: days * (newRate - oldRate) }
   }
 
-  return (
-    <Box sx={{ p: 3 }}>
-      {/* Search and Filter Card */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, flexWrap: 'wrap' }}>
-            {/* Customer autocomplete filter */}
-            <Box sx={{ flex: { xs: '1 1 100%', md: '1 1 auto' }, minWidth: { xs: '100%', md: '300px' } }}>
-              <Autocomplete
-                fullWidth
-                options={customers}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option
-                  return `${option.name}${option.phone ? ` - ${option.phone}` : ''}`
-                }}
-                value={selectedCustomer}
-                onChange={(_, newValue) => {
-                  setSelectedCustomer(newValue)
-                }}
-                loading={loadingCustomers}
-                sx={{ width: '100%' }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    fullWidth
-                    label="فلترة بالعميل"
-                    placeholder="اختر عميل..."
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {loadingCustomers ? <CircularProgress color="inherit" size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props} key={option.id}>
-                    <Box>
-                      <Typography variant="body2" fontWeight="medium">
-                        {option.name}
-                      </Typography>
-                      {option.phone && (
-                        <Typography variant="caption" color="text.secondary">
-                          {option.phone}
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                )}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-                noOptionsText="لا يوجد عملاء"
-                clearOnEscape
-              />
-            </Box>
-            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 180px' }, minWidth: { xs: '100%', md: '180px' } }}>
-              <FormControl fullWidth>
-                <InputLabel>فلترة بالحالة</InputLabel>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  label="فلترة بالحالة"
-                >
-                  <MenuItem value="all">جميع الحالات</MenuItem>
-                  <MenuItem value="pending">في الانتظار</MenuItem>
-                  <MenuItem value="confirmed">مؤكد</MenuItem>
-                  <MenuItem value="checked_in">تم تسجيل الوصول</MenuItem>
-                  <MenuItem value="checked_out">تم تسجيل المغادرة</MenuItem>
-                  <MenuItem value="cancelled">ملغي</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-            {/* Single date filter based on reservation creation date */}
-            <Box sx={{ flex: { xs: '1 1 100%', md: '0 0 220px' }, minWidth: { xs: '100%', md: '220px' } }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <TextField
-                  fullWidth
-                  type="date"
-                  label="تاريخ إنشاء الحجز"
-                  value={createdAtFilter}
-                  onChange={(e) => setCreatedAtFilter(e.target.value)}
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
-                 
-                />
-                {createdAtFilter && (
-                  <IconButton
-                    size="small"
-                    onClick={clearDateFilter}
-                    color="error"
-                    title="مسح فلترة تاريخ الإنشاء"
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </Stack>
-            </Box>
-          </Box>
-          {(createdAtFilter || selectedCustomer) && (
-            <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {createdAtFilter && (
-                <Box sx={{ p: 1.5, bgcolor: 'info.light', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" color="info.dark">
-                    {`عرض الحجوزات بتاريخ الإنشاء ${dayjs(createdAtFilter).format('DD/MM/YYYY')}`}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    onClick={clearDateFilter}
-                    sx={{ ml: 1 }}
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              )}
-              {selectedCustomer && (
-                <Box sx={{ p: 1.5, bgcolor: 'primary.light', borderRadius: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" color="primary.dark">
-                    العميل: {selectedCustomer.name}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    onClick={clearCustomerFilter}
-                    sx={{ ml: 1 }}
-                  >
-                    <ClearIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              )}
-            </Box>
+  const customerOptions = customers.map((c) => ({
+    value: c.id,
+    label: `${c.name}${c.phone ? ` - ${c.phone}` : ''}`,
+    customer: c,
+  }))
+
+  const columns: ColumnsType<Reservation> = [
+    {
+      title: 'رقم الحجز',
+      key: 'id',
+      align: 'center',
+      width: 90,
+      render: (_, r) => <Text strong>#{r.id}</Text>,
+    },
+    {
+      title: 'العميل',
+      key: 'customer',
+      align: 'center',
+      render: (_, r) => (
+        <div>
+          <Text strong style={{ display: 'block' }}>{r.customer?.name || 'غير محدد'}</Text>
+          {r.customer?.type === 'company' && (r.customer as any)?.contact_name_1 && (
+            <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+              {[(r.customer as any).contact_name_1, (r.customer as any).contact_name_2].filter(Boolean).join(' • ')}
+            </Text>
           )}
-        </CardContent>
+          <Text type="secondary" style={{ fontSize: 12 }}>{r.customer?.phone || '-'}</Text>
+        </div>
+      ),
+    },
+    {
+      title: 'الغرف',
+      key: 'rooms',
+      align: 'center',
+      render: (_, r) => (
+        <Space wrap size={4} style={{ justifyContent: 'center' }}>
+          {r.rooms?.length
+            ? r.rooms.map((room) => <Tag key={room.id}>غرفة {room.number}</Tag>)
+            : <Text type="secondary">-</Text>}
+        </Space>
+      ),
+    },
+    {
+      title: 'تاريخ الوصول',
+      key: 'check_in',
+      align: 'center',
+      render: (_, r) => (
+        <div>
+          <Text strong style={{ display: 'block' }}>{formatDate(r.check_in_date)}</Text>
+          <Text  style={{ fontSize: 12 }}>{getRelativeDate(r.check_in_date)}</Text>
+        </div>
+      ),
+    },
+    {
+      title: 'تاريخ المغادرة',
+      key: 'check_out',
+      align: 'center',
+      render: (_, r) => (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+            <Text strong>{formatDate(r.check_out_date)}</Text>
+            {r.checkout_reminder_sent_at && (
+              <Tooltip title={`تم إرسال تذكير المغادرة عبر واتساب في ${dayjs(r.checkout_reminder_sent_at).format('DD/MM/YYYY HH:mm')}`}>
+                <WhatsAppOutlined style={{ color: '#25D366' }} />
+              </Tooltip>
+            )}
+          </div>
+          <Text  style={{ fontSize: 12 }}>{getRelativeDate(r.check_out_date)}</Text>
+        </div>
+      ),
+    },
+    {
+      title: 'الحالة',
+      key: 'status',
+      align: 'center',
+      render: (_, r) => getStatusTag(r.status),
+    },
+    {
+      title: 'الإجراءات',
+      key: 'actions',
+      align: 'center',
+      render: (_, r) => (
+        <Space wrap size={4} style={{ justifyContent: 'center' }}>
+          {getActionButtons(r)}
+        </Space>
+      ),
+    },
+  ]
+
+  const dateEditDiff = selectedReservation && editCheckInDate && editCheckOutDate ? calculateDateEditDiff() : null
+  const transferDiff = getTransferPriceDiff()
+
+  return (
+    <div className="flex flex-col gap-1 p-1">
+      {/* Search and Filter Card */}
+      <Card>
+        <div className="flex flex-col md:flex-row gap-1 flex-wrap">
+          <div className="flex-1 min-w-[260px]">
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>فلترة بالعميل</Text>
+            <Select
+              showSearch
+              allowClear
+              placeholder="اختر عميل..."
+              style={{ width: '100%' }}
+              loading={loadingCustomers}
+              value={selectedCustomer?.id}
+              onChange={(value) => setSelectedCustomer(value ? customers.find((c) => c.id === value) || null : null)}
+              options={customerOptions}
+              filterOption={(input, option) =>
+                (option?.label || '').toLowerCase().includes(input.toLowerCase())
+              }
+            />
+          </div>
+          <div className="w-full md:w-[180px]">
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>فلترة بالحالة</Text>
+            <Select
+              style={{ width: '100%' }}
+              value={statusFilter}
+              onChange={(value) => setStatusFilter(value)}
+              options={[
+                { value: 'all', label: 'جميع الحالات' },
+                { value: 'pending', label: 'في الانتظار' },
+                { value: 'confirmed', label: 'مؤكد' },
+                { value: 'checked_in', label: 'تم تسجيل الوصول' },
+                { value: 'checked_out', label: 'تم تسجيل المغادرة' },
+                { value: 'cancelled', label: 'ملغي' },
+              ]}
+            />
+          </div>
+          <div className="w-full md:w-[220px]">
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 12 }}>تاريخ إنشاء الحجز</Text>
+            <DatePicker
+              style={{ width: '100%' }}
+              allowClear
+              value={createdAtFilter ? dayjs(createdAtFilter) : null}
+              onChange={(_, dateString) => setCreatedAtFilter((dateString as string) || '')}
+            />
+          </div>
+        </div>
+
+        {(createdAtFilter || arrivalTodayFilter || departureTodayFilter || selectedCustomer) && (
+          <Space wrap style={{ marginTop: 16 }}>
+            {createdAtFilter && (
+              <Tag color="blue" closable onClose={clearDateFilter}>
+                تاريخ الإنشاء: {dayjs(createdAtFilter).format('DD/MM/YYYY')}
+              </Tag>
+            )}
+            {arrivalTodayFilter && (
+              <Tag color="green" closable onClose={clearArrivalTodayFilter}>
+                الوصول اليوم ({dayjs().format('DD/MM/YYYY')})
+              </Tag>
+            )}
+            {departureTodayFilter && (
+              <Tag color="orange" closable onClose={clearDepartureTodayFilter}>
+                المغادرة اليوم ({dayjs().format('DD/MM/YYYY')})
+              </Tag>
+            )}
+            {selectedCustomer && (
+              <Tag color="purple" closable onClose={clearCustomerFilter}>
+                العميل: {selectedCustomer.name}
+              </Tag>
+            )}
+          </Space>
+        )}
       </Card>
 
       {/* Reservations Table Card */}
-      <Card>
-        <CardHeader 
-          title={
-            <Typography variant="h6" component="div">
-              الحجوزات ({filteredReservations.length})
-            </Typography>
-          }
-          action={
+      <Card
+        title={<Title level={5} style={{ margin: 0 }}>الحجوزات ({totalItems})</Title>}
+        extra={
+          <Space>
             <Button
-              variant="outlined"
-              startIcon={exportLoading ? <CircularProgress size={16} /> : <FileDownloadIcon />}
-              onClick={handleExportExcel}
-              disabled={loading || exportLoading || filteredReservations.length === 0}
-              sx={{ boxShadow: 1 }}
+              type={arrivalTodayFilter ? 'primary' : 'default'}
+              icon={<LoginOutlined />}
+              onClick={() => setArrivalTodayFilter(prev => !prev)}
             >
-              {exportLoading ? 'جارٍ التصدير...' : 'تصدير Excel'}
+              الواصلون اليوم
             </Button>
-          }
-        />
-        <CardContent>
-          {loading && reservations.length === 0 ? (
-            <Box display="flex" justifyContent="center" py={4}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell align="center">رقم الحجز</TableCell>
-                    <TableCell align="center">العميل</TableCell>
-                    <TableCell align="center">الغرف</TableCell>
-                    <TableCell align="center">تاريخ الوصول</TableCell>
-                    <TableCell align="center">تاريخ المغادرة</TableCell>
-                    <TableCell align="center">الحالة</TableCell>
-                    <TableCell align="center">الإجراءات</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredReservations.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                        <Typography color="text.secondary">لا توجد حجوزات</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredReservations.map((reservation) => (
-                      <TableRow key={reservation.id} hover>
-                        <TableCell align="center">
-                          <Typography fontWeight="medium">#{reservation.id}</Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography fontWeight="medium">
-                            {reservation.customer?.name || 'غير محدد'}
-                          </Typography>
-                          {reservation.customer?.type === 'company' && (reservation.customer?.contact_name_1 || reservation.customer?.contact_name_2) && (
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {[reservation.customer.contact_name_1, reservation.customer.contact_name_2].filter(Boolean).join(" • ")}
-                            </Typography>
-                          )}
-                          <Typography variant="caption" color="text.secondary">
-                            {reservation.customer?.phone || '-'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" spacing={0.5} justifyContent="center" flexWrap="wrap">
-                            {reservation.rooms?.map((room) => (
-                              <Chip
-                                key={room.id}
-                                label={`غرفة ${room.number}`}
-                                size="small"
-                                variant="outlined"
-                              />
-                            )) || <Typography variant="caption" color="text.secondary">-</Typography>}
-                          </Stack>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography fontWeight="medium">
-                            {formatDate(reservation.check_in_date)}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {getRelativeDate(reservation.check_in_date)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Typography fontWeight="medium">
-                            {formatDate(reservation.check_out_date)}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {getRelativeDate(reservation.check_out_date)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          {getStatusChip(reservation.status)}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" spacing={1} justifyContent="center">
-                            {getActionButtons(reservation)}
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-
-          {!loading && reservations.length > 0 && (
-            <Box
-              sx={{
-                mt: 3,
-                display: "flex",
-                flexDirection: { xs: "column", sm: "row" },
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 2,
-              }}
+            <Tooltip title="طباعة قائمة الوصول اليوم PDF">
+              <Button
+                icon={<FilePdfOutlined />}
+                loading={arrivalsPdfLoading}
+                onClick={() => handleOpenTodayPdf('arrivals')}
+              />
+            </Tooltip>
+            <Button
+              type={departureTodayFilter ? 'primary' : 'default'}
+              icon={<LogoutOutlined />}
+              onClick={() => setDepartureTodayFilter(prev => !prev)}
             >
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="body2" color="text.secondary">
-                  عرض:
-                </Typography>
-                <FormControl size="small" sx={{ minWidth: 80 }}>
-                  <Select
-                    value={perPage}
-                    onChange={(e) => {
-                      setPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <MenuItem value={10}>10</MenuItem>
-                    <MenuItem value={20}>20</MenuItem>
-                    <MenuItem value={50}>50</MenuItem>
-                    <MenuItem value={100}>100</MenuItem>
-                  </Select>
-                </FormControl>
-                <Typography variant="body2" color="text.secondary">
-                  من {totalItems} حجز
-                </Typography>
-              </Stack>
-
-              <Stack direction="row" spacing={1}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={currentPage === 1 || loading}
-                  onClick={() => setCurrentPage((prev) => prev - 1)}
-                >
-                  السابق
-                </Button>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    px: 2,
-                    borderRadius: 1,
-                    bgcolor: "action.hover",
-                  }}
-                >
-                  <Typography variant="body2" fontWeight="bold">
-                    صفحة {currentPage} من {totalPages}
-                  </Typography>
-                </Box>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={currentPage === totalPages || loading}
-                  onClick={() => setCurrentPage((prev) => prev + 1)}
-                >
-                  التالي
-                </Button>
-              </Stack>
-            </Box>
-          )}
-        </CardContent>
+              المغادرون اليوم
+            </Button>
+            <Tooltip title="طباعة قائمة المغادرة اليوم PDF">
+              <Button
+                icon={<FilePdfOutlined />}
+                loading={departuresPdfLoading}
+                onClick={() => handleOpenTodayPdf('departures')}
+              />
+            </Tooltip>
+            <Button
+              icon={<WhatsAppOutlined />}
+              loading={reminderLoading}
+              onClick={handleSendCheckoutReminders}
+              disabled={loading}
+            >
+              تذكير مغادرة اليوم
+            </Button>
+            <Button
+              icon={<DownloadOutlined />}
+              loading={exportLoading}
+              onClick={handleExportExcel}
+              disabled={loading || filteredReservations.length === 0}
+            >
+              تصدير Excel
+            </Button>
+          </Space>
+        }
+      >
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={filteredReservations}
+          loading={loading}
+          rowClassName={(record) => record.status === 'cancelled' ? 'reservation-row-cancelled' : ''}
+          pagination={{
+            current: currentPage,
+            pageSize: perPage,
+            total: totalItems,
+            showSizeChanger: true,
+            pageSizeOptions: ['10', '20', '50', '100'],
+            showTotal: (total) => `من ${total} حجز`,
+            onChange: (page, pageSize) => {
+              if (pageSize !== perPage) {
+                setPerPage(pageSize)
+                setCurrentPage(1)
+              } else {
+                setCurrentPage(page)
+              }
+            },
+          }}
+        />
       </Card>
 
-      {/* Details Dialog */}
-      <Dialog
-        open={openDetails}
-        onClose={() => setOpenDetails(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>تفاصيل الحجز #{selectedReservation?.id}</DialogTitle>
-        <DialogContent>
-          {selectedReservation && (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography variant="caption" color="text.secondary">العميل</Typography>
-                <Typography fontWeight="medium">
-                  {selectedReservation.customer?.name || 'غير محدد'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {selectedReservation.customer?.phone || '-'}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography variant="caption" color="text.secondary">الحالة</Typography>
-                <Box sx={{ mt: 1 }}>
-                  {getStatusChip(selectedReservation.status)}
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography variant="caption" color="text.secondary">تاريخ الوصول</Typography>
-                <Typography fontWeight="medium">
-                  {formatDate(selectedReservation.check_in_date)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {getRelativeDate(selectedReservation.check_in_date)}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography variant="caption" color="text.secondary">تاريخ المغادرة</Typography>
-                <Typography fontWeight="medium">
-                  {formatDate(selectedReservation.check_out_date)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {getRelativeDate(selectedReservation.check_out_date)}
-                </Typography>
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="caption" color="text.secondary">الغرف</Typography>
-                <Box sx={{ mt: 1 }}>
-                  {selectedReservation.rooms?.map((room) => (
-                    <Paper key={room.id} sx={{ p: 2, mb: 1 }}>
-                      <Typography fontWeight="medium">غرفة {room.number}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {room.floor ? `الدور ${room.floor.number}` : 'الدور غير محدد'} • {room.type?.name || 'نوع غير محدد'}
-                      </Typography>
-                    </Paper>
-                  )) || <Typography variant="body2" color="text.secondary">لا توجد غرف</Typography>}
-                </Box>
-              </Grid>
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDetails(false)}>إغلاق</Button>
-        </DialogActions>
-      </Dialog>
-
       {/* Confirmation Dialog */}
-      <Dialog
+      <Modal
         open={openConfirm}
-        onClose={() => setOpenConfirm(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>تأكيد العملية</DialogTitle>
-        <DialogContent>
-          {actionType === 'checkout' && selectedReservation ? (
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              {customerBalance !== null && customerBalance !== 0 && (
-                <Alert severity="error">
-                  <Typography variant="subtitle2" gutterBottom>
-                     تسجيل المغادرة!
-                  </Typography>
-                  <Typography variant="body2">
-                تحذير تسويه يرجي الحساب  اولا <strong>{customerBalance.toLocaleString()} </strong>
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    يرجى تسوية رصيد العميل أولاً قبل تسجيل المغادرة.
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    onClick={() => {
-                      setOpenConfirm(false)
-                      navigate(`/customers/${selectedReservation.customer_id}/ledger`)
-                    }}
-                    sx={{ mt: 2 }}
-                  >
-                    الانتقال إلى دفتر الحسابات
-                  </Button>
-                </Alert>
-              )}
-              {customerBalance === 0 && !isPaymentComplete(selectedReservation) && (
-                <Alert severity="warning">
-                  <Typography variant="subtitle2" gutterBottom>
-                    ⚠️ تحذير: الحساب غير مدفوع بالكامل!
-                  </Typography>
-                  <Typography variant="body2">
-                    المبلغ الإجمالي: <strong>{selectedReservation.total_amount?.toLocaleString() || 0} </strong>
-                  </Typography>
-                  <Typography variant="body2">
-                    المبلغ المدفوع: <strong>{selectedReservation.paid_amount?.toLocaleString() || 0} </strong>
-                  </Typography>
-                  <Typography variant="body2" color="error">
-                    المبلغ المتبقي: <strong>{(selectedReservation.total_amount || 0) - (selectedReservation.paid_amount || 0)} </strong>
-                  </Typography>
-                </Alert>
-              )}
-              {actionType === 'checkout' && (() => {
-                const today = dayjs().startOf('day')
-                const scheduledOut = dayjs(selectedReservation.check_out_date).startOf('day')
-                const remainingDays = scheduledOut.diff(today, 'day')
-                
-                if (remainingDays > 0) {
-                  // Calculate refund amount based on debit transactions (room charges)
-                  const debitTransactions = selectedReservation.transactions?.filter((t: any) => t.type === 'debit') || []
-                  const totalCharged = debitTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0)
-                  
-                  const checkIn = dayjs(selectedReservation.check_in_date).startOf('day')
-                  const originalCheckOut = dayjs(selectedReservation.check_out_date).startOf('day')
-                  const totalDays = originalCheckOut.diff(checkIn, 'day') || 1
-                  
-                  const dailyRate = totalCharged / totalDays
-                  const refundTotal = Math.round(dailyRate * remainingDays)
-
-                  return (
-                    <Box sx={{ mt: 2, p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid', borderColor: 'warning.main' }}>
-                      <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold', color: 'warning.dark' }}>
-                        ⚠️ تنبيه: مغادرة مبكرة (متبقي {remainingDays} يوم)
-                      </Typography>
-                      
-                      <Stack spacing={1} sx={{ mb: 2 }}>
-                        <Typography variant="body2">
-                          تاريخ المغادرة المجدولة: <strong>{formatDate(selectedReservation.check_out_date)}</strong>
-                        </Typography>
-                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                          المبلغ المراد استرجاعه: <span style={{ color: '#d32f2f' }}>{refundTotal.toLocaleString()} SDG</span>
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          (تم الحساب بناءً على إجمالي قيمة الحجز: {totalCharged.toLocaleString()} SDG لـ {totalDays} يوم)
-                        </Typography>
-                      </Stack>
-
-                      <Typography variant="body2" sx={{ mb: 2 }}>
-                        هل أنت متأكد من تسجيل المغادرة؟ يرجى تحديد طريقة استرجاع المبلغ:
-                      </Typography>
-                      
-                      <FormControl fullWidth>
-                        <InputLabel>طريقة الاسترجاع</InputLabel>
-                        <Select
-                          value={refundMethod}
-                          onChange={(e) => setRefundMethod(e.target.value)}
-                          label="طريقة الاسترجاع"
-                        >
-                          <MenuItem value="cash">نقدي</MenuItem>
-                          <MenuItem value="bankak">بنكك</MenuItem>
-                          <MenuItem value="Ocash">أوكاش</MenuItem>
-                          <MenuItem value="fawri">فوري</MenuItem>
-                        </Select>
-                      </FormControl>
-                      
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                        سيتم تسجيل هذه العملية كـ "مسترجع" في التقارير المالية.
-                      </Typography>
-                    </Box>
-                  )
-                } else if (customerBalance === 0 && isPaymentComplete(selectedReservation)) {
-                  return <Typography sx={{ mt: 2 }}>هل أنت متأكد من تسجيل المغادرة؟</Typography>
-                }
-                return null
-              })()}
-            </Stack>
-          ) : (
-            <Typography>هل أنت متأكد من تنفيذ هذا الإجراء؟ لا يمكن التراجع عن بعض العمليات.</Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenConfirm(false)}>إلغاء</Button>
+        onCancel={() => setOpenConfirm(false)}
+        title="تأكيد العملية"
+        footer={[
+          <Button key="cancel" onClick={() => setOpenConfirm(false)}>إلغاء</Button>,
           <Button
+            key="submit"
+            type="primary"
+            danger={actionType === 'cancel'}
+            loading={!!(selectedReservation && actionLoading[selectedReservation.id])}
             onClick={handleDialogAction}
-            variant="contained"
-            disabled={
-              selectedReservation ? (
-                actionLoading[selectedReservation.id] !== undefined
-              ) : false
-            }
-            startIcon={selectedReservation && actionLoading[selectedReservation.id] ? <CircularProgress size={16} /> : undefined}
           >
-            {selectedReservation && actionLoading[selectedReservation.id] ? 'جارٍ التنفيذ...' : 'تأكيد'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            تأكيد
+          </Button>,
+        ]}
+      >
+        {actionType === 'checkout' && selectedReservation ? (
+          <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
+            {customerBalance !== null && customerBalance !== 0 && (
+              <Alert
+                type="error"
+                showIcon
+                message="تسجيل المغادرة!"
+                description={
+                  <div>
+                    <Text style={{ fontSize: 13 }}>
+                      تحذير تسويه يرجي الحساب اولا <strong>{customerBalance.toLocaleString()}</strong>
+                    </Text>
+                    <Text style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                      يرجى تسوية رصيد العميل أولاً قبل تسجيل المغادرة.
+                    </Text>
+                    <Button
+                      type="primary"
+                      size="small"
+                      style={{ marginTop: 8 }}
+                      onClick={() => {
+                        setOpenConfirm(false)
+                        navigate(`/customers/${selectedReservation.customer_id}/ledger`)
+                      }}
+                    >
+                      الانتقال إلى دفتر الحسابات
+                    </Button>
+                  </div>
+                }
+              />
+            )}
+            {customerBalance === 0 && !isPaymentComplete(selectedReservation) && (
+              <Alert
+                type="warning"
+                showIcon
+                message="تحذير: الحساب غير مدفوع بالكامل!"
+                description={
+                  <div>
+                    <Text style={{ fontSize: 13, display: 'block' }}>
+                      المبلغ الإجمالي: <strong>{selectedReservation.total_amount?.toLocaleString() || 0}</strong>
+                    </Text>
+                    <Text style={{ fontSize: 13, display: 'block' }}>
+                      المبلغ المدفوع: <strong>{selectedReservation.paid_amount?.toLocaleString() || 0}</strong>
+                    </Text>
+                    <Text type="danger" style={{ fontSize: 13, display: 'block' }}>
+                      المبلغ المتبقي: <strong>{(selectedReservation.total_amount || 0) - (selectedReservation.paid_amount || 0)}</strong>
+                    </Text>
+                  </div>
+                }
+              />
+            )}
+            {(() => {
+              const today = dayjs().startOf('day')
+              const scheduledOut = dayjs(selectedReservation.check_out_date).startOf('day')
+              const remainingDays = scheduledOut.diff(today, 'day')
+
+              if (remainingDays > 0) {
+                const debitTransactions = selectedReservation.transactions?.filter((t: any) => t.type === 'debit') || []
+                const totalCharged = debitTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0)
+
+                const checkIn = dayjs(selectedReservation.check_in_date).startOf('day')
+                const originalCheckOut = dayjs(selectedReservation.check_out_date).startOf('day')
+                const totalDays = originalCheckOut.diff(checkIn, 'day') || 1
+
+                const dailyRate = totalCharged / totalDays
+                const refundTotal = Math.round(dailyRate * remainingDays)
+
+                return (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    icon={<WarningOutlined />}
+                    message={`مغادرة مبكرة (متبقي ${remainingDays} يوم)`}
+                    description={
+                      <div>
+                        <Text style={{ fontSize: 13, display: 'block' }}>
+                          تاريخ المغادرة المجدولة: <strong>{formatDate(selectedReservation.check_out_date)}</strong>
+                        </Text>
+                        <Text strong style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                          المبلغ المراد استرجاعه: <Text type="danger" strong>{refundTotal.toLocaleString()} SDG</Text>
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                          (تم الحساب بناءً على إجمالي قيمة الحجز: {totalCharged.toLocaleString()} SDG لـ {totalDays} يوم)
+                        </Text>
+                        <Text style={{ fontSize: 13, display: 'block', marginTop: 8 }}>
+                          هل أنت متأكد من تسجيل المغادرة؟ يرجى تحديد طريقة استرجاع المبلغ:
+                        </Text>
+                        <Select
+                          style={{ width: '100%', marginTop: 8 }}
+                          value={refundMethod}
+                          onChange={(value) => setRefundMethod(value)}
+                          options={[
+                            { value: 'cash', label: 'نقدي' },
+                            { value: 'bankak', label: 'بنكك' },
+                            { value: 'Ocash', label: 'أوكاش' },
+                            { value: 'fawri', label: 'فوري' },
+                          ]}
+                        />
+                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
+                          سيتم تسجيل هذه العملية كـ "مسترجع" في التقارير المالية.
+                        </Text>
+                      </div>
+                    }
+                  />
+                )
+              } else if (customerBalance === 0 && isPaymentComplete(selectedReservation)) {
+                return <Text>هل أنت متأكد من تسجيل المغادرة؟</Text>
+              }
+              return null
+            })()}
+          </Space>
+        ) : (
+          <Text>هل أنت متأكد من تنفيذ هذا الإجراء؟ لا يمكن التراجع عن بعض العمليات.</Text>
+        )}
+      </Modal>
 
       {/* Occupied Rooms Error Dialog */}
-      <Dialog
+      <Modal
         open={openOccupiedRoomsDialog}
-        onClose={() => {
+        onCancel={() => {
           setOpenOccupiedRoomsDialog(false)
           setOccupiedRoomsError(null)
         }}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle sx={{ color: 'error.main', fontWeight: 'bold' }}>
-          ⚠️ لا يمكن تسجيل الوصول
-        </DialogTitle>
-        <DialogContent>
-          {occupiedRoomsError && (
-            <Box sx={{ mt: 2 }}>
-              <Alert severity="error" sx={{ mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  بعض الغرف محجوزة حالياً من قبل حجوزات أخرى
-                </Typography>
-                <Typography variant="body2">
-                  لا يمكن تسجيل الوصول للحجز #{occupiedRoomsError.reservationId} لأن بعض الغرف المخصصة له محجوزة من قبل حجوزات أخرى.
-                </Typography>
-              </Alert>
-              
-              <Typography variant="h6" sx={{ mt: 3, mb: 2, fontWeight: 'bold' }}>
-                الغرف المحجوزة:
-              </Typography>
-              
-              <Stack spacing={2}>
-                {occupiedRoomsError.occupiedRooms.map((item: any, index: number) => (
-                  <Paper key={index} sx={{ p: 2, bgcolor: 'error.light', border: '1px solid', borderColor: 'error.main' }}>
-                    <Stack spacing={1}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: 'error.dark' }}>
-                        🏨 غرفة {item.room_number}
-                      </Typography>
-                      
-                      <Box sx={{ pl: 2, borderRight: '2px solid', borderColor: 'error.main' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 1 }}>
-                          محجوزة من قبل:
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>رقم الحجز:</strong> #{item.conflicting_reservation.id}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>العميل:</strong> {item.conflicting_reservation.customer_name}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>تاريخ الوصول:</strong> {dayjs(item.conflicting_reservation.check_in_date).format('DD/MM/YYYY')}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>تاريخ المغادرة:</strong> {dayjs(item.conflicting_reservation.check_out_date).format('DD/MM/YYYY')}
-                        </Typography>
-                        <Typography variant="body2">
-                          <strong>الحالة:</strong>{' '}
-                          <Chip
-                            label={statusConfig[item.conflicting_reservation.status as keyof typeof statusConfig]?.label || item.conflicting_reservation.status}
-                            size="small"
-                            color={statusConfig[item.conflicting_reservation.status as keyof typeof statusConfig]?.color as any || 'default'}
-                            sx={{ ml: 1 }}
-                          />
-                        </Typography>
-                      </Box>
-                    </Stack>
-                  </Paper>
-                ))}
-              </Stack>
-              
-              <Alert severity="info" sx={{ mt: 3 }}>
-                <Typography variant="body2">
-                  يرجى الانتظار حتى يتم تسجيل مغادرة الحجوزات السابقة أو اختيار غرف أخرى.
-                </Typography>
-              </Alert>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button 
+        title={<Text type="danger" strong>لا يمكن تسجيل الوصول</Text>}
+        width={640}
+        footer={[
+          <Button
+            key="close"
+            type="primary"
+            danger
             onClick={() => {
               setOpenOccupiedRoomsDialog(false)
               setOccupiedRoomsError(null)
             }}
-            variant="contained"
-            color="error"
           >
             إغلاق
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Extend Dialog */}
-      <Dialog open={openExtend} onClose={() => !extensionLoading && setOpenExtend(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>تمديد الحجز #{selectedReservation?.id}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
-            </Typography>
-            
-            <TextField
-              label="تاريخ المغادرة الجديد"
-              type="date"
-              fullWidth
-              value={newCheckOutDate}
-              onChange={(e) => setNewCheckOutDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ 
-                min: selectedReservation ? dayjs(selectedReservation.check_out_date).add(1, 'day').format('YYYY-MM-DD') : '' 
-              }}
+          </Button>,
+        ]}
+      >
+        {occupiedRoomsError && (
+          <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
+            <Alert
+              type="error"
+              showIcon
+              message="بعض الغرف محجوزة حالياً من قبل حجوزات أخرى"
+              description={`لا يمكن تسجيل الوصول للحجز #${occupiedRoomsError.reservationId} لأن بعض الغرف المخصصة له محجوزة من قبل حجوزات أخرى.`}
             />
 
-            {selectedReservation && newCheckOutDate && (
-              <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Stack spacing={1}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2">عدد الأيام الإضافية:</Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {dayjs(newCheckOutDate).diff(dayjs(selectedReservation.check_out_date), 'day')} يوم
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2">التكلفة الإضافية:</Typography>
-                    <Typography variant="body2" fontWeight="bold" color="primary">
-                      {calculateExtensionPrice().toLocaleString()} SDG
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenExtend(false)} disabled={extensionLoading}>إلغاء</Button>
-          <Button 
-            onClick={handleExtend} 
-            variant="contained" 
-            disabled={extensionLoading || !newCheckOutDate || dayjs(newCheckOutDate).isBefore(dayjs(selectedReservation?.check_out_date).add(1, 'day'))}
-            startIcon={extensionLoading ? <CircularProgress size={16} /> : null}
+            <Text strong>الغرف المحجوزة:</Text>
+
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+              {occupiedRoomsError.occupiedRooms.map((item: any, index: number) => (
+                <div key={index} className="rounded-md border border-destructive/40 bg-card p-3">
+                  <Text strong type="danger" style={{ display: 'block', marginBottom: 6 }}>
+                    غرفة {item.room_number}
+                  </Text>
+                  <Text style={{ fontSize: 13, display: 'block' }}>
+                    <strong>رقم الحجز:</strong> #{item.conflicting_reservation.id}
+                  </Text>
+                  <Text style={{ fontSize: 13, display: 'block' }}>
+                    <strong>العميل:</strong> {item.conflicting_reservation.customer_name}
+                  </Text>
+                  <Text style={{ fontSize: 13, display: 'block' }}>
+                    <strong>تاريخ الوصول:</strong> {dayjs(item.conflicting_reservation.check_in_date).format('DD/MM/YYYY')}
+                  </Text>
+                  <Text style={{ fontSize: 13, display: 'block' }}>
+                    <strong>تاريخ المغادرة:</strong> {dayjs(item.conflicting_reservation.check_out_date).format('DD/MM/YYYY')}
+                  </Text>
+                  <div style={{ marginTop: 6 }}>
+                    {getStatusTag(item.conflicting_reservation.status)}
+                  </div>
+                </div>
+              ))}
+            </Space>
+
+            <Alert type="info" showIcon message="يرجى الانتظار حتى يتم تسجيل مغادرة الحجوزات السابقة أو اختيار غرف أخرى." />
+          </Space>
+        )}
+      </Modal>
+
+      {/* Extend Dialog */}
+      <Modal
+        open={openExtend}
+        onCancel={() => !extensionLoading && setOpenExtend(false)}
+        title={`تمديد الحجز #${selectedReservation?.id}`}
+        width={420}
+        footer={[
+          <Button key="cancel" onClick={() => setOpenExtend(false)} disabled={extensionLoading}>إلغاء</Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={extensionLoading}
+            disabled={!newCheckOutDate || dayjs(newCheckOutDate).isBefore(dayjs(selectedReservation?.check_out_date).add(1, 'day'))}
+            onClick={handleExtend}
           >
             تأكيد التمديد
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </Button>,
+        ]}
+      >
+        <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
+          <Text type="secondary">
+            تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
+          </Text>
+
+          <DatePicker
+            style={{ width: '100%' }}
+            placeholder="تاريخ المغادرة الجديد"
+            value={newCheckOutDate ? dayjs(newCheckOutDate) : null}
+            onChange={(_, dateString) => setNewCheckOutDate((dateString as string) || '')}
+            disabledDate={(current) => !!selectedReservation && current && !current.isAfter(dayjs(selectedReservation.check_out_date), 'day')}
+          />
+
+          {selectedReservation && newCheckOutDate && (
+            <div className="rounded-md border border-border bg-muted p-3">
+              <div className="flex justify-between">
+                <Text style={{ fontSize: 13 }}>عدد الأيام الإضافية:</Text>
+                <Text strong style={{ fontSize: 13 }}>
+                  {dayjs(newCheckOutDate).diff(dayjs(selectedReservation.check_out_date), 'day')} يوم
+                </Text>
+              </div>
+              <div className="flex justify-between" style={{ marginTop: 4 }}>
+                <Text style={{ fontSize: 13 }}>التكلفة الإضافية:</Text>
+                <Text strong style={{ fontSize: 13, color: '#1677ff' }}>
+                  {calculateExtensionPrice().toLocaleString()} SDG
+                </Text>
+              </div>
+            </div>
+          )}
+        </Space>
+      </Modal>
 
       {/* Unified Edit Reservation Dialog */}
-      <Dialog
+      <Modal
         open={openEditReservation}
-        onClose={() => !editDatesLoading && !transferLoading && setOpenEditReservation(false)}
-        maxWidth="sm"
-        fullWidth
+        onCancel={() => !editDatesLoading && !transferLoading && setOpenEditReservation(false)}
+        title={`تعديل الحجز #${selectedReservation?.id}`}
+        width={520}
+        footer={[
+          <Button key="cancel" onClick={() => setOpenEditReservation(false)} disabled={editDatesLoading || transferLoading}>إلغاء</Button>,
+          editReservationTab === 0 ? (
+            <Button
+              key="dates"
+              color="orange"
+              variant="solid"
+              loading={editDatesLoading}
+              disabled={!editCheckInDate || !editCheckOutDate}
+              icon={<CalendarOutlined />}
+              onClick={handleUpdateDates}
+            >
+              تأكيد تعديل التواريخ
+            </Button>
+          ) : (
+            <Button
+              key="transfer"
+              type="primary"
+              loading={transferLoading}
+              disabled={!transferOldRoomId || !transferNewRoomId}
+              icon={<SwapOutlined />}
+              onClick={handleTransferRoom}
+            >
+              تأكيد التحويل
+            </Button>
+          ),
+        ]}
       >
-        <DialogTitle>تعديل الحجز #{selectedReservation?.id}</DialogTitle>
         <Tabs
-          value={editReservationTab}
-          onChange={(_, v) => {
+          activeKey={editReservationTab === 0 ? 'dates' : 'transfer'}
+          onChange={(key) => {
+            const v = key === 'dates' ? 0 : 1
             setEditReservationTab(v)
             if (v === 1 && selectedReservation && availableRooms.length === 0) {
               fetchAvailableRoomsForTransfer(selectedReservation)
             }
           }}
-          variant="fullWidth"
-          sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}
-        >
-          <Tab label="تعديل التواريخ" icon={<CalendarIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" />
-          <Tab label="تحويل الغرفة" icon={<SwapRoomIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" />
-        </Tabs>
+          items={[
+            {
+              key: 'dates',
+              label: 'تعديل التواريخ',
+              icon: <CalendarOutlined />,
+              children: (
+                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                  <div className="rounded-md border border-border bg-muted p-3">
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
+                      تاريخ الوصول الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong>
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                      تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
+                    </Text>
+                  </div>
 
-        <DialogContent>
-          {/* Tab 0: Edit Dates */}
-          {editReservationTab === 0 && (
-            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                  تاريخ الوصول الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong>
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
-                </Typography>
-              </Box>
-              <TextField
-                label="تاريخ الوصول الجديد"
-                type="date"
-                fullWidth
-                value={editCheckInDate}
-                onChange={(e) => setEditCheckInDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-              <TextField
-                label="تاريخ المغادرة الجديد"
-                type="date"
-                fullWidth
-                value={editCheckOutDate}
-                onChange={(e) => setEditCheckOutDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                inputProps={{ min: editCheckInDate ? dayjs(editCheckInDate).add(1, 'day').format('YYYY-MM-DD') : '' }}
-              />
-              {selectedReservation && editCheckInDate && editCheckOutDate && (() => {
-                const diff = calculateDateEditDiff()
-                if (diff.daysDiff === 0) return null
-                const isExtra = diff.daysDiff > 0
-                return (
-                  <Box sx={{ p: 2, bgcolor: isExtra ? 'warning.light' : 'info.light', borderRadius: 1 }}>
-                    <Stack spacing={1}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">عدد الأيام الجديد:</Typography>
-                        <Typography variant="body2" fontWeight="bold">{diff.newDays} يوم</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">المبلغ القديم:</Typography>
-                        <Typography variant="body2">{diff.oldAmount.toLocaleString()} SDG</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" fontWeight="bold">المبلغ الجديد:</Typography>
-                        <Typography variant="body2" fontWeight="bold" color={isExtra ? 'warning.dark' : 'info.dark'}>
-                          {diff.newAmount.toLocaleString()} SDG
-                        </Typography>
-                      </Box>
-                      <Typography variant="caption" color="text.secondary">
-                        سيتم تعديل المعاملة الأصلية في كشف الحساب.
-                      </Typography>
-                    </Stack>
-                  </Box>
-                )
-              })()}
-            </Box>
-          )}
+                  <DatePicker
+                    style={{ width: '100%' }}
+                    placeholder="تاريخ الوصول الجديد"
+                    value={editCheckInDate ? dayjs(editCheckInDate) : null}
+                    onChange={(_, dateString) => setEditCheckInDate((dateString as string) || '')}
+                  />
+                  <DatePicker
+                    style={{ width: '100%' }}
+                    placeholder="تاريخ المغادرة الجديد"
+                    value={editCheckOutDate ? dayjs(editCheckOutDate) : null}
+                    onChange={(_, dateString) => setEditCheckOutDate((dateString as string) || '')}
+                    disabledDate={(current) => !!editCheckInDate && current && !current.isAfter(dayjs(editCheckInDate), 'day')}
+                  />
 
-          {/* Tab 1: Transfer Room */}
-          {editReservationTab === 1 && (
-            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                  الغرف الحالية: <strong>{selectedReservation?.rooms.map(r => `غرفة ${r.number}`).join('، ')}</strong>
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  الفترة: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong> → <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
-                </Typography>
-              </Box>
-
-              <FormControl fullWidth>
-                <InputLabel>الغرفة المراد التحويل منها</InputLabel>
-                <Select
-                  value={transferOldRoomId}
-                  label="الغرفة المراد التحويل منها"
-                  onChange={(e) => setTransferOldRoomId(e.target.value)}
-                >
-                  {selectedReservation?.rooms.map(room => {
-                    const rate = room.pivot?.rate || roomRateFor(room, selectedReservation.currency)
-                    return (
-                      <MenuItem key={room.id} value={room.id.toString()}>
-                        غرفة {room.number}
-                        {room.type?.name ? ` — ${room.type.name}` : ''}
-                        {rate ? ` (${rate.toLocaleString()} ${selectedReservation.currency}/ليلة)` : ''}
-                      </MenuItem>
-                    )
-                  })}
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth disabled={loadingAvailableRooms}>
-                <InputLabel>الغرفة الجديدة</InputLabel>
-                <Select
-                  value={transferNewRoomId}
-                  label="الغرفة الجديدة"
-                  onChange={(e) => setTransferNewRoomId(e.target.value)}
-                  startAdornment={loadingAvailableRooms ? <CircularProgress size={16} sx={{ ml: 1 }} /> : undefined}
-                >
-                  {availableRooms.length === 0 && !loadingAvailableRooms ? (
-                    <MenuItem disabled value="">لا توجد غرف أخرى</MenuItem>
-                  ) : (
-                    availableRooms.map((room: any) => {
-                      const rate = selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0
-                      return (
-                        <MenuItem key={room.id} value={room.id.toString()}>
-                          غرفة {room.number}
-                          {room.type?.name ? ` — ${room.type.name}` : ''}
-                          {rate ? ` (${rate.toLocaleString()} ${selectedReservation?.currency}/ليلة)` : ''}
-                        </MenuItem>
-                      )
-                    })
+                  {dateEditDiff && dateEditDiff.daysDiff !== 0 && (
+                    <Alert
+                      type={dateEditDiff.daysDiff > 0 ? 'warning' : 'info'}
+                      showIcon
+                      message={
+                        <div>
+                          <div className="flex justify-between">
+                            <Text style={{ fontSize: 13 }}>عدد الأيام الجديد:</Text>
+                            <Text strong style={{ fontSize: 13 }}>{dateEditDiff.newDays} يوم</Text>
+                          </div>
+                          <div className="flex justify-between">
+                            <Text style={{ fontSize: 13 }}>المبلغ القديم:</Text>
+                            <Text style={{ fontSize: 13 }}>{dateEditDiff.oldAmount.toLocaleString()} SDG</Text>
+                          </div>
+                          <div className="flex justify-between">
+                            <Text strong style={{ fontSize: 13 }}>المبلغ الجديد:</Text>
+                            <Text strong style={{ fontSize: 13 }}>{dateEditDiff.newAmount.toLocaleString()} SDG</Text>
+                          </div>
+                          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                            سيتم تعديل المعاملة الأصلية في كشف الحساب.
+                          </Text>
+                        </div>
+                      }
+                    />
                   )}
-                </Select>
-              </FormControl>
+                </Space>
+              ),
+            },
+            {
+              key: 'transfer',
+              label: 'تحويل الغرفة',
+              icon: <SwapOutlined />,
+              children: (
+                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                  <div className="rounded-md border border-border bg-muted p-3">
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
+                      الغرف الحالية: <strong>{selectedReservation?.rooms.map((r) => `غرفة ${r.number}`).join('، ')}</strong>
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                      الفترة: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong> → <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
+                    </Text>
+                  </div>
 
-              {(() => {
-                const diff = getTransferPriceDiff()
-                if (!diff) return null
-                const isSamePrice = diff.diff === 0
-                const isExtra = diff.diff > 0
-                return (
-                  <Box sx={{ p: 2, bgcolor: isSamePrice ? 'success.light' : isExtra ? 'warning.light' : 'info.light', borderRadius: 1 }}>
-                    <Stack spacing={1}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">سعر الغرفة القديمة:</Typography>
-                        <Typography variant="body2">{diff.oldRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">سعر الغرفة الجديدة:</Typography>
-                        <Typography variant="body2" fontWeight="bold">{diff.newRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Typography>
-                      </Box>
-                      <Divider />
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2">إجمالي قديم ({diff.days} يوم):</Typography>
-                        <Typography variant="body2">{diff.oldTotal.toLocaleString()} {selectedReservation?.currency}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" fontWeight="bold">إجمالي جديد:</Typography>
-                        <Typography variant="body2" fontWeight="bold" color={isSamePrice ? 'success.dark' : isExtra ? 'warning.dark' : 'info.dark'}>
-                          {diff.newTotal.toLocaleString()} {selectedReservation?.currency}
-                        </Typography>
-                      </Box>
-                      {!isSamePrice && (
-                        <Typography variant="caption" color="text.secondary">
-                          {isExtra ? `فرق إضافي: +${diff.diff.toLocaleString()} ${selectedReservation?.currency}` : `خصم: ${diff.diff.toLocaleString()} ${selectedReservation?.currency}`} — سيتم تعديل كشف الحساب تلقائياً.
-                        </Typography>
-                      )}
-                    </Stack>
-                  </Box>
-                )
-              })()}
-            </Box>
-          )}
-        </DialogContent>
+                  <div>
+                    <Text style={{ display: 'block', marginBottom: 6 }}>الغرفة المراد التحويل منها</Text>
+                    <Select
+                      style={{ width: '100%' }}
+                      value={transferOldRoomId || undefined}
+                      onChange={(value) => setTransferOldRoomId(value)}
+                      options={selectedReservation?.rooms.map((room) => {
+                        const rate = room.pivot?.rate || (selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0)
+                        return {
+                          value: room.id.toString(),
+                          label: `غرفة ${room.number}${room.type?.name ? ` — ${room.type.name}` : ''}${rate ? ` (${rate.toLocaleString()} ${selectedReservation?.currency}/ليلة)` : ''}`,
+                        }
+                      })}
+                    />
+                  </div>
 
-        <DialogActions>
-          <Button onClick={() => setOpenEditReservation(false)} disabled={editDatesLoading || transferLoading}>إلغاء</Button>
-          {editReservationTab === 0 && (
-            <Button
-              onClick={handleUpdateDates}
-              variant="contained"
-              color="warning"
-              disabled={editDatesLoading || !editCheckInDate || !editCheckOutDate}
-              startIcon={editDatesLoading ? <CircularProgress size={16} /> : <CalendarIcon />}
-            >
-              {editDatesLoading ? 'جارٍ التعديل...' : 'تأكيد تعديل التواريخ'}
-            </Button>
-          )}
-          {editReservationTab === 1 && (
-            <Button
-              onClick={handleTransferRoom}
-              variant="contained"
-              color="primary"
-              disabled={transferLoading || !transferOldRoomId || !transferNewRoomId}
-              startIcon={transferLoading ? <CircularProgress size={16} /> : <SwapRoomIcon />}
-            >
-              {transferLoading ? 'جارٍ التحويل...' : 'تأكيد التحويل'}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+                  <div>
+                    <Text style={{ display: 'block', marginBottom: 6 }}>الغرفة الجديدة</Text>
+                    <Select
+                      style={{ width: '100%' }}
+                      loading={loadingAvailableRooms}
+                      value={transferNewRoomId || undefined}
+                      onChange={(value) => setTransferNewRoomId(value)}
+                      notFoundContent="لا توجد غرف أخرى"
+                      options={availableRooms.map((room: any) => {
+                        const rate = selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0
+                        return {
+                          value: room.id.toString(),
+                          label: `غرفة ${room.number}${room.type?.name ? ` — ${room.type.name}` : ''}${rate ? ` (${rate.toLocaleString()} ${selectedReservation?.currency}/ليلة)` : ''}`,
+                        }
+                      })}
+                    />
+                  </div>
 
-      {/* Edit Dates Dialog */}
-      <Dialog open={openEditDates} onClose={() => !editDatesLoading && setOpenEditDates(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>تعديل تواريخ الحجز #{selectedReservation?.id}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                تاريخ الوصول الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong>
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
-              </Typography>
-            </Box>
-
-            <TextField
-              label="تاريخ الوصول الجديد"
-              type="date"
-              fullWidth
-              value={editCheckInDate}
-              onChange={(e) => setEditCheckInDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-
-            <TextField
-              label="تاريخ المغادرة الجديد"
-              type="date"
-              fullWidth
-              value={editCheckOutDate}
-              onChange={(e) => setEditCheckOutDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              inputProps={{ min: editCheckInDate ? dayjs(editCheckInDate).add(1, 'day').format('YYYY-MM-DD') : '' }}
-            />
-
-            {selectedReservation && editCheckInDate && editCheckOutDate && (() => {
-              const diff = calculateDateEditDiff()
-              if (diff.daysDiff === 0) return null
-              const isExtra = diff.daysDiff > 0
-              return (
-                <Box sx={{ p: 2, bgcolor: isExtra ? 'warning.light' : 'info.light', borderRadius: 1 }}>
-                  <Stack spacing={1}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">عدد الأيام الجديد:</Typography>
-                      <Typography variant="body2" fontWeight="bold">{diff.newDays} يوم</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2">المبلغ القديم:</Typography>
-                      <Typography variant="body2">{diff.oldAmount.toLocaleString()} SDG</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" fontWeight="bold">المبلغ الجديد:</Typography>
-                      <Typography variant="body2" fontWeight="bold" color={isExtra ? 'warning.dark' : 'info.dark'}>
-                        {diff.newAmount.toLocaleString()} SDG
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      سيتم تعديل المعاملة الأصلية في كشف الحساب.
-                    </Typography>
-                  </Stack>
-                </Box>
-              )
-            })()}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEditDates(false)} disabled={editDatesLoading}>إلغاء</Button>
-          <Button
-            onClick={handleUpdateDates}
-            variant="contained"
-            color="warning"
-            disabled={editDatesLoading || !editCheckInDate || !editCheckOutDate}
-            startIcon={editDatesLoading ? <CircularProgress size={16} /> : <EditIcon />}
-          >
-            {editDatesLoading ? 'جارٍ التعديل...' : 'تأكيد التعديل'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+                  {transferDiff && (
+                    <Alert
+                      type={transferDiff.diff === 0 ? 'success' : transferDiff.diff > 0 ? 'warning' : 'info'}
+                      showIcon
+                      message={
+                        <div>
+                          <div className="flex justify-between">
+                            <Text style={{ fontSize: 13 }}>سعر الغرفة القديمة:</Text>
+                            <Text style={{ fontSize: 13 }}>{transferDiff.oldRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Text>
+                          </div>
+                          <div className="flex justify-between">
+                            <Text style={{ fontSize: 13 }}>سعر الغرفة الجديدة:</Text>
+                            <Text strong style={{ fontSize: 13 }}>{transferDiff.newRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Text>
+                          </div>
+                          <div className="flex justify-between" style={{ marginTop: 4 }}>
+                            <Text style={{ fontSize: 13 }}>إجمالي قديم ({transferDiff.days} يوم):</Text>
+                            <Text style={{ fontSize: 13 }}>{transferDiff.oldTotal.toLocaleString()} {selectedReservation?.currency}</Text>
+                          </div>
+                          <div className="flex justify-between">
+                            <Text strong style={{ fontSize: 13 }}>إجمالي جديد:</Text>
+                            <Text strong style={{ fontSize: 13 }}>{transferDiff.newTotal.toLocaleString()} {selectedReservation?.currency}</Text>
+                          </div>
+                          {transferDiff.diff !== 0 && (
+                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                              {transferDiff.diff > 0 ? `فرق إضافي: +${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}` : `خصم: ${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}`} — سيتم تعديل كشف الحساب تلقائياً.
+                            </Text>
+                          )}
+                        </div>
+                      }
+                    />
+                  )}
+                </Space>
+              ),
+            },
+          ]}
+        />
+      </Modal>
 
       {/* Add Service Dialog */}
-      <Dialog open={openService} onClose={() => !serviceLoading && setOpenService(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>إضافة خدمة للحجز #{selectedReservation?.id}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <FormControl fullWidth required>
-              <InputLabel>الغرفة</InputLabel>
-              <Select
-                value={serviceForm.room_id}
-                label="الغرفة"
-                onChange={(e) => setServiceForm({ ...serviceForm, room_id: e.target.value })}
-              >
-                {selectedReservation?.rooms?.map(room => (
-                  <MenuItem key={room.id} value={room.id.toString()}>
-                    غرفة {room.number}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth required>
-              <InputLabel>نوع الخدمة</InputLabel>
-              <Select
-                value={serviceForm.service_id}
-                label="نوع الخدمة"
-                onChange={(e) => setServiceForm({ ...serviceForm, service_id: e.target.value })}
-              >
-                <MenuItem value="" disabled>اختر خدمة</MenuItem>
-                {availableServices.map(svc => (
-                  <MenuItem key={svc.id} value={svc.id.toString()}>
-                    {svc.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="المبلغ (SDG) - اختياري"
-              type="number"
-              fullWidth
-              inputProps={{ min: 0, step: 'any' }}
-              value={serviceForm.amount}
-              onChange={(e) => setServiceForm({ ...serviceForm, amount: e.target.value })}
-              helperText="يمكن تركه فارغاً وإضافة المبلغ لاحقاً عبر كشف الحساب"
+      <Modal
+        open={openService}
+        onCancel={() => !serviceLoading && setOpenService(false)}
+        title={`إضافة خدمة للحجز #${selectedReservation?.id}`}
+        width={480}
+        footer={[
+          <Button key="cancel" onClick={() => setOpenService(false)} disabled={serviceLoading}>إلغاء</Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={serviceLoading}
+            disabled={!serviceForm.room_id || !serviceForm.service_id}
+            onClick={handleServiceSubmit}
+          >
+            إضافة الخدمة
+          </Button>,
+        ]}
+      >
+        <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>الغرفة</Text>
+            <Select
+              style={{ width: '100%' }}
+              value={serviceForm.room_id || undefined}
+              onChange={(value) => setServiceForm({ ...serviceForm, room_id: value })}
+              options={selectedReservation?.rooms?.map((room) => ({
+                value: room.id.toString(),
+                label: `غرفة ${room.number}`,
+              }))}
             />
+          </div>
 
-            <FormControl fullWidth required>
-              <InputLabel>طريقة الدفع</InputLabel>
-              <Select
-                value={serviceForm.payment_method}
-                onChange={(e) => setServiceForm({ ...serviceForm, payment_method: e.target.value })}
-                label="طريقة الدفع"
-              >
-                <MenuItem value="cash">نقدي</MenuItem>
-                <MenuItem value="bankak">بنكك</MenuItem>
-                <MenuItem value="Ocash">أوكاش</MenuItem>
-                <MenuItem value="fawri">فوري</MenuItem>
-              </Select>
-            </FormControl>
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>نوع الخدمة</Text>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="اختر خدمة"
+              value={serviceForm.service_id || undefined}
+              onChange={(value) => setServiceForm({ ...serviceForm, service_id: value })}
+              options={availableServices.map((svc) => ({
+                value: svc.id.toString(),
+                label: svc.name,
+              }))}
+            />
+          </div>
 
-            <TextField
-              label="ملاحظات"
-              multiline
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>المبلغ (SDG) - اختياري</Text>
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              value={serviceForm.amount ? Number(serviceForm.amount) : undefined}
+              onChange={(value) => setServiceForm({ ...serviceForm, amount: value === null ? '' : String(value) })}
+            />
+            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+              يمكن تركه فارغاً وإضافة المبلغ لاحقاً عبر كشف الحساب
+            </Text>
+          </div>
+
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>طريقة الدفع</Text>
+            <Select
+              style={{ width: '100%' }}
+              value={serviceForm.payment_method}
+              onChange={(value) => setServiceForm({ ...serviceForm, payment_method: value })}
+              options={[
+                { value: 'cash', label: 'نقدي' },
+                { value: 'bankak', label: 'بنكك' },
+                { value: 'Ocash', label: 'أوكاش' },
+                { value: 'fawri', label: 'فوري' },
+              ]}
+            />
+          </div>
+
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>ملاحظات</Text>
+            <TextArea
               rows={3}
-              fullWidth
               value={serviceForm.notes}
               onChange={(e) => setServiceForm({ ...serviceForm, notes: e.target.value })}
             />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenService(false)} disabled={serviceLoading}>إلغاء</Button>
-          <Button 
-            onClick={handleServiceSubmit} 
-            variant="contained" 
-            disabled={serviceLoading || !serviceForm.room_id || !serviceForm.service_id}
-            startIcon={serviceLoading ? <CircularProgress size={16} /> : null}
-          >
-            إضافة الخدمة
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+          </div>
+        </Space>
+      </Modal>
+    </div>
   )
 }

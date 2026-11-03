@@ -13,6 +13,7 @@ import {
   Space,
   Avatar,
   Flex,
+  Segmented,
 } from "antd";
 import {
   SearchOutlined,
@@ -63,6 +64,7 @@ export default function Reservations() {
     getDateNDaysFromToday(2)
   );
   const [roomTypeId, setRoomTypeId] = useState<string>("all");
+  const [occupancyFilter, setOccupancyFilter] = useState<"all" | "occupied" | "available">("all");
   const [allRooms, setAllRooms] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -155,6 +157,18 @@ export default function Reservations() {
       });
     });
   }, [allRooms]);
+
+  const occupiedCount = useMemo(
+    () => sortedRooms.filter((r) => r.is_occupied).length,
+    [sortedRooms]
+  );
+  const availableCount = sortedRooms.length - occupiedCount;
+
+  const filteredRooms = useMemo(() => {
+    if (occupancyFilter === "occupied") return sortedRooms.filter((r) => r.is_occupied);
+    if (occupancyFilter === "available") return sortedRooms.filter((r) => !r.is_occupied);
+    return sortedRooms;
+  }, [sortedRooms, occupancyFilter]);
 
   const toggleRoom = (room: any) => {
     setSelectedRooms((prev) => {
@@ -331,11 +345,31 @@ export default function Reservations() {
         <Card>
           {sortedRooms.length > 0 ? (
             <>
-              <Title level={5} style={{ marginBottom: 16 }}>
-                جميع الغرف ({sortedRooms.length})
-              </Title>
+              <Flex
+                justify="space-between"
+                align="center"
+                wrap="wrap"
+                gap={12}
+                style={{ marginBottom: 16 }}
+              >
+                <Title level={5} style={{ margin: 0 }}>
+                  الغرف ({filteredRooms.length})
+                </Title>
+                <Segmented
+                  value={occupancyFilter}
+                  onChange={(value) => setOccupancyFilter(value as typeof occupancyFilter)}
+                  options={[
+                    { label: `الكل (${sortedRooms.length})`, value: "all" },
+                    { label: `متاحة (${availableCount})`, value: "available" },
+                    { label: `محجوزة (${occupiedCount})`, value: "occupied" },
+                  ]}
+                />
+              </Flex>
+              {filteredRooms.length === 0 ? (
+                <Empty description="لا توجد غرف مطابقة لهذا الفلتر" />
+              ) : (
               <Row gutter={[16, 16]}>
-                {sortedRooms.map((room: any) => {
+                {filteredRooms.map((room: any) => {
                   const isSelected = isRoomSelected(room.id);
                   const isOccupied = !!room.is_occupied;
                   const currentReservation = room.current_reservation;
@@ -483,6 +517,7 @@ export default function Reservations() {
                   );
                 })}
               </Row>
+              )}
             </>
           ) : (
             !loading && (

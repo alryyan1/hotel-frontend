@@ -127,3 +127,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+.reservation-row-cancelled > td {
+  background-color: #fff1f0 !important;
+}
+.reservation-row-cancelled:hover > td {
+  background-color: #ffe0de !important;
+}
