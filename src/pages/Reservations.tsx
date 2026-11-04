@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import apiClient from "../api/axios";
 import {
   Card,
@@ -57,6 +58,7 @@ const formatCurrency = (value: number | string | null | undefined): string => {
 };
 
 export default function Reservations() {
+  const navigate = useNavigate();
   const [checkIn, setCheckIn] = useState<string>(() =>
     getDateNDaysFromToday(1)
   );
@@ -236,9 +238,7 @@ export default function Reservations() {
       setSelectedRooms([]);
       setForm({ customer_id: "", currency: "SDG" });
 
-      if (checkIn && checkOut) {
-        await searchAvailability();
-      }
+      navigate("/reservations-list");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "فشل إنشاء الحجز");
     } finally {
@@ -423,7 +423,7 @@ export default function Reservations() {
                                 غرفة {room.number}
                               </Text>
                               <div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                <Text  style={{ fontSize: 12 }}>
                                   الدور {room.floor?.number} · {room.type?.name}
                                 </Text>
                               </div>
@@ -452,13 +452,13 @@ export default function Reservations() {
                           <Flex justify="space-between" align="baseline">
                             <div>
                               <Text style={{ fontSize: 18, fontWeight: 700, color: "#389e0d" }}>
-                                {formatCurrency(room.price_sdg)} ج.س
+                                {formatCurrency(room.price_sdg)} 
                               </Text>
                               <Text type="secondary" style={{ fontSize: 12 }}> / ليلة</Text>
                             </div>
                             {room.total_price_sdg ? (
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                الإجمالي: {formatCurrency(room.total_price_sdg)} ج.س
+                              <Text  style={{ fontSize: 12 }}>
+                                الإجمالي: {formatCurrency(room.total_price_sdg)} 
                               </Text>
                             ) : null}
                           </Flex>
@@ -467,10 +467,10 @@ export default function Reservations() {
                               <Text style={{ fontSize: 15, fontWeight: 700, color: "#1677ff" }}>
                                 ${formatCurrency(room.price_usd)}
                               </Text>
-                              <Text type="secondary" style={{ fontSize: 12 }}> / ليلة</Text>
+                              <Text  style={{ fontSize: 12 }}> / ليلة</Text>
                             </div>
                             {room.total_price_usd ? (
-                              <Text type="secondary" style={{ fontSize: 12 }}>
+                              <Text  style={{ fontSize: 12 }}>
                                 الإجمالي: ${formatCurrency(room.total_price_usd)}
                               </Text>
                             ) : null}
@@ -539,6 +539,8 @@ export default function Reservations() {
         onOpenChange={setOpenCreate}
         customers={customers}
         selectedRooms={selectedRooms}
+        checkIn={checkIn}
+        checkOut={checkOut}
         form={form}
         onFormChange={setForm}
         onCreateReservation={createReservation}

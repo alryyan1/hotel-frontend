@@ -15,8 +15,9 @@ import {
   Space,
   Typography,
   Alert,
-  Tabs,
   Tooltip,
+  Spin,
+  Timeline,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -25,7 +26,6 @@ import {
   ClockCircleOutlined,
   LoginOutlined,
   LogoutOutlined,
-  EditOutlined,
   CalendarOutlined,
   DownloadOutlined,
   CustomerServiceOutlined,
@@ -33,12 +33,41 @@ import {
   WarningOutlined,
   WhatsAppOutlined,
   FilePdfOutlined,
+  MessageOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
 
 const { Text, Title } = Typography
 const { TextArea } = Input
+
+interface NotificationRecipientResult {
+  phone: string
+  label: string | null
+  success: boolean
+  error?: string | null
+}
+
+interface NotificationChannelResult {
+  enabled: boolean
+  recipients: NotificationRecipientResult[]
+}
+
+interface ConfirmNotifications {
+  sms: NotificationChannelResult
+  whatsapp: NotificationChannelResult
+}
+
+interface ReservationStatusLog {
+  id: number
+  reservation_id: number
+  from_status: Reservation['status'] | null
+  to_status: Reservation['status'] | null
+  notes: string | null
+  user: { id: number; name: string } | null
+  created_at: string
+}
 
 interface Reservation {
   id: number
@@ -50,6 +79,7 @@ interface Reservation {
   total_amount?: number
   paid_amount?: number
   checkout_reminder_sent_at?: string | null
+  has_room_transfer?: boolean
   created_at: string
   updated_at: string
   customer: {
@@ -111,6 +141,17 @@ const statusConfig: Record<Reservation['status'], { label: string; color: string
   cancelled: { label: 'ملغي', color: 'red', icon: CloseCircleOutlined },
 }
 
+const timelineColorFor = (status: Reservation['status']): string => {
+  switch (status) {
+    case 'pending': return 'orange'
+    case 'confirmed': return 'blue'
+    case 'checked_in': return 'green'
+    case 'checked_out': return 'gray'
+    case 'cancelled': return 'red'
+    default: return 'gray'
+  }
+}
+
 export default function ReservationsList() {
   const navigate = useNavigate()
   const { hasPermission } = useAuth()
@@ -121,6 +162,13 @@ export default function ReservationsList() {
   const [arrivalsPdfLoading, setArrivalsPdfLoading] = useState(false)
   const [departuresPdfLoading, setDeparturesPdfLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState<Record<number, string>>({})
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false)
+  const [notifySending, setNotifySending] = useState(false)
+  const [notifyResults, setNotifyResults] = useState<ConfirmNotifications | null>(null)
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyLogs, setHistoryLogs] = useState<ReservationStatusLog[]>([])
+  const [historyReservationId, setHistoryReservationId] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>('all')
   // Single date filter based on reservation creation date (created_at)
   const [createdAtFilter, setCreatedAtFilter] = useState<string>('')
@@ -131,7 +179,7 @@ export default function ReservationsList() {
   const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null)
   const [openConfirm, setOpenConfirm] = useState(false)
-  const [actionType, setActionType] = useState<'confirm' | 'checkin' | 'checkout' | 'cancel'>('confirm')
+  const [actionType, setActionType] = useState<'checkin' | 'checkout' | 'cancel'>('cancel')
   const [customerBalance, setCustomerBalance] = useState<number | null>(null)
   const [occupiedRoomsError, setOccupiedRoomsError] = useState<any>(null)
   const [openOccupiedRoomsDialog, setOpenOccupiedRoomsDialog] = useState(false)
@@ -147,16 +195,12 @@ export default function ReservationsList() {
   const [refundMethod, setRefundMethod] = useState('cash')
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
-  const [editDatesLoading, setEditDatesLoading] = useState(false)
   const [openEditReservation, setOpenEditReservation] = useState(false)
-  const [editReservationTab, setEditReservationTab] = useState(0)
   const [availableRooms, setAvailableRooms] = useState<any[]>([])
   const [loadingAvailableRooms, setLoadingAvailableRooms] = useState(false)
   const [transferOldRoomId, setTransferOldRoomId] = useState<string>('')
   const [transferNewRoomId, setTransferNewRoomId] = useState<string>('')
   const [transferLoading, setTransferLoading] = useState(false)
-  const [editCheckInDate, setEditCheckInDate] = useState<string>('')
-  const [editCheckOutDate, setEditCheckOutDate] = useState<string>('')
 
   // Fetch customers and services list
   useEffect(() => {
@@ -255,7 +299,7 @@ export default function ReservationsList() {
     }
   }
 
-  const handleAction = async (reservation: Reservation, action: 'confirm' | 'checkin' | 'checkout' | 'cancel', skipDialog: boolean = false) => {
+  const handleAction = async (reservation: Reservation, action: 'checkin' | 'checkout' | 'cancel', skipDialog: boolean = false) => {
     // Show dialog for checkout and cancel actions
     if (!skipDialog && (action === 'checkout' || action === 'cancel')) {
       setSelectedReservation(reservation)
@@ -279,39 +323,6 @@ export default function ReservationsList() {
       let updatedReservation: Reservation | null = null
 
       switch (action) {
-        case 'confirm':
-          const { data } = await apiClient.post(`/reservations/${reservation.id}/confirm`)
-          updatedReservation = data
-          toast.success('تم تأكيد الحجز بنجاح')
-
-          if (data.sms_result && !data.sms_result.skipped) {
-            if (data.sms_result.success) {
-              toast.success('تم إرسال رسالة تأكيد الحجز بنجاح', {
-                position: 'top-right',
-                duration: 4000
-              })
-            } else {
-              toast.error(`فشل إرسال الرسالة: ${data.sms_result.error || 'خطأ غير معروف'}`, {
-                position: 'top-right',
-                duration: 5000
-              })
-            }
-          }
-
-          if (data.whatsapp_result && !data.whatsapp_result.skipped) {
-            if (data.whatsapp_result.success) {
-              toast.success('تم إرسال رسالة واتساب لتأكيد الحجز بنجاح', {
-                position: 'top-right',
-                duration: 4000
-              })
-            } else {
-              toast.error(`فشل إرسال رسالة واتساب: ${data.whatsapp_result.error || 'خطأ غير معروف'}`, {
-                position: 'top-right',
-                duration: 5000
-              })
-            }
-          }
-          break
         case 'checkin':
           try {
             const checkinData = await apiClient.post(`/reservations/${reservation.id}/check-in`)
@@ -407,6 +418,48 @@ export default function ReservationsList() {
   const handleDialogAction = async () => {
     if (!selectedReservation) return
     await handleAction(selectedReservation, actionType, true)
+  }
+
+  const handleConfirmReservation = async (reservation: Reservation) => {
+    setNotifyDialogOpen(true)
+    setNotifySending(true)
+    setNotifyResults(null)
+
+    try {
+      setActionLoading(prev => ({ ...prev, [reservation.id]: 'confirm' }))
+      const { data } = await apiClient.post(`/reservations/${reservation.id}/confirm`)
+
+      setReservations(prev => prev.map(r => (
+        r.id === reservation.id ? { ...data, rooms: data.rooms || r.rooms } : r
+      )))
+      setNotifyResults(data.notifications ?? null)
+      toast.success('تم تأكيد الحجز بنجاح')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في تأكيد الحجز')
+      setNotifyDialogOpen(false)
+    } finally {
+      setNotifySending(false)
+      setActionLoading(prev => {
+        const newState = { ...prev }
+        delete newState[reservation.id]
+        return newState
+      })
+    }
+  }
+
+  const handleShowHistory = async (reservation: Reservation) => {
+    setHistoryReservationId(reservation.id)
+    setHistoryDialogOpen(true)
+    setHistoryLoading(true)
+    setHistoryLogs([])
+    try {
+      const { data } = await apiClient.get(`/reservations/${reservation.id}/status-logs`)
+      setHistoryLogs(data)
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في جلب سجل الحالات')
+    } finally {
+      setHistoryLoading(false)
+    }
   }
 
   // Filtering is now done on the backend, so we just use the reservations directly
@@ -573,6 +626,85 @@ export default function ReservationsList() {
     }
   }
 
+  const renderNotificationChannelStatus = (
+    label: string,
+    icon: React.ReactNode,
+    channel: NotificationChannelResult | undefined | null,
+    sending: boolean
+  ) => {
+    if (sending) {
+      return (
+        <div>
+          <Space align="center">
+            {icon}
+            <Text strong>{label}</Text>
+            <Spin size="small" />
+          </Space>
+          <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>
+            جارٍ الإرسال...
+          </Text>
+        </div>
+      )
+    }
+
+    if (!channel || !channel.enabled) {
+      return (
+        <div>
+          <Space align="center">
+            {icon}
+            <Text strong>{label}</Text>
+            <Tag>معطّل</Tag>
+          </Space>
+        </div>
+      )
+    }
+
+    if (channel.recipients.length === 0) {
+      return (
+        <div>
+          <Space align="center">
+            {icon}
+            <Text strong>{label}</Text>
+            <Tag color="orange">لا يوجد رقم هاتف</Tag>
+          </Space>
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <Space align="center" style={{ marginBottom: 8 }}>
+          {icon}
+          <Text strong>{label}</Text>
+        </Space>
+        <Space orientation="vertical" size={6} style={{ width: '100%' }}>
+          {channel.recipients.map((r, i) => (
+            <div
+              key={i}
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}
+            >
+              <span>
+                <span dir="ltr">{r.phone}</span>
+                {r.label && <Text type="secondary"> ({r.label})</Text>}
+              </span>
+              {r.success ? (
+                <Tag color="green" icon={<CheckCircleOutlined />} style={{ margin: 0 }}>
+                  تم الإرسال
+                </Tag>
+              ) : (
+                <Tooltip title={r.error || 'فشل غير معروف'}>
+                  <Tag color="red" icon={<CloseCircleOutlined />} style={{ margin: 0 }}>
+                    فشل
+                  </Tag>
+                </Tooltip>
+              )}
+            </div>
+          ))}
+        </Space>
+      </div>
+    )
+  }
+
   const getStatusTag = (status: Reservation['status']) => {
     const config = statusConfig[status]
     const Icon = config.icon
@@ -616,7 +748,7 @@ export default function ReservationsList() {
           size="small"
           color="blue"
           variant="outlined"
-          onClick={() => handleAction(reservation, 'confirm', true)}
+          onClick={() => handleConfirmReservation(reservation)}
           disabled={isLoading}
           loading={isLoading && currentAction === 'confirm'}
         >
@@ -642,18 +774,20 @@ export default function ReservationsList() {
 
 
     if (reservation.status === 'confirmed') {
+      const isCheckInDay = dayjs().isSame(dayjs(reservation.check_in_date), 'day')
       buttons.push(
-        <Button
-          key="checkin"
-          size="small"
-          color="green"
-          variant="outlined"
-          onClick={() => handleAction(reservation, 'checkin', true)}
-          disabled={isLoading}
-          loading={isLoading && currentAction === 'checkin'}
-        >
-          تسجيل الوصول
-        </Button>,
+        <Tooltip key="checkin" title={isCheckInDay ? '' : 'تسجيل الوصول متاح فقط في تاريخ الوصول'}>
+          <Button
+            size="small"
+            color="green"
+            variant="outlined"
+            onClick={() => handleAction(reservation, 'checkin', true)}
+            disabled={isLoading || !isCheckInDay}
+            loading={isLoading && currentAction === 'checkin'}
+          >
+            تسجيل الوصول
+          </Button>
+        </Tooltip>,
       )
     }
 
@@ -672,7 +806,7 @@ export default function ReservationsList() {
       )
     }
 
-    if (['confirmed', 'checked_in'].includes(reservation.status)) {
+    if (reservation.status === 'checked_in') {
       buttons.push(
         <Button
           key="extend"
@@ -692,7 +826,9 @@ export default function ReservationsList() {
           تمديد
         </Button>,
       )
+    }
 
+    if (reservation.status === 'checked_in') {
       buttons.push(
         <Button
           key="service"
@@ -725,21 +861,34 @@ export default function ReservationsList() {
           size="small"
           color="orange"
           variant="outlined"
-          icon={<EditOutlined />}
+          icon={<SwapOutlined />}
           onClick={() => {
             setSelectedReservation(reservation)
-            setEditCheckInDate(dayjs(reservation.check_in_date).format('YYYY-MM-DD'))
-            setEditCheckOutDate(dayjs(reservation.check_out_date).format('YYYY-MM-DD'))
-            setEditReservationTab(0)
             setTransferOldRoomId(reservation.rooms?.[0]?.id?.toString() || '')
             setTransferNewRoomId('')
             setAvailableRooms([])
             setOpenEditReservation(true)
+            fetchAvailableRoomsForTransfer(reservation)
           }}
           disabled={isLoading}
-        />,
+        >
+          تحويل
+        </Button>,
       )
     }
+
+    buttons.push(
+      <Tooltip key="history" title="سجل تغييرات الحالة">
+        <Button
+          size="small"
+          variant="outlined"
+          icon={<HistoryOutlined />}
+          onClick={() => handleShowHistory(reservation)}
+        >
+           سجل الحالة
+        </Button>
+      </Tooltip>,
+    )
 
     return buttons
   }
@@ -813,48 +962,6 @@ export default function ReservationsList() {
     }
   }
 
-  const calculateDateEditDiff = () => {
-    if (!selectedReservation) return { oldDays: 0, newDays: 0, daysDiff: 0, oldAmount: 0, newAmount: 0 }
-    const oldDays = Math.max(1, dayjs(selectedReservation.check_out_date).diff(dayjs(selectedReservation.check_in_date), 'day'))
-    const newIn  = editCheckInDate  || selectedReservation.check_in_date
-    const newOut = editCheckOutDate || selectedReservation.check_out_date
-    const newDays = Math.max(1, dayjs(newOut).diff(dayjs(newIn), 'day'))
-    let pricePerDay = 0
-    selectedReservation.rooms.forEach((room: any) => {
-      const rate = room.pivot?.rate !== undefined && room.pivot?.rate !== null ? Number(room.pivot.rate) : 0
-      const base = roomRateFor(room, selectedReservation.currency)
-      pricePerDay += rate || base || 0
-    })
-    const oldAmount = oldDays * pricePerDay
-    const newAmount = newDays * pricePerDay
-    return { oldDays, newDays, daysDiff: newDays - oldDays, oldAmount, newAmount }
-  }
-
-  const handleUpdateDates = async () => {
-    if (!selectedReservation) return
-    const newIn  = editCheckInDate  || selectedReservation.check_in_date
-    const newOut = editCheckOutDate || selectedReservation.check_out_date
-    if (!dayjs(newOut).isAfter(dayjs(newIn))) {
-      toast.error('يجب أن يكون تاريخ المغادرة بعد تاريخ الوصول')
-      return
-    }
-    try {
-      setEditDatesLoading(true)
-      const payload: any = {}
-      if (editCheckInDate)  payload.check_in_date  = editCheckInDate
-      if (editCheckOutDate) payload.check_out_date = editCheckOutDate
-      const { data } = await apiClient.post(`/reservations/${selectedReservation.id}/update-dates`, payload)
-      setReservations(prev => prev.map(r => r.id === data.id ? { ...data, rooms: data.rooms || r.rooms } : r))
-      setOpenEditReservation(false)
-      setSelectedReservation(null)
-      toast.success('تم تعديل التواريخ بنجاح')
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل في تعديل التواريخ')
-    } finally {
-      setEditDatesLoading(false)
-    }
-  }
-
   const fetchAvailableRoomsForTransfer = async (reservation: Reservation) => {
     try {
       setLoadingAvailableRooms(true)
@@ -915,7 +1022,7 @@ export default function ReservationsList() {
 
   const columns: ColumnsType<Reservation> = [
     {
-      title: 'رقم الحجز',
+      title: 'رقم ',
       key: 'id',
       align: 'center',
       width: 90,
@@ -927,7 +1034,17 @@ export default function ReservationsList() {
       align: 'center',
       render: (_, r) => (
         <div>
-          <Text strong style={{ display: 'block' }}>{r.customer?.name || 'غير محدد'}</Text>
+          <Text
+            strong
+            underline
+            style={{ display: 'block', color: '#1677ff', cursor: 'pointer' }}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/customers/${r.customer_id}/ledger`)
+            }}
+          >
+            {r.customer?.name || 'غير محدد'}
+          </Text>
           {r.customer?.type === 'company' && (r.customer as any)?.contact_name_1 && (
             <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
               {[(r.customer as any).contact_name_1, (r.customer as any).contact_name_2].filter(Boolean).join(' • ')}
@@ -946,6 +1063,11 @@ export default function ReservationsList() {
           {r.rooms?.length
             ? r.rooms.map((room) => <Tag key={room.id}>غرفة {room.number}</Tag>)
             : <Text type="secondary">-</Text>}
+          {r.has_room_transfer && (
+            <Tooltip title="تم تحويل الغرفة لهذا الحجز">
+              <SwapOutlined style={{ color: '#722ed1' }} />
+            </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -996,7 +1118,6 @@ export default function ReservationsList() {
     },
   ]
 
-  const dateEditDiff = selectedReservation && editCheckInDate && editCheckOutDate ? calculateDateEditDiff() : null
   const transferDiff = getTransferPriceDiff()
 
   return (
@@ -1283,6 +1404,67 @@ export default function ReservationsList() {
         )}
       </Modal>
 
+      {/* Confirm Reservation — Notification Send Status Dialog */}
+      <Modal
+        open={notifyDialogOpen}
+        onCancel={() => setNotifyDialogOpen(false)}
+        title="تأكيد الحجز وإرسال الإشعارات"
+        footer={[
+          <Button key="close" onClick={() => setNotifyDialogOpen(false)}>
+            إغلاق
+          </Button>,
+        ]}
+      >
+        <Space orientation="vertical" size={20} style={{ width: '100%', marginTop: 8 }}>
+          {renderNotificationChannelStatus('رسائل SMS', <MessageOutlined />, notifyResults?.sms, notifySending)}
+          {renderNotificationChannelStatus('رسائل واتساب', <WhatsAppOutlined />, notifyResults?.whatsapp, notifySending)}
+        </Space>
+      </Modal>
+
+      {/* Reservation Status History Dialog */}
+      <Modal
+        open={historyDialogOpen}
+        onCancel={() => setHistoryDialogOpen(false)}
+        title={`سجل تغييرات الحالة ${historyReservationId ? `— حجز #${historyReservationId}` : ''}`}
+        footer={[
+          <Button key="close" onClick={() => setHistoryDialogOpen(false)}>
+            إغلاق
+          </Button>,
+        ]}
+      >
+        {historyLoading ? (
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <Spin />
+          </div>
+        ) : historyLogs.length === 0 ? (
+          <Text type="secondary">لا يوجد سجل لهذا الحجز</Text>
+        ) : (
+          <Timeline
+            style={{ marginTop: 16 }}
+            items={historyLogs.map((log) => ({
+              color: log.notes ? 'purple' : timelineColorFor(log.to_status as Reservation['status']),
+              dot: log.notes ? <SwapOutlined style={{ fontSize: 16 }} /> : undefined,
+              children: (
+                <div>
+                  <Text strong>
+                    {log.notes
+                      ? log.notes
+                      : log.from_status
+                      ? `تغيير الحالة: من ${statusConfig[log.from_status]?.label ?? log.from_status} إلى ${statusConfig[log.to_status!]?.label ?? log.to_status}`
+                      : `تم إنشاء الحجز بالحالة: ${statusConfig[log.to_status!]?.label ?? log.to_status}`}
+                  </Text>
+                  <div>
+                    <Text  style={{ fontSize: 12 }}>
+                      {log.user?.name ?? 'النظام'} — {dayjs(log.created_at).format('DD/MM/YYYY HH:mm')}
+                    </Text>
+                  </div>
+                </div>
+              ),
+            }))}
+          />
+        )}
+      </Modal>
+
       {/* Occupied Rooms Error Dialog */}
       <Modal
         open={openOccupiedRoomsDialog}
@@ -1398,192 +1580,102 @@ export default function ReservationsList() {
         </Space>
       </Modal>
 
-      {/* Unified Edit Reservation Dialog */}
+      {/* Transfer Room Dialog */}
       <Modal
         open={openEditReservation}
-        onCancel={() => !editDatesLoading && !transferLoading && setOpenEditReservation(false)}
-        title={`تعديل الحجز #${selectedReservation?.id}`}
+        onCancel={() => !transferLoading && setOpenEditReservation(false)}
+        title={`تحويل غرفة الحجز #${selectedReservation?.id}`}
         width={520}
         footer={[
-          <Button key="cancel" onClick={() => setOpenEditReservation(false)} disabled={editDatesLoading || transferLoading}>إلغاء</Button>,
-          editReservationTab === 0 ? (
-            <Button
-              key="dates"
-              color="orange"
-              variant="solid"
-              loading={editDatesLoading}
-              disabled={!editCheckInDate || !editCheckOutDate}
-              icon={<CalendarOutlined />}
-              onClick={handleUpdateDates}
-            >
-              تأكيد تعديل التواريخ
-            </Button>
-          ) : (
-            <Button
-              key="transfer"
-              type="primary"
-              loading={transferLoading}
-              disabled={!transferOldRoomId || !transferNewRoomId}
-              icon={<SwapOutlined />}
-              onClick={handleTransferRoom}
-            >
-              تأكيد التحويل
-            </Button>
-          ),
+          <Button key="cancel" onClick={() => setOpenEditReservation(false)} disabled={transferLoading}>إلغاء</Button>,
+          <Button
+            key="transfer"
+            type="primary"
+            loading={transferLoading}
+            disabled={!transferOldRoomId || !transferNewRoomId}
+            icon={<SwapOutlined />}
+            onClick={handleTransferRoom}
+          >
+            تأكيد التحويل
+          </Button>,
         ]}
       >
-        <Tabs
-          activeKey={editReservationTab === 0 ? 'dates' : 'transfer'}
-          onChange={(key) => {
-            const v = key === 'dates' ? 0 : 1
-            setEditReservationTab(v)
-            if (v === 1 && selectedReservation && availableRooms.length === 0) {
-              fetchAvailableRoomsForTransfer(selectedReservation)
-            }
-          }}
-          items={[
-            {
-              key: 'dates',
-              label: 'تعديل التواريخ',
-              icon: <CalendarOutlined />,
-              children: (
-                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-                  <div className="rounded-md border border-border bg-muted p-3">
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                      تاريخ الوصول الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong>
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
-                      تاريخ المغادرة الحالي: <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
-                    </Text>
+        <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
+          <div className="rounded-md border border-border bg-muted p-3">
+            <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
+              الغرف الحالية: <strong>{selectedReservation?.rooms.map((r) => `غرفة ${r.number}`).join('، ')}</strong>
+            </Text>
+            <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+              الفترة: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong> → <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
+            </Text>
+          </div>
+
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>الغرفة المراد التحويل منها</Text>
+            <Select
+              style={{ width: '100%' }}
+              value={transferOldRoomId || undefined}
+              onChange={(value) => setTransferOldRoomId(value)}
+              options={selectedReservation?.rooms.map((room) => {
+                const rate = room.pivot?.rate || (selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0)
+                return {
+                  value: room.id.toString(),
+                  label: `غرفة ${room.number}${room.type?.name ? ` — ${room.type.name}` : ''}${rate ? ` (${rate.toLocaleString()} ${selectedReservation?.currency}/ليلة)` : ''}`,
+                }
+              })}
+            />
+          </div>
+
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>الغرفة الجديدة</Text>
+            <Select
+              style={{ width: '100%' }}
+              loading={loadingAvailableRooms}
+              value={transferNewRoomId || undefined}
+              onChange={(value) => setTransferNewRoomId(value)}
+              notFoundContent="لا توجد غرف أخرى"
+              options={availableRooms.map((room: any) => {
+                const rate = selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0
+                return {
+                  value: room.id.toString(),
+                  label: `غرفة ${room.number}${room.type?.name ? ` — ${room.type.name}` : ''}${rate ? ` (${rate.toLocaleString()} ${selectedReservation?.currency}/ليلة)` : ''}`,
+                }
+              })}
+            />
+          </div>
+
+          {transferDiff && (
+            <Alert
+              type={transferDiff.diff === 0 ? 'success' : transferDiff.diff > 0 ? 'warning' : 'info'}
+              showIcon
+              message={
+                <div>
+                  <div className="flex justify-between">
+                    <Text style={{ fontSize: 13 }}>سعر الغرفة القديمة:</Text>
+                    <Text style={{ fontSize: 13 }}>{transferDiff.oldRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Text>
                   </div>
-
-                  <DatePicker
-                    style={{ width: '100%' }}
-                    placeholder="تاريخ الوصول الجديد"
-                    value={editCheckInDate ? dayjs(editCheckInDate) : null}
-                    onChange={(_, dateString) => setEditCheckInDate((dateString as string) || '')}
-                  />
-                  <DatePicker
-                    style={{ width: '100%' }}
-                    placeholder="تاريخ المغادرة الجديد"
-                    value={editCheckOutDate ? dayjs(editCheckOutDate) : null}
-                    onChange={(_, dateString) => setEditCheckOutDate((dateString as string) || '')}
-                    disabledDate={(current) => !!editCheckInDate && current && !current.isAfter(dayjs(editCheckInDate), 'day')}
-                  />
-
-                  {dateEditDiff && dateEditDiff.daysDiff !== 0 && (
-                    <Alert
-                      type={dateEditDiff.daysDiff > 0 ? 'warning' : 'info'}
-                      showIcon
-                      message={
-                        <div>
-                          <div className="flex justify-between">
-                            <Text style={{ fontSize: 13 }}>عدد الأيام الجديد:</Text>
-                            <Text strong style={{ fontSize: 13 }}>{dateEditDiff.newDays} يوم</Text>
-                          </div>
-                          <div className="flex justify-between">
-                            <Text style={{ fontSize: 13 }}>المبلغ القديم:</Text>
-                            <Text style={{ fontSize: 13 }}>{dateEditDiff.oldAmount.toLocaleString()} SDG</Text>
-                          </div>
-                          <div className="flex justify-between">
-                            <Text strong style={{ fontSize: 13 }}>المبلغ الجديد:</Text>
-                            <Text strong style={{ fontSize: 13 }}>{dateEditDiff.newAmount.toLocaleString()} SDG</Text>
-                          </div>
-                          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-                            سيتم تعديل المعاملة الأصلية في كشف الحساب.
-                          </Text>
-                        </div>
-                      }
-                    />
+                  <div className="flex justify-between">
+                    <Text style={{ fontSize: 13 }}>سعر الغرفة الجديدة:</Text>
+                    <Text strong style={{ fontSize: 13 }}>{transferDiff.newRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Text>
+                  </div>
+                  <div className="flex justify-between" style={{ marginTop: 4 }}>
+                    <Text style={{ fontSize: 13 }}>إجمالي قديم ({transferDiff.days} يوم):</Text>
+                    <Text style={{ fontSize: 13 }}>{transferDiff.oldTotal.toLocaleString()} {selectedReservation?.currency}</Text>
+                  </div>
+                  <div className="flex justify-between">
+                    <Text strong style={{ fontSize: 13 }}>إجمالي جديد:</Text>
+                    <Text strong style={{ fontSize: 13 }}>{transferDiff.newTotal.toLocaleString()} {selectedReservation?.currency}</Text>
+                  </div>
+                  {transferDiff.diff !== 0 && (
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                      {transferDiff.diff > 0 ? `فرق إضافي: +${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}` : `خصم: ${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}`} — سيتم تعديل كشف الحساب تلقائياً.
+                    </Text>
                   )}
-                </Space>
-              ),
-            },
-            {
-              key: 'transfer',
-              label: 'تحويل الغرفة',
-              icon: <SwapOutlined />,
-              children: (
-                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-                  <div className="rounded-md border border-border bg-muted p-3">
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                      الغرف الحالية: <strong>{selectedReservation?.rooms.map((r) => `غرفة ${r.number}`).join('، ')}</strong>
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
-                      الفترة: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong> → <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
-                    </Text>
-                  </div>
-
-                  <div>
-                    <Text style={{ display: 'block', marginBottom: 6 }}>الغرفة المراد التحويل منها</Text>
-                    <Select
-                      style={{ width: '100%' }}
-                      value={transferOldRoomId || undefined}
-                      onChange={(value) => setTransferOldRoomId(value)}
-                      options={selectedReservation?.rooms.map((room) => {
-                        const rate = room.pivot?.rate || (selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0)
-                        return {
-                          value: room.id.toString(),
-                          label: `غرفة ${room.number}${room.type?.name ? ` — ${room.type.name}` : ''}${rate ? ` (${rate.toLocaleString()} ${selectedReservation?.currency}/ليلة)` : ''}`,
-                        }
-                      })}
-                    />
-                  </div>
-
-                  <div>
-                    <Text style={{ display: 'block', marginBottom: 6 }}>الغرفة الجديدة</Text>
-                    <Select
-                      style={{ width: '100%' }}
-                      loading={loadingAvailableRooms}
-                      value={transferNewRoomId || undefined}
-                      onChange={(value) => setTransferNewRoomId(value)}
-                      notFoundContent="لا توجد غرف أخرى"
-                      options={availableRooms.map((room: any) => {
-                        const rate = selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0
-                        return {
-                          value: room.id.toString(),
-                          label: `غرفة ${room.number}${room.type?.name ? ` — ${room.type.name}` : ''}${rate ? ` (${rate.toLocaleString()} ${selectedReservation?.currency}/ليلة)` : ''}`,
-                        }
-                      })}
-                    />
-                  </div>
-
-                  {transferDiff && (
-                    <Alert
-                      type={transferDiff.diff === 0 ? 'success' : transferDiff.diff > 0 ? 'warning' : 'info'}
-                      showIcon
-                      message={
-                        <div>
-                          <div className="flex justify-between">
-                            <Text style={{ fontSize: 13 }}>سعر الغرفة القديمة:</Text>
-                            <Text style={{ fontSize: 13 }}>{transferDiff.oldRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Text>
-                          </div>
-                          <div className="flex justify-between">
-                            <Text style={{ fontSize: 13 }}>سعر الغرفة الجديدة:</Text>
-                            <Text strong style={{ fontSize: 13 }}>{transferDiff.newRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Text>
-                          </div>
-                          <div className="flex justify-between" style={{ marginTop: 4 }}>
-                            <Text style={{ fontSize: 13 }}>إجمالي قديم ({transferDiff.days} يوم):</Text>
-                            <Text style={{ fontSize: 13 }}>{transferDiff.oldTotal.toLocaleString()} {selectedReservation?.currency}</Text>
-                          </div>
-                          <div className="flex justify-between">
-                            <Text strong style={{ fontSize: 13 }}>إجمالي جديد:</Text>
-                            <Text strong style={{ fontSize: 13 }}>{transferDiff.newTotal.toLocaleString()} {selectedReservation?.currency}</Text>
-                          </div>
-                          {transferDiff.diff !== 0 && (
-                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-                              {transferDiff.diff > 0 ? `فرق إضافي: +${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}` : `خصم: ${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}`} — سيتم تعديل كشف الحساب تلقائياً.
-                            </Text>
-                          )}
-                        </div>
-                      }
-                    />
-                  )}
-                </Space>
-              ),
-            },
-          ]}
-        />
+                </div>
+              }
+            />
+          )}
+        </Space>
       </Modal>
 
       {/* Add Service Dialog */}

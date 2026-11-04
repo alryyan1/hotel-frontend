@@ -414,6 +414,8 @@ export default function PublicReservations() {
           onOpenChange={setOpenCreate}
           customers={customers}
           selectedRooms={selectedRooms}
+          checkIn={checkIn}
+          checkOut={checkOut}
           form={form}
           onFormChange={setForm}
           onCreateReservation={createReservation}

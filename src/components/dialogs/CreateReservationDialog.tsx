@@ -1,6 +1,7 @@
-import { Modal, Button, Segmented, Tag, Alert, Space, Typography } from 'antd'
+import { Modal, Button, Radio, Tag, Alert, Space, Typography, Divider, Flex } from 'antd'
 import { WarningOutlined } from '@ant-design/icons'
 import { Autocomplete, TextField } from '@mui/material'
+import dayjs from 'dayjs'
 
 const { Text } = Typography
 
@@ -9,6 +10,8 @@ interface CreateReservationDialogProps {
   onOpenChange: (open: boolean) => void
   customers: any[]
   selectedRooms: any[]
+  checkIn: string
+  checkOut: string
   form: {
     customer_id: string
     currency: string
@@ -19,11 +22,16 @@ interface CreateReservationDialogProps {
   loading: boolean
 }
 
+const formatAmount = (value: number): string =>
+  value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+
 export default function CreateReservationDialog({
   open,
   onOpenChange,
   customers,
   selectedRooms,
+  checkIn,
+  checkOut,
   form,
   onFormChange,
   onCreateReservation,
@@ -34,12 +42,25 @@ export default function CreateReservationDialog({
 
   const selectedCustomer = customers.find((c: any) => String(c.id) === String(form.customer_id)) || null
 
+  const nights = Math.max(1, dayjs(checkOut).diff(dayjs(checkIn), 'day'))
+
+  const roomBreakdown = selectedRooms.map((r: any) => {
+    const rate = form.currency === 'USD' ? Number(r.price_usd ?? 0) : Number(r.price_sdg ?? 0)
+    const total =
+      form.currency === 'USD'
+        ? Number(r.total_price_usd ?? rate * nights)
+        : Number(r.total_price_sdg ?? rate * nights)
+    return { ...r, rate, total }
+  })
+
+  const grandTotal = roomBreakdown.reduce((sum, r) => sum + r.total, 0)
+
   return (
     <Modal
       open={open}
       onCancel={() => onOpenChange(false)}
       title="إنشاء حجز"
-      width={500}
+      width={520}
       footer={[
         <Button key="cancel" onClick={() => onOpenChange(false)}>إلغاء</Button>,
         <Button key="submit" type="primary" loading={loading} onClick={onCreateReservation}>
@@ -98,10 +119,10 @@ export default function CreateReservationDialog({
                   <div>
                     <div>{c.name}</div>
                     {c.type === 'company' && contacts && (
-                      <Text type="secondary" style={{ fontSize: 12 }}>{contacts}</Text>
+                      <Text  style={{ fontSize: 12 }}>{contacts}</Text>
                     )}
                     {(c.phone || c.email) && (
-                      <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                      <Text  style={{ fontSize: 12, display: 'block' }}>
                         {c.phone || c.email}
                       </Text>
                     )}
@@ -119,31 +140,68 @@ export default function CreateReservationDialog({
 
         <div>
           <Text strong style={{ display: 'block', marginBottom: 6 }}>عملة الفاتورة</Text>
-          <Segmented
+          <Radio.Group
             value={form.currency}
-            onChange={(value) => onFormChange({ ...form, currency: value as string })}
-            block
-            options={[
-              { label: 'جنيه سوداني (SDG)', value: 'SDG' },
-              { label: 'دولار (USD)', value: 'USD' },
-            ]}
-          />
+            onChange={(e) => onFormChange({ ...form, currency: e.target.value })}
+            optionType="button"
+            buttonStyle="solid"
+            style={{ display: 'flex', width: '100%' }}
+          >
+            <Radio.Button value="SDG" style={{ flex: 1, textAlign: 'center' }}>
+              جنيه سوداني (SDG)
+            </Radio.Button>
+            <Radio.Button value="USD" style={{ flex: 1, textAlign: 'center' }}>
+              دولار (USD)
+            </Radio.Button>
+          </Radio.Group>
           <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-            سيتم احتساب الفاتورة بالكامل بهذه العملة
+            العملة المختارة حالياً: <strong>{form.currency === 'USD' ? 'دولار (USD)' : 'جنيه سوداني (SDG)'}</strong> — سيتم احتساب الفاتورة بالكامل بهذه العملة
           </Text>
         </div>
 
         <div>
           <Text strong style={{ display: 'block', marginBottom: 6 }}>
-            الغرف المختارة ({selectedRooms.length})
+            الغرف المختارة ({selectedRooms.length}) — {nights} ليلة
           </Text>
-          <Space wrap>
-            {selectedRooms.map((r: any) => (
-              <Tag key={r.id} color={r.is_occupied ? 'orange' : 'default'}>
-                غرفة {r.number}{r.is_occupied ? ' (محجوزة)' : ''}
-              </Tag>
+          <div style={{ border: '1px solid #f0f0f0', borderRadius: 8 }}>
+            {roomBreakdown.map((r, idx) => (
+              <div
+                key={r.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '8px 12px',
+                  borderTop: idx === 0 ? undefined : '1px solid #f0f0f0',
+                }}
+              >
+                <Space size={6}>
+                  <Text strong style={{ fontSize: 13 }}>غرفة {r.number}</Text>
+                  {r.is_occupied && <Tag color="orange" style={{ margin: 0 }}>محجوزة</Tag>}
+                </Space>
+                <div style={{ textAlign: 'left' }}>
+                  <div dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                    <Text strong style={{ fontSize: 13 }}>
+                      {formatAmount(r.total)} {form.currency}
+                    </Text>
+                  </div>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
+                    <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>{nights}</span> ليلة ×{' '}
+                    <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                      {formatAmount(r.rate)} {form.currency}
+                    </span>
+                  </Text>
+                </div>
+              </div>
             ))}
-          </Space>
+          </div>
+          <Divider style={{ margin: '8px 0' }} />
+          <Flex gap={8} justify="space-between">
+            <Text strong>الإجمالي</Text>
+            <Text strong dir="ltr" style={{ fontSize: 16, unicodeBidi: 'isolate' }}>
+              {formatAmount(grandTotal)} {form.currency}
+            </Text>
+          </Flex>
         </div>
       </Space>
     </Modal>
