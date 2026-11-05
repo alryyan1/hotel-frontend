@@ -103,6 +103,8 @@ interface Reservation {
     pivot?: {
       rate: number
       currency: string
+      check_in_date?: string | null
+      check_out_date?: string | null
     }
   }>
   transactions?: Array<{
@@ -865,11 +867,12 @@ export default function ReservationsList() {
           icon={<SwapOutlined />}
           onClick={() => {
             setSelectedReservation(reservation)
-            setTransferOldRoomId(reservation.rooms?.[0]?.id?.toString() || '')
+            const firstRoomId = reservation.rooms?.[0]?.id?.toString() || ''
+            setTransferOldRoomId(firstRoomId)
             setTransferNewRoomId('')
             setAvailableRooms([])
             setOpenEditReservation(true)
-            fetchAvailableRoomsForTransfer(reservation)
+            fetchAvailableRoomsForTransfer(reservation, firstRoomId)
           }}
           disabled={isLoading}
         >
@@ -963,14 +966,28 @@ export default function ReservationsList() {
     }
   }
 
-  const fetchAvailableRoomsForTransfer = async (reservation: Reservation) => {
+  // Mirrors backend transferRoom(): an in-house guest moves from today on,
+  // otherwise the room's whole stay moves.
+  const getTransferPeriod = (reservation: Reservation, roomId: string) => {
+    const room = reservation.rooms.find(r => r.id.toString() === roomId)
+    const checkIn = (room?.pivot?.check_in_date ?? reservation.check_in_date).slice(0, 10)
+    const checkOut = (room?.pivot?.check_out_date ?? reservation.check_out_date).slice(0, 10)
+    const today = dayjs().format('YYYY-MM-DD')
+    const from = reservation.status === 'checked_in' && today > checkIn ? today : checkIn
+    return { checkIn, checkOut, from, nights: Math.max(0, dayjs(checkOut).diff(dayjs(from), 'day')) }
+  }
+
+  const fetchAvailableRoomsForTransfer = async (reservation: Reservation, roomId: string) => {
+    const { from, checkOut, nights } = getTransferPeriod(reservation, roomId)
+    if (nights === 0) {
+      setAvailableRooms([])
+      return
+    }
     try {
       setLoadingAvailableRooms(true)
-      const checkIn  = reservation.check_in_date?.slice(0, 10)
-      const checkOut = reservation.check_out_date?.slice(0, 10)
       const { data } = await apiClient.get('/rooms/all', {
         params: {
-          check_in_date: checkIn,
+          check_in_date: from,
           check_out_date: checkOut,
           exclude_reservation_id: reservation.id,
         },
@@ -979,7 +996,7 @@ export default function ReservationsList() {
       const rooms: any[] = Array.isArray(data) ? data : []
       setAvailableRooms(rooms.filter(r => !currentRoomIds.includes(r.id)))
     } catch {
-      toast.error('فشل في جلب الغرف')
+      // apiClient's interceptor already showed the error
     } finally {
       setLoadingAvailableRooms(false)
     }
@@ -997,8 +1014,8 @@ export default function ReservationsList() {
       setOpenEditReservation(false)
       setSelectedReservation(null)
       toast.success('تم تحويل الغرفة بنجاح')
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل في تحويل الغرفة')
+    } catch {
+      // apiClient's interceptor already showed the error
     } finally {
       setTransferLoading(false)
     }
@@ -1009,10 +1026,24 @@ export default function ReservationsList() {
     const oldRoom = selectedReservation.rooms.find(r => r.id.toString() === transferOldRoomId)
     const newRoom = availableRooms.find(r => r.id.toString() === transferNewRoomId)
     if (!oldRoom || !newRoom) return null
-    const days = Math.max(1, dayjs(selectedReservation.check_out_date).diff(dayjs(selectedReservation.check_in_date), 'day'))
+    const { checkIn, checkOut, from, nights } = getTransferPeriod(selectedReservation, transferOldRoomId)
     const oldRate = oldRoom.pivot?.rate !== undefined && oldRoom.pivot?.rate !== null ? Number(oldRoom.pivot.rate) : roomRateFor(oldRoom, selectedReservation.currency)
     const newRate = roomRateFor(newRoom, selectedReservation.currency)
-    return { oldRate, newRate, days, oldTotal: days * oldRate, newTotal: days * newRate, diff: days * (newRate - oldRate) }
+
+    // What the coming nights cost now: each booking/extension segment has its own price
+    const segments = (selectedReservation.transactions ?? []).filter(
+      t => t.type === 'debit' && t.room_id === oldRoom.id && t.rate != null && t.check_in_date && t.check_out_date,
+    )
+    const oldTotal = segments.length > 0
+      ? segments.reduce((sum, t) => {
+          const start = t.check_in_date!.slice(0, 10)
+          const end = t.check_out_date!.slice(0, 10)
+          return sum + Math.max(0, dayjs(end).diff(dayjs(start > from ? start : from), 'day')) * Number(t.rate)
+        }, 0)
+      : nights * oldRate
+    const newTotal = nights * newRate
+
+    return { oldRate, newRate, from, checkOut, nights, oldTotal, newTotal, diff: newTotal - oldTotal, keepsPastNights: from > checkIn }
   }
 
   const customerOptions = customers.map((c) => ({
@@ -1126,6 +1157,8 @@ export default function ReservationsList() {
   ]
 
   const transferDiff = getTransferPriceDiff()
+  const transferHasNoNights = !!selectedReservation && !!transferOldRoomId
+    && getTransferPeriod(selectedReservation, transferOldRoomId).nights === 0
 
   return (
     <div className="flex flex-col gap-1 p-1">
@@ -1599,7 +1632,7 @@ export default function ReservationsList() {
             key="transfer"
             type="primary"
             loading={transferLoading}
-            disabled={!transferOldRoomId || !transferNewRoomId}
+            disabled={!transferOldRoomId || !transferNewRoomId || transferHasNoNights}
             icon={<SwapOutlined />}
             onClick={handleTransferRoom}
           >
@@ -1622,7 +1655,12 @@ export default function ReservationsList() {
             <Select
               style={{ width: '100%' }}
               value={transferOldRoomId || undefined}
-              onChange={(value) => setTransferOldRoomId(value)}
+              onChange={(value) => {
+                setTransferOldRoomId(value)
+                setTransferNewRoomId('')
+                setAvailableRooms([])
+                if (selectedReservation) fetchAvailableRoomsForTransfer(selectedReservation, value)
+              }}
               options={selectedReservation?.rooms.map((room) => {
                 const rate = room.pivot?.rate || (selectedReservation ? roomRateFor(room, selectedReservation.currency) : 0)
                 return {
@@ -1638,6 +1676,7 @@ export default function ReservationsList() {
             <Select
               style={{ width: '100%' }}
               loading={loadingAvailableRooms}
+              disabled={transferHasNoNights}
               value={transferNewRoomId || undefined}
               onChange={(value) => setTransferNewRoomId(value)}
               notFoundContent="لا توجد غرف أخرى"
@@ -1651,6 +1690,10 @@ export default function ReservationsList() {
             />
           </div>
 
+          {transferHasNoNights && (
+            <Alert type="warning" showIcon message="لا توجد ليالٍ متبقية في هذه الغرفة لتحويلها. يمكنك تمديد الحجز أولاً." />
+          )}
+
           {transferDiff && (
             <Alert
               type={transferDiff.diff === 0 ? 'success' : transferDiff.diff > 0 ? 'warning' : 'info'}
@@ -1658,6 +1701,10 @@ export default function ReservationsList() {
               message={
                 <div>
                   <div className="flex justify-between">
+                    <Text style={{ fontSize: 13 }}>يبدأ التحويل من:</Text>
+                    <Text strong style={{ fontSize: 13 }}>{formatDate(transferDiff.from)} ({transferDiff.nights} ليلة متبقية)</Text>
+                  </div>
+                  <div className="flex justify-between" style={{ marginTop: 4 }}>
                     <Text style={{ fontSize: 13 }}>سعر الغرفة القديمة:</Text>
                     <Text style={{ fontSize: 13 }}>{transferDiff.oldRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Text>
                   </div>
@@ -1666,16 +1713,21 @@ export default function ReservationsList() {
                     <Text strong style={{ fontSize: 13 }}>{transferDiff.newRate.toLocaleString()} {selectedReservation?.currency}/ليلة</Text>
                   </div>
                   <div className="flex justify-between" style={{ marginTop: 4 }}>
-                    <Text style={{ fontSize: 13 }}>إجمالي قديم ({transferDiff.days} يوم):</Text>
+                    <Text style={{ fontSize: 13 }}>الليالي المتبقية حالياً:</Text>
                     <Text style={{ fontSize: 13 }}>{transferDiff.oldTotal.toLocaleString()} {selectedReservation?.currency}</Text>
                   </div>
                   <div className="flex justify-between">
-                    <Text strong style={{ fontSize: 13 }}>إجمالي جديد:</Text>
+                    <Text strong style={{ fontSize: 13 }}>الليالي المتبقية بعد التحويل:</Text>
                     <Text strong style={{ fontSize: 13 }}>{transferDiff.newTotal.toLocaleString()} {selectedReservation?.currency}</Text>
                   </div>
                   {transferDiff.diff !== 0 && (
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                       {transferDiff.diff > 0 ? `فرق إضافي: +${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}` : `خصم: ${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}`} — سيتم تعديل كشف الحساب تلقائياً.
+                    </Text>
+                  )}
+                  {transferDiff.keepsPastNights && (
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                      الليالي السابقة تبقى بسعر الغرفة القديمة.
                     </Text>
                   )}
                 </div>
