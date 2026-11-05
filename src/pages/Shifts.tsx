@@ -117,7 +117,6 @@ export default function Shifts() {
               <TableHead className="text-right">الإغلاق</TableHead>
               <TableHead className="text-right">مدفوعات الحجوزات</TableHead>
               <TableHead className="text-right">الخدمات</TableHead>
-              <TableHead className="text-right">المصروف</TableHead>
               <TableHead className="text-right">الصافي</TableHead>
               <TableHead />
             </TableRow>
@@ -125,7 +124,7 @@ export default function Shifts() {
           <TableBody>
             {shifts.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   {loading ? "جارٍ التحميل..." : "لا توجد ورديات"}
                 </TableCell>
               </TableRow>
@@ -148,7 +147,6 @@ export default function Shifts() {
                 </TableCell>
                 <TableCell>{formatMoney(shift.figures?.total_revenue)}</TableCell>
                 <TableCell>{formatMoney(shift.figures?.total_service_revenue)}</TableCell>
-                <TableCell>{formatMoney(shift.figures?.total_expenses)}</TableCell>
                 <TableCell className="font-semibold">{formatMoney(shift.figures?.net_profit)}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
@@ -223,7 +221,6 @@ function ShiftDetailsDialog({
                         <TableHead className="text-right">المستخدم</TableHead>
                         <TableHead className="text-right">مدفوعات الحجوزات</TableHead>
                         <TableHead className="text-right">الخدمات</TableHead>
-                        <TableHead className="text-right">المصروف</TableHead>
                         <TableHead className="text-right">مسترجع</TableHead>
                         <TableHead className="text-right">الصافي</TableHead>
                       </TableRow>
@@ -231,7 +228,7 @@ function ShiftDetailsDialog({
                     <TableBody>
                       {details.users.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                          <TableCell colSpan={5} className="text-center text-muted-foreground">
                             لا توجد عمليات
                           </TableCell>
                         </TableRow>
@@ -241,7 +238,6 @@ function ShiftDetailsDialog({
                           <TableCell>{row.name}</TableCell>
                           <TableCell>{formatMoney(row.summary.total_revenue)}</TableCell>
                           <TableCell>{formatMoney(row.summary.total_service_revenue)}</TableCell>
-                          <TableCell>{formatMoney(row.summary.total_expenses)}</TableCell>
                           <TableCell>{formatMoney(row.summary.total_refunds)}</TableCell>
                           <TableCell className="font-semibold">{formatMoney(row.summary.net_profit)}</TableCell>
                         </TableRow>
@@ -291,17 +287,7 @@ function ShiftDetailsDialog({
                         {isAdmin && <TableCell>{s.user?.name ?? "-"}</TableCell>}
                       </TableRow>
                     ))}
-                    {details.costs.map((c) => (
-                      <TableRow key={`c-${c.id}`}>
-                        <TableCell>مصروف</TableCell>
-                        <TableCell>{c.description}</TableCell>
-                        <TableCell>{formatMoney(c.amount)}</TableCell>
-                        <TableCell>{methodLabels[c.payment_method ?? "unknown"] ?? c.payment_method}</TableCell>
-                        <TableCell>{c.date}</TableCell>
-                        {isAdmin && <TableCell>{c.user?.name ?? "-"}</TableCell>}
-                      </TableRow>
-                    ))}
-                    {details.transactions.length + details.services.length + details.costs.length === 0 && (
+                    {details.transactions.length + details.services.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={isAdmin ? 6 : 5} className="text-center text-muted-foreground">
                           لا توجد عمليات

@@ -1,13 +1,23 @@
 import { toast } from "sonner";
 import apiClient from "./axios";
-import type { Summary } from "../hooks/useAccounting";
 
 export interface ShiftUserRef {
   id: number;
   name: string;
 }
 
-export type ShiftSummary = Summary;
+export interface ShiftSummary {
+  total_revenue: number;
+  total_service_revenue?: number;
+  revenue_by_method?: Record<string, number>;
+  services_by_method?: Record<string, number>;
+  total_debits: number;
+  total_refunds: number;
+  refunds_by_method?: Record<string, number>;
+  net_profit: number;
+  date_from?: string;
+  date_to?: string;
+}
 
 export interface Shift {
   id: number;
@@ -46,14 +56,6 @@ export interface ShiftDetails {
     transaction_date: string;
     notes: string | null;
     customer?: ShiftUserRef | null;
-    user?: ShiftUserRef | null;
-  }>;
-  costs: Array<{
-    id: number;
-    description: string;
-    amount: string;
-    payment_method: string | null;
-    date: string;
     user?: ShiftUserRef | null;
   }>;
   services: Array<{

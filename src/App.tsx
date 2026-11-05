@@ -25,7 +25,6 @@ import CustomerLedger from "./pages/CustomerLedger";
 import DeletedCustomers from "./pages/DeletedCustomers";
 import Users from "./pages/Users";
 import Settings from "./pages/Settings";
-import Costs from "./pages/Costs";
 import Inventory from "./pages/Inventory";
 import InventoryOrders from "./pages/InventoryOrders";
 import InventoryReceipts from "./pages/InventoryReceipts";
@@ -33,8 +32,6 @@ import CleaningNotifications from "./pages/CleaningNotifications";
 import PublicReservations from "./pages/PublicReservations";
 import GiveawayPage from "./pages/GiveawayPage";
 import ContestParticipantsPage from "./pages/ContestParticipantsPage";
-import Accountant from "./pages/Accountant";
-import MonthlyReport from "./pages/MonthlyReport";
 import ServicesPage from "./pages/ServicesPage";
 import Shifts from "./pages/Shifts";
 import MainLayout from "./layouts/MainLayout";
@@ -99,13 +96,10 @@ function AppRoutes() {
         <Route path="customers" element={<PermissionGuard><Customers /></PermissionGuard>} />
         <Route path="customers/deleted" element={<PermissionGuard><DeletedCustomers /></PermissionGuard>} />
         <Route path="customers/:id/ledger" element={<PermissionGuard><CustomerLedger /></PermissionGuard>} />
-        <Route path="costs" element={<PermissionGuard><Costs /></PermissionGuard>} />
         <Route path="inventory" element={<PermissionGuard><Inventory /></PermissionGuard>} />
         <Route path="inventory-orders" element={<PermissionGuard><InventoryOrders /></PermissionGuard>} />
         <Route path="inventory-receipts" element={<PermissionGuard><InventoryReceipts /></PermissionGuard>} />
         <Route path="cleaning-notifications" element={<PermissionGuard><CleaningNotifications /></PermissionGuard>} />
-        <Route path="accountant" element={<PermissionGuard><Accountant /></PermissionGuard>} />
-        <Route path="monthly-report" element={<PermissionGuard><MonthlyReport /></PermissionGuard>} />
         <Route path="shifts" element={<PermissionGuard><Shifts /></PermissionGuard>} />
         <Route path="services" element={<PermissionGuard><ServicesPage /></PermissionGuard>} />
         <Route path="users" element={<PermissionGuard><Users /></PermissionGuard>} />

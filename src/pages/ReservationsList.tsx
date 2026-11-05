@@ -80,6 +80,7 @@ interface Reservation {
   paid_amount?: number
   checkout_reminder_sent_at?: string | null
   has_room_transfer?: boolean
+  creation_log?: { user: { id: number; name: string } | null } | null
   created_at: string
   updated_at: string
   customer: {
@@ -1105,6 +1106,12 @@ export default function ReservationsList() {
       key: 'status',
       align: 'center',
       render: (_, r) => getStatusTag(r.status),
+    },
+    {
+      title: 'سجل بواسطه',
+      key: 'created_by',
+      align: 'center',
+      render: (_, r) => <Text type="secondary">{r.creation_log?.user?.name ?? 'النظام'}</Text>,
     },
     {
       title: 'الإجراءات',

@@ -7,7 +7,7 @@ export const SHIFT_REQUIRED_EVENT = 'shift-required'
 
 // Dispatched after a successful financial write, so the shift bar's figures update without a reload
 export const SHIFT_CHANGED_EVENT = 'shift-changed'
-const FINANCIAL_WRITE_URL = /^\/?(transactions|costs|reservation-services)(\/|$)|^\/?reservations\/\d+\/check-out$/
+const FINANCIAL_WRITE_URL = /^\/?(transactions|reservation-services)(\/|$)|^\/?reservations\/\d+\/check-out$/
 
 // Define error response structure
 interface ErrorResponse {

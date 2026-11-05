@@ -46,10 +46,12 @@ export default function CreateReservationDialog({
 
   const roomBreakdown = selectedRooms.map((r: any) => {
     const rate = form.currency === 'USD' ? Number(r.price_usd ?? 0) : Number(r.price_sdg ?? 0)
-    const total =
-      form.currency === 'USD'
-        ? Number(r.total_price_usd ?? rate * nights)
-        : Number(r.total_price_sdg ?? rate * nights)
+    // Always derive the total from the nights shown right above it, rather than
+    // trusting the room's total_price_sdg/usd from the last availability search —
+    // that snapshot goes stale (still reflecting the old date range) the moment
+    // checkIn/checkOut changes without a fresh search, producing a total that
+    // doesn't match the nights count displayed next to it.
+    const total = rate * nights
     return { ...r, rate, total }
   })
 

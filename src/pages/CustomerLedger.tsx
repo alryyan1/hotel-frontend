@@ -80,19 +80,35 @@ const methodLabels: Record<string, string> = {
   fawri: 'فوري',
 }
 
+const allMethodOptions = [
+  { value: 'cash', label: methodLabels.cash },
+  { value: 'bankak', label: methodLabels.bankak },
+  { value: 'Ocash', label: methodLabels.Ocash },
+  { value: 'fawri', label: methodLabels.fawri },
+]
+
+// USD payments only ever come in as physical cash here — the local e-wallet/bank
+// methods (bankak, Ocash, fawri) are SDG-only rails.
+const methodOptionsFor = (currency?: string) =>
+  currency === 'USD' ? allMethodOptions.filter((m) => m.value === 'cash') : allMethodOptions
+
+const defaultMethodFor = (currency?: string) => (currency === 'USD' ? 'cash' : 'bankak')
+
 export default function CustomerLedger() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
-  const [finalBalance, setFinalBalance] = useState(0)
+  const [totalsByCurrency, setTotalsByCurrency] = useState<
+    Record<string, { total_debit: number; total_credit: number; total_refund: number; final_balance: number }>
+  >({})
   const [loading, setLoading] = useState(false)
   const [reservations, setReservations] = useState<CustomerReservation[]>([])
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false)
   const [paymentsModalReservationId, setPaymentsModalReservationId] = useState<number | null>(null)
   const [paymentForm, setPaymentForm] = useState({
     reservation_id: '',
-    method: 'cash',
+    method: 'bankak',
     amount: '',
     notes: '',
     reference: '',
@@ -132,7 +148,7 @@ export default function CustomerLedger() {
       const { data } = await apiClient.get(`/customers/${id}/ledger`)
       const ledgerData = data?.data || data
       setLedgerEntries(ledgerData.ledger_entries || [])
-      setFinalBalance(ledgerData.final_balance || 0)
+      setTotalsByCurrency(ledgerData.totals_by_currency || {})
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل في جلب كشف الحساب')
     } finally {
@@ -143,21 +159,22 @@ export default function CustomerLedger() {
   const fetchReservations = async () => {
     try {
       const { data } = await apiClient.get('/reservations', { params: { customer_id: id, per_page: 'all' } })
-      setReservations(data?.data || data || [])
+      const list: CustomerReservation[] = data?.data || data || []
+      setReservations([...list].sort((a, b) => b.id - a.id))
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل في جلب حجوزات العميل')
     }
   }
 
   const resetPaymentForm = () =>
-    setPaymentForm({ reservation_id: '', method: 'cash', amount: '', notes: '', reference: '' })
+    setPaymentForm({ reservation_id: '', method: 'bankak', amount: '', notes: '', reference: '' })
 
   const openPaymentFor = (reservationId: number) => {
     const reservation = reservations.find((r) => r.id === reservationId)
     const remaining = reservation ? reservationBalance(reservation) : 0
     setPaymentForm({
       reservation_id: String(reservationId),
-      method: 'cash',
+      method: defaultMethodFor(reservation?.currency),
       amount: remaining > 0 ? remaining.toString() : '',
       notes: '',
       reference: '',
@@ -257,17 +274,8 @@ export default function CustomerLedger() {
     return new Intl.NumberFormat('en-US').format(amount)
   }
 
-  const sumDebit = ledgerEntries.reduce((sum, entry) => sum + (Number(entry.debit) || 0), 0)
-  const sumCredit = ledgerEntries.reduce(
-    (sum, entry) => (entry.type !== 'payment' ? sum : sum + (Number(entry.credit) || 0)),
-    0
-  )
-  const totalRefund = ledgerEntries.reduce(
-    (sum, entry) => (entry.type !== 'refund' ? sum : sum + (Number(entry.refund_amount) || 0)),
-    0
-  )
-  const totalDebit = sumDebit - totalRefund
-  const totalCredit = sumCredit - totalRefund
+  // SDG and USD each get their own totals/balance row — never summed together.
+  const currencyTotals = Object.entries(totalsByCurrency)
 
   // Payments carry their reservation_id now, so nest them under their reservation
   // row instead of listing them as separate sibling rows in the main table.
@@ -277,6 +285,9 @@ export default function CustomerLedger() {
     }
     return acc
   }, {})
+
+  const paidForReservation = (reservationId: number): number =>
+    (paymentsByReservation[reservationId] ?? []).reduce((sum, p) => sum + (Number(p.credit) || 0), 0)
 
   // Payments without a reservation_id are legacy rows recorded before payments
   // were tied to a reservation — keep those visible at the top level.
@@ -333,7 +344,7 @@ export default function CustomerLedger() {
       },
     },
     {
-      title: 'الغرف / طريقة الدفع',
+      title: 'الغرف ',
       key: 'rooms',
       align: 'center',
       render: (_, entry) => {
@@ -368,30 +379,45 @@ export default function CustomerLedger() {
       render: (_, entry) => (entry.rate ? formatCurrency(entry.rate) : '-'),
     },
     {
-      title: 'مدين',
+      title: 'الإجمالي',
       key: 'debit',
       align: 'center',
       render: (_, entry) => (entry.debit > 0 ? formatCurrency(entry.debit) : '-'),
     },
     {
-      title: 'دائن',
+      title: 'المدفوع',
       key: 'credit',
       align: 'center',
-      render: (_, entry) =>
-        entry.credit > 0 ? (
+      render: (_, entry) => {
+        // Charge rows (reservation/service) don't carry a credit themselves — show
+        // how much has actually been paid toward that reservation so far instead
+        // of a bare "-", since that's what the column is really answering here.
+        if ((entry.type === 'reservation' || entry.type === 'service') && entry.reservation_id) {
+          const paid = paidForReservation(entry.reservation_id)
+          return paid > 0 ? formatCurrency(paid) : '-'
+        }
+        return entry.credit > 0 ? (
           <Text type={entry.type === 'refund' ? 'warning' : undefined} strong={entry.type === 'refund'}>
             {formatCurrency(entry.credit)}
           </Text>
         ) : (
           '-'
-        ),
+        )
+      },
     },
     {
-      title: 'الرصيد',
-      dataIndex: 'balance',
+      title: 'المتبقي',
       key: 'balance',
       align: 'center',
-      render: (balance) => formatCurrency(balance),
+      render: (_, entry) => {
+        // For a charge row, "remaining" is that charge minus what's actually been
+        // paid toward its reservation — not the raw chronological ledger balance,
+        // which goes stale here once payments are nested out of the main rows.
+        if ((entry.type === 'reservation' || entry.type === 'service') && entry.reservation_id) {
+          return formatCurrency(entry.debit - paidForReservation(entry.reservation_id))
+        }
+        return formatCurrency(entry.balance)
+      },
     },
     {
       title: 'إجراءات',
@@ -465,9 +491,17 @@ export default function CustomerLedger() {
               </Descriptions.Item>
             )}
             <Descriptions.Item label="الرصيد النهائي">
-              <Text strong style={{ color: '#1677ff', fontSize: 16 }}>
-                {formatCurrency(finalBalance)}
-              </Text>
+              {currencyTotals.length === 0 ? (
+                <Text strong style={{  fontSize: 16 }}>0</Text>
+              ) : (
+                <Space orientation="vertical" size={2}>
+                  {currencyTotals.map(([currency, totals]) => (
+                    <Text key={currency} strong style={{  fontSize: 16 }}>
+                      {formatCurrency(totals.final_balance)} {currency}
+                    </Text>
+                  ))}
+                </Space>
+              )}
             </Descriptions.Item>
           </Descriptions>
         </Card>
@@ -498,32 +532,36 @@ export default function CustomerLedger() {
           }}
           summary={() =>
             mainRows.length === 0 ? null : (
-              <Table.Summary.Row>
-                <Table.Summary.Cell index={0} colSpan={6} align="center">
-                  <Text strong>الإجمالي</Text>
-                </Table.Summary.Cell>
-                <Table.Summary.Cell index={1} align="center">
-                  <Text strong type="danger">
-                    {formatCurrency(totalDebit)}
-                  </Text>
-                </Table.Summary.Cell>
-                <Table.Summary.Cell index={2} align="center">
-                  <Flex vertical align="center" gap={4}>
-                    <Text strong type="success">
-                      {formatCurrency(totalCredit)}
-                    </Text>
-                    {totalRefund > 0 && (
-                      <Tag color="gold" icon={<UndoOutlined />}>
-                        مسترجع: {formatCurrency(totalRefund)}
-                      </Tag>
-                    )}
-                  </Flex>
-                </Table.Summary.Cell>
-                <Table.Summary.Cell index={3} align="center">
-                  <Text strong>{formatCurrency(finalBalance)}</Text>
-                </Table.Summary.Cell>
-                <Table.Summary.Cell index={4} align="center" />
-              </Table.Summary.Row>
+              <>
+                {currencyTotals.map(([currency, totals]) => (
+                  <Table.Summary.Row key={currency}>
+                    <Table.Summary.Cell index={0} colSpan={6} align="center">
+                      <Text strong>الإجمالي ({currency})</Text>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={1} align="center">
+                      <Text strong type="danger">
+                        {formatCurrency(totals.total_debit)}
+                      </Text>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={2} align="center">
+                      <Flex vertical align="center" gap={4}>
+                        <Text strong type="success">
+                          {formatCurrency(totals.total_credit)}
+                        </Text>
+                        {totals.total_refund > 0 && (
+                          <Tag color="gold" icon={<UndoOutlined />}>
+                            مسترجع: {formatCurrency(totals.total_refund)}
+                          </Tag>
+                        )}
+                      </Flex>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={3} align="center">
+                      <Text strong>{formatCurrency(totals.final_balance)}</Text>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={4} align="center" />
+                  </Table.Summary.Row>
+                ))}
+              </>
             )
           }
         />
@@ -578,6 +616,7 @@ export default function CustomerLedger() {
                 setPaymentForm({
                   ...paymentForm,
                   reservation_id: value,
+                  method: defaultMethodFor(reservation?.currency),
                   amount: remaining > 0 ? remaining.toString() : '',
                 })
               }}
@@ -596,12 +635,7 @@ export default function CustomerLedger() {
               value={paymentForm.method}
               onChange={(value) => setPaymentForm({ ...paymentForm, method: value })}
               style={{ width: '100%' }}
-              options={[
-                { value: 'cash', label: 'نقدي' },
-                { value: 'bankak', label: 'بنكك' },
-                { value: 'Ocash', label: 'أوكاش' },
-                { value: 'fawri', label: 'فوري' },
-              ]}
+              options={methodOptionsFor(selectedReservation?.currency)}
             />
           </div>
           <div>

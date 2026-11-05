@@ -21,7 +21,6 @@ import {
   ShoppingCart,
   ArrowDownCircle,
   Sparkles,
-  Calculator,
   ChevronRight,
   Trophy,
   Clock,
@@ -84,21 +83,6 @@ const navigationGroups = [
     title: "المالية",
     icon: <DollarSign className="size-5" />,
     items: [
-      {
-        to: "/costs",
-        label: "المصاريف",
-        icon: <DollarSign className="size-5" />,
-      },
-      {
-        to: "/accountant",
-        label: "الحسابات",
-        icon: <Calculator className="size-5" />,
-      },
-      {
-        to: "/monthly-report",
-        label: "التقرير الشهري",
-        icon: <List className="size-5" />,
-      },
       {
         to: "/shifts",
         label: "الورديات",
