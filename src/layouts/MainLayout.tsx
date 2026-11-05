@@ -22,14 +22,22 @@ import {
   ArrowDownCircle,
   Sparkles,
   ChevronRight,
-  Trophy,
   Clock,
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import NotificationServiceStatus from "@/components/NotificationServiceStatus";
 import ShiftAppBarControl from "@/components/shifts/ShiftAppBarControl";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "../contexts/AuthContext";
 import { ShiftProvider } from "../contexts/ShiftContext";
+import apiClient from "../api/axios";
 
 const drawerWidth = 250;
 
@@ -127,39 +135,13 @@ const navigationGroups = [
       },
     ],
   },
-  {
-    title: "السحب والجوائز",
-    icon: <Trophy className="size-5" />,
-    items: [
-      {
-        to: "/contest-participants",
-        label: "المشتركون في السحب",
-        icon: <Trophy className="size-5" />,
-      },
-    ],
-  },
-  {
-    title: "الإدارة",
-    icon: <Shield className="size-5" />,
-    items: [
-      {
-        to: "/users",
-        label: "المستخدمين",
-        icon: <Shield className="size-5" />,
-      },
-      {
-        to: "/settings",
-        label: "الإعدادات",
-        icon: <Settings className="size-5" />,
-      },
-    ],
-  },
 ];
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [branchName, setBranchName] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const { hasPermission, user } = useAuth();
@@ -168,6 +150,14 @@ export default function MainLayout() {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  // Branch name shown in the top bar, from hotel settings
+  useEffect(() => {
+    apiClient
+      .get("/settings/hotel")
+      .then(({ data }) => setBranchName(data?.branch_name || ""))
+      .catch(() => {});
+  }, []);
 
   // Responsive: handle mobile/desktop
   useEffect(() => {
@@ -241,8 +231,15 @@ export default function MainLayout() {
                 className="h-8 w-8 rounded-lg object-contain shadow-md"
               />
               <div>
-                <div className="font-bold text-base leading-none">
-                  نظام إدارة الفنادق
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-base leading-none">
+                    نظام إدارة الفنادق
+                  </span>
+                  {branchName && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      {branchName}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground hidden sm:block">
                   {getCurrentPageLabel()}
@@ -253,15 +250,51 @@ export default function MainLayout() {
               <ShiftAppBarControl />
               <NotificationServiceStatus />
               <NotificationBell />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-2 hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
-                onClick={handleLogout}
-              >
-                <LogOut className="size-4" />
-                <span className="hidden sm:inline">تسجيل الخروج</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 px-2 hover:bg-accent transition-all duration-200"
+                  >
+                    <span className="hidden sm:inline text-sm font-medium">
+                      {user?.name}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{user?.name}</span>
+                      {user?.is_admin && (
+                        <span className="text-xs font-normal text-primary">مدير</span>
+                      )}
+                    </div>
+                  </DropdownMenuLabel>
+                  {(hasPermission("/users") || hasPermission("/settings")) && (
+                    <>
+                      <DropdownMenuSeparator />
+                      {hasPermission("/users") && (
+                        <DropdownMenuItem onClick={() => navigate("/users")}>
+                          <Shield className="size-4" />
+                          المستخدمين
+                        </DropdownMenuItem>
+                      )}
+                      {hasPermission("/settings") && (
+                        <DropdownMenuItem onClick={() => navigate("/settings")}>
+                          <Settings className="size-4" />
+                          الإعدادات
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={handleLogout}>
+                    <LogOut className="size-4" />
+                    تسجيل الخروج
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </header>
@@ -386,33 +419,6 @@ export default function MainLayout() {
                 );
               })}
             </Menu>
-            <div
-              style={{
-                padding: "1rem",
-                borderTop: "1px solid hsl(var(--border))",
-                marginTop: "auto",
-              }}
-            >
-              {user && (
-                <div className="mb-2 px-2 py-1 rounded-md bg-accent/50 text-xs text-muted-foreground flex items-center gap-2">
-                  <Shield className="size-3 shrink-0" />
-                  <span className="truncate">
-                    {user.name}
-                    {user.is_admin && (
-                      <span className="mr-1 text-primary font-semibold">(مدير)</span>
-                    )}
-                  </span>
-                </div>
-              )}
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2"
-                onClick={handleLogout}
-              >
-                <LogOut className="size-4" />
-                <span>تسجيل الخروج</span>
-              </Button>
-            </div>
           </Sidebar>
 
           {/* Main content */}

@@ -19,6 +19,7 @@ const { Text, Title } = Typography
 export default function Settings() {
   const [form, setForm] = useState({
     official_name: '',
+    branch_name: '',
     address_line: '',
     city: '',
     phone: '',
@@ -52,6 +53,7 @@ export default function Settings() {
         if (data) {
           setForm({
             official_name: data.official_name || '',
+            branch_name: data.branch_name || '',
             address_line: data.address_line || '',
             city: data.city || '',
             phone: data.phone || '',
@@ -215,6 +217,10 @@ export default function Settings() {
             <Input value={form.official_name} onChange={(e) => updateField('official_name', e.target.value)} />
           </div>
           <div>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>اسم الفرع</Text>
+            <Input value={form.branch_name} onChange={(e) => updateField('branch_name', e.target.value)} placeholder="مثال: فرع الخرطوم" />
+          </div>
+          <div>
             <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>العنوان</Text>
             <Input value={form.address_line} onChange={(e) => updateField('address_line', e.target.value)} />
           </div>
@@ -365,6 +371,16 @@ export default function Settings() {
             event="cleaning"
             title="تنبيه النظافة عند تسجيل المغادرة"
             description="رسالة نظافة بالغرفة لكل غرفة عند تسجيل المغادرة"
+          />
+          <WhatsAppNumberList
+            event="arrivals_report"
+            title="تقرير الوصول اليومي"
+            description="يستلم ملف PDF بقائمة وصول اليوم تلقائياً الساعة 08:00 صباحاً"
+          />
+          <WhatsAppNumberList
+            event="departures_report"
+            title="تقرير المغادرة اليومي"
+            description="يستلم ملف PDF بقائمة مغادرة اليوم تلقائياً الساعة 08:00 صباحاً"
           />
         </Space>
       </div>

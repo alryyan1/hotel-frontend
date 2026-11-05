@@ -31,7 +31,6 @@ import InventoryReceipts from "./pages/InventoryReceipts";
 import CleaningNotifications from "./pages/CleaningNotifications";
 import PublicReservations from "./pages/PublicReservations";
 import GiveawayPage from "./pages/GiveawayPage";
-import ContestParticipantsPage from "./pages/ContestParticipantsPage";
 import ServicesPage from "./pages/ServicesPage";
 import Shifts from "./pages/Shifts";
 import MainLayout from "./layouts/MainLayout";
@@ -104,7 +103,6 @@ function AppRoutes() {
         <Route path="services" element={<PermissionGuard><ServicesPage /></PermissionGuard>} />
         <Route path="users" element={<PermissionGuard><Users /></PermissionGuard>} />
         <Route path="settings" element={<PermissionGuard><Settings /></PermissionGuard>} />
-        <Route path="contest-participants" element={<PermissionGuard><ContestParticipantsPage /></PermissionGuard>} />
       </Route>
       <Route
         path="*"
