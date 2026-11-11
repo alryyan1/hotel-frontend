@@ -15,6 +15,8 @@ import {
   Avatar,
   Flex,
   Segmented,
+  Popconfirm,
+  theme,
 } from "antd";
 import {
   SearchOutlined,
@@ -22,6 +24,7 @@ import {
   CheckCircleFilled,
   ClockCircleOutlined,
   ExclamationCircleFilled,
+  CloseCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { toast } from "sonner";
@@ -57,7 +60,13 @@ const formatCurrency = (value: number | string | null | undefined): string => {
   return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
 };
 
+// Maintenance/cleaning are manually-set room statuses, independent of reservations.
+const isMaintenance = (room: any): boolean => room.status?.code === "maintenance";
+const isCleaning = (room: any): boolean => room.status?.code === "cleaning";
+const isOutOfService = (room: any): boolean => isMaintenance(room) || isCleaning(room);
+
 export default function Reservations() {
+  const { token } = theme.useToken();
   const navigate = useNavigate();
   const [checkIn, setCheckIn] = useState<string>(() =>
     getDateNDaysFromToday(1)
@@ -66,9 +75,11 @@ export default function Reservations() {
     getDateNDaysFromToday(2)
   );
   const [roomTypeId, setRoomTypeId] = useState<string>("all");
-  const [occupancyFilter, setOccupancyFilter] = useState<"all" | "occupied" | "available">("all");
+  const [occupancyFilter, setOccupancyFilter] = useState<"all" | "occupied" | "available" | "maintenance">("all");
   const [allRooms, setAllRooms] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
+  const [roomStatuses, setRoomStatuses] = useState<any[]>([]);
+  const [clearingStatusRoomId, setClearingStatusRoomId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [openCreate, setOpenCreate] = useState(false);
   const [selectedRooms, setSelectedRooms] = useState<any[]>([]);
@@ -89,6 +100,7 @@ export default function Reservations() {
 
   useEffect(() => {
     fetchRoomTypes();
+    fetchRoomStatuses();
     fetchAllCustomers();
   }, []);
 
@@ -98,6 +110,39 @@ export default function Reservations() {
       setRoomTypes(data);
     } catch (e) {
       console.error("Failed to fetch room types", e);
+    }
+  };
+
+  const fetchRoomStatuses = async () => {
+    try {
+      const { data } = await apiClient.get("/room-statuses");
+      setRoomStatuses(data);
+    } catch (e) {
+      console.error("Failed to fetch room statuses", e);
+    }
+  };
+
+  // Resets a maintenance/cleaning room back to "available" without reopening
+  // the full room-edit form (Rooms page), so staff can do it inline here.
+  const clearRoomStatus = async (room: any) => {
+    const availableStatus = roomStatuses.find((s: any) => s.code === "empty");
+    if (!availableStatus) {
+      toast.error('تعذر العثور على حالة "متاح"');
+      return;
+    }
+    try {
+      setClearingStatusRoomId(room.id);
+      const { data } = await apiClient.patch(`/rooms/${room.id}/status`, {
+        room_status_id: availableStatus.id,
+      });
+      setAllRooms((prev) =>
+        prev.map((r) => (r.id === room.id ? { ...r, status: data.status } : r))
+      );
+      toast.success(`تم إلغاء حالة الغرفة ${room.number}`);
+    } catch (e) {
+      // Error toast already shown by the apiClient response interceptor
+    } finally {
+      setClearingStatusRoomId(null);
     }
   };
 
@@ -171,11 +216,16 @@ export default function Reservations() {
     () => sortedRooms.filter((r) => r.is_occupied).length,
     [sortedRooms]
   );
-  const availableCount = sortedRooms.length - occupiedCount;
+  const maintenanceCount = useMemo(
+    () => sortedRooms.filter(isOutOfService).length,
+    [sortedRooms]
+  );
+  const availableCount = sortedRooms.filter((r) => !r.is_occupied && !isOutOfService(r)).length;
 
   const filteredRooms = useMemo(() => {
     if (occupancyFilter === "occupied") return sortedRooms.filter((r) => r.is_occupied);
-    if (occupancyFilter === "available") return sortedRooms.filter((r) => !r.is_occupied);
+    if (occupancyFilter === "available") return sortedRooms.filter((r) => !r.is_occupied && !isOutOfService(r));
+    if (occupancyFilter === "maintenance") return sortedRooms.filter(isOutOfService);
     return sortedRooms;
   }, [sortedRooms, occupancyFilter]);
 
@@ -283,26 +333,51 @@ export default function Reservations() {
     selectedRooms.some((r) => r.id === roomId);
 
   const hasSearched = checkIn && checkOut;
-  // Multi-room bookings go through the single button next to the filters;
-  // the per-card button only appears for a lone selected room.
-  const isMultiSelect = selectedRooms.length > 1;
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <Card>
-        <Space align="center" style={{ marginBottom: 16 }}>
-          <SearchOutlined style={{ color: "var(--ant-color-primary, #1677ff)" }} />
-          <Title level={5} style={{ margin: 0 }}>
-            البحث عن توفر الغرف
-          </Title>
-        </Space>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={8}>
-            <Space orientation="vertical" size={4} style={{ width: "100%" }}>
-              <Text strong style={{ fontSize: 13 }}>
+      <Card size="small">
+        <Flex justify="space-between" align="center" wrap="wrap" gap={12} style={{ marginBottom: 12 }}>
+          <Space align="center" size={8}>
+            <SearchOutlined style={{ color: token.colorPrimary }} />
+            <Title level={5} style={{ margin: 0 }}>
+              البحث عن توفر الغرف
+            </Title>
+          </Space>
+          {hasSearched && sortedRooms.length > 0 && (
+            <Flex align="center" wrap="wrap" gap={12}>
+              <Text type="secondary">الغرف ({filteredRooms.length})</Text>
+              <Segmented
+                size="small"
+                value={occupancyFilter}
+                onChange={(value) => setOccupancyFilter(value as typeof occupancyFilter)}
+                options={[
+                  { label: `الكل (${sortedRooms.length})`, value: "all" },
+                  { label: `متاحة (${availableCount})`, value: "available" },
+                  { label: `محجوزة (${occupiedCount})`, value: "occupied" },
+                  { label: `تحت الصيانة (${maintenanceCount})`, value: "maintenance" },
+                ]}
+              />
+              <Button
+                type="primary"
+                size="small"
+                icon={<PlusOutlined />}
+                disabled={selectedRooms.length === 0}
+                onClick={openCreateDialog}
+              >
+                إتمام الحجز{selectedRooms.length > 0 ? ` (${selectedRooms.length} غرف)` : ""}
+              </Button>
+            </Flex>
+          )}
+        </Flex>
+        <Row gutter={[12, 8]} align="bottom">
+          <Col xs={24} md={10}>
+            <Space orientation="vertical" size={2} style={{ width: "100%" }}>
+              <Text strong style={{ fontSize: 12 }}>
                 تاريخ الوصول والمغادرة
               </Text>
               <RangePicker
+                size="middle"
                 style={{ width: "100%" }}
                 value={rangeValue}
                 format={["YYYY-MM-DD", "YYYY/MM/DD", "DD/MM/YYYY", "DD-MM-YYYY"]}
@@ -333,9 +408,9 @@ export default function Reservations() {
               />
             </Space>
           </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space orientation="vertical" size={4} style={{ width: "100%" }}>
-              <Text strong style={{ fontSize: 13 }}>
+          <Col xs={16} sm={12} md={8}>
+            <Space orientation="vertical" size={2} style={{ width: "100%" }}>
+              <Text strong style={{ fontSize: 12 }}>
                 نوع الغرفة
               </Text>
               <Select
@@ -352,65 +427,32 @@ export default function Reservations() {
               />
             </Space>
           </Col>
-          <Col xs={24} md={8}>
-            <Space orientation="vertical" size={4} style={{ width: "100%" }}>
-              <Text style={{ fontSize: 13, opacity: 0 }}>بحث</Text>
-              <Button
-                type="primary"
-                icon={<SearchOutlined />}
-                loading={loading}
-                onClick={() => searchAvailability()}
-                block
-              >
-                بحث
-              </Button>
-            </Space>
+          <Col xs={8} md={6}>
+            <Button
+              type="primary"
+              icon={<SearchOutlined />}
+              loading={loading}
+              onClick={() => searchAvailability()}
+              block
+            >
+              بحث
+            </Button>
           </Col>
         </Row>
       </Card>
 
       {hasSearched && (
-        <Card>
+        <Card size="small">
           {sortedRooms.length > 0 ? (
             <>
-              <Flex
-                justify="space-between"
-                align="center"
-                wrap="wrap"
-                gap={12}
-                style={{ marginBottom: 16 }}
-              >
-                <Title level={5} style={{ margin: 0 }}>
-                  الغرف ({filteredRooms.length})
-                </Title>
-                <Flex align="center" wrap="wrap" gap={12}>
-                  <Segmented
-                    value={occupancyFilter}
-                    onChange={(value) => setOccupancyFilter(value as typeof occupancyFilter)}
-                    options={[
-                      { label: `الكل (${sortedRooms.length})`, value: "all" },
-                      { label: `متاحة (${availableCount})`, value: "available" },
-                      { label: `محجوزة (${occupiedCount})`, value: "occupied" },
-                    ]}
-                  />
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    disabled={!isMultiSelect}
-                    onClick={openCreateDialog}
-                  >
-                    إتمام الحجز{isMultiSelect ? ` (${selectedRooms.length} غرف)` : ""}
-                  </Button>
-                </Flex>
-              </Flex>
               {filteredRooms.length === 0 ? (
                 <Empty description="لا توجد غرف مطابقة لهذا الفلتر" />
               ) : (
               <Row gutter={[16, 16]}>
                 {filteredRooms.map((room: any) => {
                   const isSelected = isRoomSelected(room.id);
-                  const showCardBookButton = isSelected && !isMultiSelect;
                   const isOccupied = !!room.is_occupied;
+                  const roomOutOfService = isOutOfService(room);
                   const currentReservation = room.current_reservation;
                   const overdue =
                     isOccupied && currentReservation
@@ -436,10 +478,11 @@ export default function Reservations() {
                         style={{
                           cursor: "pointer",
                           height: "100%",
-                          borderColor: isSelected ? "#1677ff" : "#f0f0f0",
+                          userSelect: "none",
+                          borderColor: isSelected ? token.colorPrimary : "#f0f0f0",
                           borderWidth: isSelected ? 2 : 1,
                           boxShadow: isSelected
-                            ? "0 0 0 3px rgba(22, 119, 255, 0.12)"
+                            ? `0 0 0 3px color-mix(in srgb, ${token.colorPrimary} 12%, transparent)`
                             : undefined,
                           transition: "box-shadow 0.15s, border-color 0.15s",
                         }}
@@ -451,7 +494,7 @@ export default function Reservations() {
                               shape="square"
                               size={48}
                               style={{
-                                background: isOccupied ? "#fa8c16" : "#1677ff",
+                                background: isOccupied ? "#fa8c16" : token.colorPrimary,
                                 fontWeight: 700,
                                 fontSize: 16,
                               }}
@@ -470,11 +513,34 @@ export default function Reservations() {
                             </div>
                           </Space>
                           {isSelected ? (
-                            <CheckCircleFilled style={{ color: "#1677ff", fontSize: 20 }} />
+                            <CheckCircleFilled style={{ color: token.colorPrimary, fontSize: 20 }} />
                           ) : isOccupied ? (
                             <Tag color={overdue ? "red" : "orange"} icon={<ClockCircleOutlined />} style={{ margin: 0 }}>
                               محجوز
                             </Tag>
+                          ) : roomOutOfService ? (
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <Space size={4}>
+                                <Tag color={room.status?.color} variant="solid" style={{ margin: 0 }}>
+                                  {room.status?.name}
+                                </Tag>
+                                <Popconfirm
+                                  title="إلغاء الحالة"
+                                  description={`إعادة الغرفة ${room.number} إلى متاحة؟`}
+                                  okText="إلغاء الحالة"
+                                  cancelText="تراجع"
+                                  onConfirm={() => clearRoomStatus(room)}
+                                >
+                                  <Button
+                                    size="small"
+                                    type="text"
+                                    danger
+                                    icon={<CloseCircleOutlined />}
+                                    loading={clearingStatusRoomId === room.id}
+                                  />
+                                </Popconfirm>
+                              </Space>
+                            </div>
                           ) : (
                             <Tag color="green" style={{ margin: 0 }}>متاحة</Tag>
                           )}
@@ -486,7 +552,7 @@ export default function Reservations() {
                             border: "1px solid #f0f0f0",
                             borderRadius: 8,
                             padding: "8px 12px",
-                            marginBottom: isOccupied || showCardBookButton ? 12 : 0,
+                            marginBottom: isOccupied ? 12 : 0,
                           }}
                         >
                           <Flex justify="space-between" align="baseline">
@@ -512,7 +578,7 @@ export default function Reservations() {
                           ) : (
                             <Flex justify="space-between" align="baseline" style={{ marginTop: 2 }}>
                               <div>
-                                <Text style={{ fontSize: 15, fontWeight: 700, color: "#1677ff" }}>
+                                <Text style={{ fontSize: 15, fontWeight: 700, color: token.colorPrimary }}>
                                   ${formatCurrency(room.price_usd)}
                                 </Text>
                                 <Text  style={{ fontSize: 12 }}> / ليلة</Text>
@@ -533,7 +599,6 @@ export default function Reservations() {
                               border: "1px solid #ffe58f",
                               borderRadius: 8,
                               padding: 10,
-                              marginBottom: showCardBookButton ? 12 : 0,
                             }}
                           >
                             <Flex align="center" gap={6} style={{ marginBottom: 2 }}>
@@ -548,19 +613,6 @@ export default function Reservations() {
                           </div>
                         )}
 
-                        {showCardBookButton && (
-                          <Button
-                            type="primary"
-                            block
-                            icon={<PlusOutlined />}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openCreateDialog();
-                            }}
-                          >
-                            إتمام الحجز
-                          </Button>
-                        )}
                       </Card>
                     </Col>
                   );
