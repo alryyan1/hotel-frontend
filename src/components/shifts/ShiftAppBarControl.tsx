@@ -36,7 +36,7 @@ export default function ShiftAppBarControl() {
     <div className="flex items-center gap-2">
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center gap-1.5 rounded-lg border border-emerald-300/60 bg-emerald-50 px-2.5 py-1.5 text-sm text-emerald-900 whitespace-nowrap">
+          <div className="flex items-center gap-1.5 rounded-lg border border-emerald-300/60 px-2.5 py-1.5 text-sm text-emerald-900 whitespace-nowrap">
             <Clock className="size-4 shrink-0" />
             <span className="hidden md:inline">
               وردية #{shift.id} — منذ {formatShiftDateTime(shift.opened_at)} — {shift.opener?.name}
