@@ -1,56 +1,42 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import apiClient from "../api/axios";
 import {
-  Box,
-  Button,
-  TextField,
   Card,
-  CardContent,
-  CardHeader,
-  Typography,
-  Stack,
-  Grid,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Chip,
-  IconButton,
-  InputAdornment,
-  CircularProgress,
-  Pagination,
-} from "@mui/material";
+  Input,
+  Button,
+  Tag,
+  Space,
+  Typography,
+  Modal,
+  Select,
+  DatePicker,
+  Row,
+  Col,
+  Divider,
+  Segmented,
+  Empty,
+} from "antd";
+import type { ColumnsType } from "antd/es/table";
 import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  People as PeopleIcon,
-  Phone as PhoneIcon,
-  CalendarToday as CalendarIcon,
-  Person as PersonIcon,
-  Description as FileTextIcon,
-  Upload as UploadIcon,
-  Download as DownloadIcon,
-  Close as CloseIcon,
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
-  DeleteSweep as DeleteSweepIcon,
-} from "@mui/icons-material";
+  SearchOutlined,
+  PlusOutlined,
+  EditOutlined,
+  TeamOutlined,
+  PhoneOutlined,
+  CalendarOutlined,
+  UserOutlined,
+  BankOutlined,
+  FileTextOutlined,
+  IdcardOutlined,
+} from "@ant-design/icons";
 import { toast } from "sonner";
 import CreateCustomerDialog from "@/components/dialogs/CreateCustomerDialog";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+
+const { Text, Title } = Typography;
 
 interface Customer {
   id: number;
@@ -64,9 +50,6 @@ interface Customer {
   email?: string;
   contact_name_1?: string;
   contact_name_2?: string;
-  document_path?: string;
-  total_debit?: string | number;
-  total_credit?: string | number;
   created_at: string;
   updated_at: string;
 }
@@ -102,10 +85,6 @@ export default function Customers() {
     contact_name_1: "",
     contact_name_2: "",
   });
-  const [uploadingDocument, setUploadingDocument] = useState<number | null>(
-    null,
-  );
-  const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
@@ -193,7 +172,7 @@ export default function Customers() {
     try {
       setLoading(true);
       const payload = { ...customerForm };
-      const { data } = await apiClient.post("/customers", payload);
+      await apiClient.post("/customers", payload);
       setOpenCreate(false);
       setCustomerForm({
         name: "",
@@ -255,22 +234,6 @@ export default function Customers() {
     }
   };
 
-  const handleDeleteCustomer = async (customer: Customer) => {
-    if (!confirm(`هل أنت متأكد من حذف العميل "${customer.name}"؟`)) return;
-
-    try {
-      setLoading(true);
-      await apiClient.delete(`/customers/${customer.id}`);
-      toast.success("تم حذف العميل بنجاح");
-      // Refresh the list
-      await fetchCustomers();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "فشل حذف العميل");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const openEditDialog = (customer: Customer) => {
     setSelectedCustomer(customer);
     setCustomerForm({
@@ -288,561 +251,155 @@ export default function Customers() {
     setOpenEdit(true);
   };
 
-  // Search is now handled server-side, so we just use the customers from the API
-  const filteredCustomers = customers;
-
   const formatDate = (dateString: string) => {
     return dayjs(dateString).format("DD/MM/YYYY");
   };
 
-  const formatCurrency = (amount: number | string | undefined | null) => {
-    const num = Number(amount) || 0;
-    return new Intl.NumberFormat("en-US").format(num);
-  };
+  const isCompanyForm = customerForm.type === "company";
 
-  const getGenderLabel = (gender?: string) => {
-    switch (gender) {
-      case "male":
-        return "ذكر";
-      case "female":
-        return "أنثى";
-      default:
-        return "غير محدد";
-    }
-  };
-
-  const getGenderColor = (
-    gender?: string,
-  ): "default" | "secondary" | "primary" => {
-    switch (gender) {
-      case "male":
-        return "primary";
-      case "female":
-        return "secondary";
-      default:
-        return "default";
-    }
-  };
-
-  const handleFileUpload = async (customer: Customer, file: File) => {
-    if (file.type !== "application/pdf") {
-      toast.error("يرجى رفع ملف PDF فقط");
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("حجم الملف يجب أن يكون أقل من 10 ميجابايت");
-      return;
-    }
-
-    try {
-      setUploadingDocument(customer.id);
-      const formData = new FormData();
-      formData.append("document", file);
-
-      const { data } = await apiClient.post(
-        `/customers/${customer.id}/document`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        },
-      );
-
-      // Update customer in the list
-      setCustomers((prev) =>
-        prev.map((c) =>
-          c.id === customer.id
-            ? { ...c, document_path: data.document_path }
-            : c,
+  const columns: ColumnsType<Customer> = [
+    {
+      title: "الاسم",
+      dataIndex: "name",
+      align: "center",
+      render: (_, customer) => (
+        <div>
+          <Text strong>{customer.name}</Text>
+          {customer.type === "company" &&
+            (customer.contact_name_1 || customer.contact_name_2) && (
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {[customer.contact_name_1, customer.contact_name_2]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </Text>
+              </div>
+            )}
+        </div>
+      ),
+    },
+    {
+      title: "النوع",
+      dataIndex: "type",
+      align: "center",
+      render: (_, customer) => (
+        <Tag color={customer.type === "company" ? "purple" : "blue"}>
+          {customer.type === "company" ? "شركة" : "عميل عادي"}
+        </Tag>
+      ),
+    },
+    {
+      title: "الهاتف",
+      dataIndex: "phone",
+      align: "center",
+      render: (_, customer) =>
+        customer.phone ? (
+          <Space size={4}>
+            <PhoneOutlined />
+            {customer.phone}
+          </Space>
+        ) : (
+          <Text type="secondary">غير محدد</Text>
         ),
-      );
-
-      toast.success("تم رفع المستند بنجاح");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "فشل رفع المستند");
-    } finally {
-      setUploadingDocument(null);
-    }
-  };
-
-  const handleDeleteDocument = async (customer: Customer) => {
-    if (!confirm(`هل أنت متأكد من حذف المستند للعميل "${customer.name}"؟`))
-      return;
-
-    try {
-      setUploadingDocument(customer.id);
-      await apiClient.delete(`/customers/${customer.id}/document`);
-
-      setCustomers((prev) =>
-        prev.map((c) =>
-          c.id === customer.id ? { ...c, document_path: undefined } : c,
-        ),
-      );
-
-      toast.success("تم حذف المستند بنجاح");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "فشل حذف المستند");
-    } finally {
-      setUploadingDocument(null);
-    }
-  };
-
-  const handleDownloadDocument = async (customer: Customer) => {
-    try {
-      const response = await apiClient.get(
-        `/customers/${customer.id}/document`,
-        {
-          responseType: "blob",
-        },
-      );
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `customer_${customer.id}_document.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "فشل تحميل المستند");
-    }
-  };
+    },
+    {
+      title: "تاريخ الإنشاء",
+      dataIndex: "created_at",
+      align: "center",
+      render: (_, customer) => (
+        <Space size={4}>
+          <CalendarOutlined />
+          {formatDate(customer.created_at)}
+        </Space>
+      ),
+    },
+    {
+      title: "الإجراءات",
+      align: "center",
+      render: (_, customer) => (
+        <Space size={4}>
+          <Button
+            size="small"
+            icon={<FileTextOutlined />}
+            onClick={() => navigate(`/customers/${customer.id}/ledger`)}
+          >
+            كشف
+          </Button>
+          <Button
+            size="small"
+            type="text"
+            icon={<EditOutlined />}
+            onClick={() => openEditDialog(customer)}
+          />
+        </Space>
+      ),
+    },
+  ];
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 3, p: 1 }}>
-      {/* Page Header */}
-
-      <Card sx={{ boxShadow: 3 }}>
-        <CardHeader
-          title={
-            <Stack direction="row" spacing={1} alignItems="center">
-              <PeopleIcon color="primary" />
-              <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                قائمة العملاء ({paginationMeta.total})
-              </Typography>
-            </Stack>
-          }
-          action={
-            <Stack direction="row" spacing={1}>
-              {user?.is_admin && (
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  startIcon={<DeleteSweepIcon />}
-                  onClick={() => navigate("/customers/deleted")}
-                >
-                  المحذوفون
-                </Button>
-              )}
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setOpenCreate(true)}
-                sx={{ boxShadow: 2 }}
-              >
-                عميل جديد
-              </Button>
-            </Stack>
-          }
-        />
-        <CardContent>
-          <Box sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              placeholder="البحث بالاسم، الهاتف، أو الرقم الوطني..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              size="small"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-
-          <Box
-            sx={{
-              border: 1,
-              borderColor: "divider",
-              borderRadius: 1,
-              overflow: "hidden",
-            }}
-          >
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                    الاسم
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                    النوع
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                    الهاتف
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                    مدين
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                    دائن
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                    الرصيد
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                    المستند
-                  </TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold" }}>
-                    الإجراءات
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading && customers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <CircularProgress />
-                    </TableCell>
-                  </TableRow>
-                ) : filteredCustomers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <PersonIcon
-                        sx={{ fontSize: 48, mb: 2, opacity: 0.5 }}
-                        color="action"
-                      />
-                      <Typography
-                        variant="body1"
-                        color="text.secondary"
-                        display="block"
-                      >
-                        لا يوجد عملاء
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                        display="block"
-                      >
-                        {searchTerm
-                          ? "لا توجد نتائج للبحث"
-                          : "ابدأ بإضافة عميل جديد"}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredCustomers.map((customer) => (
-                    <TableRow key={customer.id}>
-                      <TableCell align="center">
-                        <Typography sx={{ fontWeight: 500 }}>{customer.name}</Typography>
-                        {customer.type === "company" && (customer.contact_name_1 || customer.contact_name_2) && (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {[customer.contact_name_1, customer.contact_name_2].filter(Boolean).join(" • ")}
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip
-                          label={
-                            customer.type === "company" ? "شركة" : "عميل عادي"
-                          }
-                          color={
-                            customer.type === "company" ? "secondary" : "primary"
-                          }
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        {customer.phone ? (
-                          <Stack
-                            direction="row"
-                            spacing={0.5}
-                            alignItems="center"
-                            justifyContent="center"
-                          >
-                            <PhoneIcon sx={{ fontSize: 14 }} color="action" />
-                            {customer.phone}
-                          </Stack>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            غير محدد
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{ color: "error.main", fontWeight: 600 }}
-                      >
-                        {formatCurrency(customer.total_debit)}
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{ color: "success.main", fontWeight: 600 }}
-                      >
-                        {formatCurrency(customer.total_credit)}
-                      </TableCell>
-                      <TableCell
-                        align="center"
-                        sx={{
-                          fontWeight: 700,
-                          color:
-                            Number(customer.total_debit || 0) -
-                              Number(customer.total_credit || 0) >
-                            0
-                              ? "error.main"
-                              : "success.main",
-                        }}
-                      >
-                        {formatCurrency(
-                          Number(customer.total_debit || 0) -
-                            Number(customer.total_credit || 0),
-                        )}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack
-                          direction="row"
-                          spacing={0.5}
-                          justifyContent="center"
-                        >
-                          {customer.document_path ? (
-                            <>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={<DownloadIcon />}
-                                onClick={() => handleDownloadDocument(customer)}
-                                sx={{
-                                  color: "success.main",
-                                  borderColor: "success.main",
-                                  "&:hover": {
-                                    borderColor: "success.dark",
-                                    bgcolor: "success.light",
-                                  },
-                                }}
-                              >
-                                تحميل
-                              </Button>
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={<CloseIcon />}
-                                onClick={() => handleDeleteDocument(customer)}
-                                disabled={uploadingDocument === customer.id}
-                                sx={{
-                                  color: "error.main",
-                                  borderColor: "error.main",
-                                  "&:hover": {
-                                    borderColor: "error.dark",
-                                    bgcolor: "error.light",
-                                  },
-                                }}
-                              >
-                                حذف
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <input
-                                ref={(el) => {
-                                  if (el) {
-                                    fileInputRefs.current[customer.id] = el;
-                                  }
-                                }}
-                                type="file"
-                                accept=".pdf"
-                                style={{ display: "none" }}
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    handleFileUpload(customer, file);
-                                  }
-                                  // Reset input to allow selecting the same file again
-                                  e.target.value = "";
-                                }}
-                                disabled={uploadingDocument === customer.id}
-                              />
-                              <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={
-                                  uploadingDocument === customer.id ? (
-                                    <CircularProgress size={14} />
-                                  ) : (
-                                    <UploadIcon />
-                                  )
-                                }
-                                disabled={uploadingDocument === customer.id}
-                                onClick={() => {
-                                  fileInputRefs.current[customer.id]?.click();
-                                }}
-                                sx={{
-                                  color: "info.main",
-                                  borderColor: "info.main",
-                                  "&:hover": {
-                                    borderColor: "info.dark",
-                                    bgcolor: "info.light",
-                                  },
-                                }}
-                              >
-                                {uploadingDocument === customer.id
-                                  ? "جاري الرفع..."
-                                  : "رفع مستند"}
-                              </Button>
-                            </>
-                          )}
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack
-                          direction="row"
-                          spacing={0.5}
-                          alignItems="center"
-                          justifyContent="center"
-                        >
-                          <CalendarIcon sx={{ fontSize: 14 }} color="action" />
-                          {formatDate(customer.created_at)}
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack
-                          direction="row"
-                          spacing={0.5}
-                          justifyContent="center"
-                        >
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<FileTextIcon sx={{ fontSize: "1rem !important" }} />}
-                            onClick={() =>
-                              navigate(`/customers/${customer.id}/ledger`)
-                            }
-                            sx={{
-                              py: 0,
-                              px: 1,
-                              minWidth: "auto",
-                              fontSize: "0.75rem",
-                              color: "info.main",
-                              borderColor: "info.main",
-                              "&:hover": {
-                                borderColor: "info.dark",
-                                bgcolor: "info.light",
-                              },
-                            }}
-                          >
-                            كشف
-                          </Button>
-                          <IconButton
-                            size="small"
-                            onClick={() => openEditDialog(customer)}
-                            color="primary"
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          {(user?.is_admin || user?.permissions?.includes('/customers/delete')) && (
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteCustomer(customer)}
-                              color="error"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          )}
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Box>
-
-          {!loading && filteredCustomers.length > 0 && (
-            <Box
-              sx={{
-                mt: 3,
-                display: "flex",
-                flexDirection: { xs: "column", sm: "row" },
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 2,
-              }}
+    <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: 8 }}>
+      <Card
+        title={
+          <Space>
+            <TeamOutlined style={{ color: "#1677ff" }} />
+            <Title level={5} style={{ margin: 0 }}>
+              قائمة العملاء ({paginationMeta.total})
+            </Title>
+          </Space>
+        }
+        extra={
+          <Space>
+          
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setOpenCreate(true)}
             >
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="body2" color="text.secondary">
-                  عرض:
-                </Typography>
-                <FormControl size="small" sx={{ minWidth: 80 }}>
-                  <Select
-                    value={perPage}
-                    onChange={(e) => {
-                      setPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    sx={{ "& .MuiSelect-select": { py: 1 } }}
-                  >
-                    {[10, 20, 50, 100].map((value) => (
-                      <MenuItem key={value} value={value}>
-                        {value}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
-                >
-                  من أصل {paginationMeta.total}
-                </Typography>
-              </Stack>
+              عميل جديد
+            </Button>
+          </Space>
+        }
+      >
+        <Input
+          placeholder="البحث بالاسم، الهاتف، أو الرقم الوطني..."
+          prefix={<SearchOutlined />}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          allowClear
+          style={{ marginBottom: 16 }}
+        />
 
-              <Stack direction="row" spacing={1} alignItems="center">
-                <IconButton
-                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  disabled={paginationMeta.current_page === 1}
-                  size="small"
-                  sx={{ border: 1, borderColor: "divider" }}
-                >
-                  <ChevronRightIcon />
-                </IconButton>
-
-                <Pagination
-                  count={paginationMeta.last_page}
-                  page={paginationMeta.current_page}
-                  onChange={(_, page) => setCurrentPage(page)}
-                  color="primary"
-                  size="medium"
-                  showFirstButton
-                  showLastButton
-                  siblingCount={1}
-                  boundaryCount={1}
-                />
-
-                <IconButton
-                  onClick={() =>
-                    setCurrentPage((p) =>
-                      Math.min(p + 1, paginationMeta.last_page),
-                    )
-                  }
-                  disabled={
-                    paginationMeta.current_page === paginationMeta.last_page
-                  }
-                  size="small"
-                  sx={{ border: 1, borderColor: "divider" }}
-                >
-                  <ChevronLeftIcon />
-                </IconButton>
-              </Stack>
-            </Box>
-          )}
-        </CardContent>
+        <Table<Customer>
+          columns={columns}
+          dataSource={customers}
+          rowKey="id"
+          loading={loading}
+          locale={{
+            emptyText: (
+              <Empty
+                description={
+                  searchTerm ? "لا توجد نتائج للبحث" : "ابدأ بإضافة عميل جديد"
+                }
+              />
+            ),
+          }}
+          pagination={{
+            current: paginationMeta.current_page,
+            pageSize: paginationMeta.per_page,
+            total: paginationMeta.total,
+            showSizeChanger: true,
+            pageSizeOptions: [10, 20, 50, 100],
+            showTotal: (total) => `من أصل ${total}`,
+            onChange: (page, pageSize) => {
+              setCurrentPage(page);
+              if (pageSize !== perPage) {
+                setPerPage(pageSize);
+                setCurrentPage(1);
+              }
+            },
+          }}
+          scroll={{ x: "max-content" }}
+        />
       </Card>
 
       <CreateCustomerDialog
@@ -854,189 +411,186 @@ export default function Customers() {
         loading={loading}
       />
 
-      <Dialog
+      <Modal
         open={openEdit}
-        onClose={() => setOpenEdit(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>تعديل العميل</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            تحديث بيانات العميل
-          </Typography>
-          <Grid container spacing={2} sx={{ mt: 0.5 }}>
-            <Grid size={{ xs: 12 }}>
-              <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-                <InputLabel id="type-select-label">فئة العميل</InputLabel>
-                <Select
-                  labelId="type-select-label"
-                  value={customerForm.type}
-                  onChange={(e) =>
-                    setCustomerForm({ ...customerForm, type: e.target.value })
-                  }
-                  label="فئة العميل"
-                >
-                  <MenuItem value="individual">عميل عادي</MenuItem>
-                  <MenuItem value="company">شركة</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label={customerForm.type === "company" ? "اسم الشركة" : "الاسم"}
-                value={customerForm.name}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, name: e.target.value })
-                }
-                size="small"
-              />
-            </Grid>
-
-            {customerForm.type === "company" && (
-              <>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    fullWidth
-                    label="اسم العميل 1"
-                    value={customerForm.contact_name_1}
-                    onChange={(e) =>
-                      setCustomerForm({ ...customerForm, contact_name_1: e.target.value })
-                    }
-                    size="small"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    fullWidth
-                    label="اسم العميل 2"
-                    value={customerForm.contact_name_2}
-                    onChange={(e) =>
-                      setCustomerForm({ ...customerForm, contact_name_2: e.target.value })
-                    }
-                    size="small"
-                  />
-                </Grid>
-              </>
-            )}
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="الهاتف"
-                value={customerForm.phone}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, phone: e.target.value })
-                }
-                size="small"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label={
-                  customerForm.type === "company"
-                    ? "رقم السجل التجاري"
-                    : "الرقم الوطني"
-                }
-                value={customerForm.national_id}
-                onChange={(e) =>
-                  setCustomerForm({
-                    ...customerForm,
-                    national_id: e.target.value,
-                  })
-                }
-                size="small"
-              />
-            </Grid>
-
-            {customerForm.type === "company" && (
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="البريد الالكتروني"
-                  value={customerForm.email}
-                  onChange={(e) =>
-                    setCustomerForm({ ...customerForm, email: e.target.value })
-                  }
-                  size="small"
-                />
-              </Grid>
-            )}
-
-            {customerForm.type === "company" && (
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="العنوان"
-                  value={customerForm.address}
-                  onChange={(e) =>
-                    setCustomerForm({ ...customerForm, address: e.target.value })
-                  }
-                  size="small"
-                />
-              </Grid>
-            )}
-
-            {customerForm.type === "individual" && (
-              <>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <TextField
-                    fullWidth
-                    type="date"
-                    label="تاريخ الميلاد"
-                    value={customerForm.date_of_birth}
-                    onChange={(e) =>
-                      setCustomerForm({
-                        ...customerForm,
-                        date_of_birth: e.target.value,
-                      })
-                    }
-                    size="small"
-                    InputLabelProps={{
-                      shrink: true,
-                    }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel id="gender-select-label">النوع</InputLabel>
-                    <Select
-                      labelId="gender-select-label"
-                      value={customerForm.gender}
-                      onChange={(e) =>
-                        setCustomerForm({
-                          ...customerForm,
-                          gender: e.target.value,
-                        })
-                      }
-                      label="النوع"
-                    >
-                      <MenuItem value="male">ذكر</MenuItem>
-                      <MenuItem value="female">أنثى</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </>
-            )}
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenEdit(false)} variant="outlined">
+        onCancel={() => setOpenEdit(false)}
+        title="تعديل العميل"
+        width={640}
+        closable={!loading}
+        maskClosable={!loading}
+        footer={[
+          <Button key="cancel" onClick={() => setOpenEdit(false)} disabled={loading}>
             إلغاء
-          </Button>
+          </Button>,
           <Button
+            key="submit"
+            type="primary"
+            loading={loading}
             onClick={handleEditCustomer}
-            disabled={loading}
-            variant="contained"
           >
-            {loading ? <CircularProgress size={16} /> : "حفظ التغييرات"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+            حفظ التغييرات
+          </Button>,
+        ]}
+      >
+        <Text type="secondary">تحديث بيانات العميل</Text>
+
+        <Divider titlePlacement="end" plain style={{ margin: "16px 0" }}>
+          فئة العميل
+        </Divider>
+        <Segmented
+          value={customerForm.type}
+          onChange={(value) =>
+            setCustomerForm({ ...customerForm, type: value as string })
+          }
+          block
+          options={[
+            { label: "عميل عادي", value: "individual", icon: <UserOutlined /> },
+            { label: "شركة", value: "company", icon: <BankOutlined /> },
+          ]}
+        />
+
+        <Divider titlePlacement="end" plain style={{ margin: "20px 0 16px" }}>
+          {isCompanyForm ? "بيانات الشركة" : "المعلومات الشخصية"}
+        </Divider>
+        <Row gutter={[16, 16]}>
+          <Col span={24}>
+            <Input
+              placeholder={isCompanyForm ? "اسم الشركة" : "الاسم الكامل"}
+              prefix={isCompanyForm ? <BankOutlined /> : <UserOutlined />}
+              value={customerForm.name}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, name: e.target.value })
+              }
+            />
+          </Col>
+
+          {isCompanyForm && (
+            <>
+              <Col xs={24} sm={12}>
+                <Input
+                  placeholder="اسم العميل 1"
+                  prefix={<UserOutlined />}
+                  value={customerForm.contact_name_1}
+                  onChange={(e) =>
+                    setCustomerForm({
+                      ...customerForm,
+                      contact_name_1: e.target.value,
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12}>
+                <Input
+                  placeholder="اسم العميل 2"
+                  prefix={<UserOutlined />}
+                  value={customerForm.contact_name_2}
+                  onChange={(e) =>
+                    setCustomerForm({
+                      ...customerForm,
+                      contact_name_2: e.target.value,
+                    })
+                  }
+                />
+              </Col>
+            </>
+          )}
+
+          <Col xs={24} sm={12}>
+            <Input
+              placeholder="رقم الهاتف"
+              prefix={<PhoneOutlined />}
+              value={customerForm.phone}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, phone: e.target.value })
+              }
+            />
+          </Col>
+          <Col xs={24} sm={12}>
+            <Input
+              placeholder={isCompanyForm ? "رقم السجل التجاري" : "الرقم الوطني"}
+              prefix={<IdcardOutlined />}
+              value={customerForm.national_id}
+              onChange={(e) =>
+                setCustomerForm({
+                  ...customerForm,
+                  national_id: e.target.value,
+                })
+              }
+            />
+          </Col>
+
+          {isCompanyForm && (
+            <Col span={24}>
+              <Input
+                type="email"
+                placeholder="البريد الالكتروني"
+                value={customerForm.email}
+                onChange={(e) =>
+                  setCustomerForm({ ...customerForm, email: e.target.value })
+                }
+              />
+            </Col>
+          )}
+        </Row>
+
+        {isCompanyForm && (
+          <>
+            <Divider titlePlacement="end" plain style={{ margin: "20px 0 16px" }}>
+              العنوان
+            </Divider>
+            <Input.TextArea
+              placeholder="العنوان الكامل"
+              value={customerForm.address}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, address: e.target.value })
+              }
+              rows={3}
+            />
+          </>
+        )}
+
+        {!isCompanyForm && (
+          <>
+            <Divider titlePlacement="end" plain style={{ margin: "20px 0 16px" }}>
+              معلومات إضافية
+            </Divider>
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12}>
+                <DatePicker
+                  placeholder="تاريخ الميلاد"
+                  suffixIcon={<CalendarOutlined />}
+                  style={{ width: "100%" }}
+                  value={
+                    customerForm.date_of_birth
+                      ? dayjs(customerForm.date_of_birth)
+                      : null
+                  }
+                  onChange={(_, dateString) =>
+                    setCustomerForm({
+                      ...customerForm,
+                      date_of_birth: (dateString as string) || "",
+                    })
+                  }
+                />
+              </Col>
+              <Col xs={24} sm={12}>
+                <Select
+                  placeholder="النوع"
+                  style={{ width: "100%" }}
+                  value={customerForm.gender || undefined}
+                  onChange={(value) =>
+                    setCustomerForm({ ...customerForm, gender: value })
+                  }
+                  options={[
+                    { value: "male", label: "ذكر" },
+                    { value: "female", label: "أنثى" },
+                  ]}
+                />
+              </Col>
+            </Row>
+          </>
+        )}
+      </Modal>
+    </div>
   );
 }
