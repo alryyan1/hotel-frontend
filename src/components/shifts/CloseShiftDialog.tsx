@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import apiClient from "@/api/axios";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { openShiftPdf, type CurrentShiftResponse } from "@/api/shifts";
 import ShiftMethodTable from "./ShiftMethodTable";
+import ShiftServicesTable from "./ShiftServicesTable";
 
 interface Props {
   open: boolean;
@@ -46,7 +48,7 @@ export default function CloseShiftDialog({ open, onOpenChange, current, onClosed
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent dir="rtl" className="sm:max-w-2xl">
+      <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-[calc(100%-2rem)] md:max-w-4xl">
         <DialogHeader>
           <DialogTitle>إغلاق الوردية #{current.shift?.id}</DialogTitle>
           <DialogDescription>
@@ -54,7 +56,17 @@ export default function CloseShiftDialog({ open, onOpenChange, current, onClosed
           </DialogDescription>
         </DialogHeader>
 
-        {current.summary && <ShiftMethodTable summary={current.summary} />}
+        {current.summary && (
+          <>
+            <ShiftMethodTable summary={current.summary} />
+            {current.summary.services_breakdown && current.summary.services_breakdown.length > 0 && (
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">الخدمات</h3>
+                <ShiftServicesTable services={current.summary.services_breakdown} />
+              </section>
+            )}
+          </>
+        )}
 
         <div className="space-y-1">
           <Label htmlFor="shift-notes">ملاحظات</Label>
@@ -66,6 +78,7 @@ export default function CloseShiftDialog({ open, onOpenChange, current, onClosed
             إلغاء
           </Button>
           <Button onClick={handleClose} disabled={saving}>
+            {saving && <Loader2 className="size-4 animate-spin" />}
             {saving ? "جارٍ الإغلاق..." : "إغلاق الوردية وطباعة التقرير"}
           </Button>
         </DialogFooter>

@@ -51,6 +51,7 @@ export default function CreateRoomDialog({
     let values
     try {
       values = await form.validateFields()
+      values.price_usd = values.price_usd ?? null
     } catch {
       return
     }
@@ -115,9 +116,9 @@ export default function CreateRoomDialog({
           </Col>
           <Col xs={24} sm={12}>
             <Form.Item
-              label="السعر بالدولار / ليلة"
+              label="السعر بالدولار / ليلة (اختياري)"
               name="price_usd"
-              rules={[{ required: true, type: 'number', min: 0, message: 'السعر بالدولار مطلوب' }]}
+              rules={[{ type: 'number', min: 0, message: 'السعر بالدولار غير صالح' }]}
             >
               <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="$" />
             </Form.Item>
@@ -126,7 +127,17 @@ export default function CreateRoomDialog({
             <Form.Item
               label="السعر بالجنيه / ليلة"
               name="price_sdg"
-              rules={[{ required: true, type: 'number', min: 0, message: 'السعر بالجنيه مطلوب' }]}
+              dependencies={['price_usd']}
+              rules={[
+                ({ getFieldValue }) => ({
+                  required: true,
+                  type: 'number',
+                  min: 0,
+                  message: getFieldValue('price_usd') != null
+                    ? 'السعر بالجنيه مطلوب عند إدخال السعر بالدولار'
+                    : 'السعر بالجنيه مطلوب',
+                }),
+              ]}
             >
               <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="ج.س" />
             </Form.Item>

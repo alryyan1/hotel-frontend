@@ -11,13 +11,15 @@ import {
   Select,
   DatePicker,
   Input,
-  InputNumber,
   Space,
   Typography,
   Alert,
   Tooltip,
   Spin,
   Timeline,
+  Badge,
+  Popconfirm,
+  InputNumber,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -28,13 +30,15 @@ import {
   LogoutOutlined,
   CalendarOutlined,
   DownloadOutlined,
-  CustomerServiceOutlined,
   SwapOutlined,
   WarningOutlined,
   WhatsAppOutlined,
   FilePdfOutlined,
   MessageOutlined,
   HistoryOutlined,
+  MoreOutlined,
+  PlusOutlined,
+  DeleteOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
@@ -80,6 +84,7 @@ interface Reservation {
   paid_amount?: number
   checkout_reminder_sent_at?: string | null
   has_room_transfer?: boolean
+  services_count?: number
   creation_log?: { user: { id: number; name: string } | null } | null
   created_at: string
   updated_at: string
@@ -105,6 +110,15 @@ interface Reservation {
       currency: string
       check_in_date?: string | null
       check_out_date?: string | null
+    }
+  }>
+  transferred_rooms?: Array<{
+    id: number
+    number: string
+    pivot: {
+      check_in_date: string
+      check_out_date: string
+      transferred_to_room_id: number | null
     }
   }>
   transactions?: Array<{
@@ -135,6 +149,14 @@ interface Customer {
 // A reservation bills in a single fixed currency; pick the matching room price.
 const roomRateFor = (room: { price_usd: number; price_sdg: number }, currency: string): number =>
   currency === 'USD' ? Number(room.price_usd ?? 0) : Number(room.price_sdg ?? 0)
+
+const paymentMethodLabels: Record<string, string> = { cash: 'نقدي', bankak: 'بنكك', Ocash: 'أوكاش', fawri: 'فوري' }
+
+// e.g. "10/11/2026 03:45 م" — 12-hour clock with an Arabic صباحاً/مساءً marker.
+const formatDateTime12h = (value: string) => {
+  const d = dayjs(value)
+  return `${d.format('DD/MM/YYYY hh:mm')} ${d.hour() < 12 ? 'ص' : 'م'}`
+}
 
 const statusConfig: Record<Reservation['status'], { label: string; color: string; icon: any }> = {
   pending: { label: 'في الانتظار', color: 'gold', icon: ClockCircleOutlined },
@@ -187,15 +209,24 @@ export default function ReservationsList() {
   const [occupiedRoomsError, setOccupiedRoomsError] = useState<any>(null)
   const [openOccupiedRoomsDialog, setOpenOccupiedRoomsDialog] = useState(false)
   const [openExtend, setOpenExtend] = useState(false)
+  const [actionsReservation, setActionsReservation] = useState<Reservation | null>(null)
   const [newCheckOutDate, setNewCheckOutDate] = useState<string>('')
   const [extensionLoading, setExtensionLoading] = useState(false)
   const [openService, setOpenService] = useState(false)
   const [availableServices, setAvailableServices] = useState<any[]>([])
-  const [serviceForm, setServiceForm] = useState({ room_id: '', service_id: '', amount: '', payment_method: 'cash', notes: '' })
+  const [serviceForm, setServiceForm] = useState<{ room_id: string; service_id: string; quantity: number; price: number | null; price_currency: 'SDG' | 'USD'; notes: string }>({ room_id: '', service_id: '', quantity: 1, price: null, price_currency: 'SDG', notes: '' })
   const [serviceLoading, setServiceLoading] = useState(false)
+  const [serviceSearch, setServiceSearch] = useState('')
+  const [creatingService, setCreatingService] = useState(false)
+  const [servicesListReservation, setServicesListReservation] = useState<Reservation | null>(null)
+  const [reservationServices, setReservationServices] = useState<any[]>([])
+  const [reservationServicesLoading, setReservationServicesLoading] = useState(false)
+  const [deletingServiceId, setDeletingServiceId] = useState<number | null>(null)
+  const [payingService, setPayingService] = useState<any>(null)
+  const [payForm, setPayForm] = useState<{ amount: number | null; currency: 'SDG' | 'USD'; payment_method: string }>({ amount: null, currency: 'SDG', payment_method: 'cash' })
+  const [payLoading, setPayLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [perPage, setPerPage] = useState(20)
-  const [refundMethod, setRefundMethod] = useState('cash')
   const [totalPages, setTotalPages] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [openEditReservation, setOpenEditReservation] = useState(false)
@@ -315,7 +346,6 @@ export default function ReservationsList() {
       } else {
         setCustomerBalance(null)
       }
-      setRefundMethod('cash')
       setOpenConfirm(true)
       return
     }
@@ -365,9 +395,7 @@ export default function ReservationsList() {
               }
             )
           }
-          const checkoutData = await apiClient.post(`/reservations/${reservation.id}/check-out`, {
-            refund_method: refundMethod
-          })
+          const checkoutData = await apiClient.post(`/reservations/${reservation.id}/check-out`)
           updatedReservation = checkoutData.data
           toast.success('تم تسجيل المغادرة بنجاح')
           break
@@ -397,6 +425,7 @@ export default function ReservationsList() {
         setReservations(prev => prev.map(r => {
           if (r.id === reservation.id) {
             return {
+              ...r,
               ...updatedReservation,
               rooms: updatedReservation.rooms || r.rooms || []
             }
@@ -428,17 +457,25 @@ export default function ReservationsList() {
     setNotifySending(true)
     setNotifyResults(null)
 
+    // Show the new status right away; the request also sends notifications, which can be slow.
+    setReservations(prev => prev.map(r => (
+      r.id === reservation.id ? { ...r, status: 'confirmed' } : r
+    )))
+
     try {
       setActionLoading(prev => ({ ...prev, [reservation.id]: 'confirm' }))
       const { data } = await apiClient.post(`/reservations/${reservation.id}/confirm`)
 
       setReservations(prev => prev.map(r => (
-        r.id === reservation.id ? { ...data, rooms: data.rooms || r.rooms } : r
+        r.id === reservation.id ? { ...r, ...data, rooms: data.rooms || r.rooms } : r
       )))
       setNotifyResults(data.notifications ?? null)
       toast.success('تم تأكيد الحجز بنجاح')
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل في تأكيد الحجز')
+    } catch {
+      // apiClient's interceptor already toasts the error
+      setReservations(prev => prev.map(r => (
+        r.id === reservation.id ? { ...r, status: reservation.status } : r
+      )))
       setNotifyDialogOpen(false)
     } finally {
       setNotifySending(false)
@@ -743,15 +780,18 @@ export default function ReservationsList() {
     const buttons = []
     const isLoading = actionLoading[reservation.id] !== undefined
     const currentAction = actionLoading[reservation.id]
+    // The actions dialog stays open behind whatever the action opens.
+    const run = (fn: () => void) => () => fn()
 
     if (reservation.status === 'pending') {
       buttons.push(
         <Button
           key="confirm"
-          size="small"
+          block
           color="blue"
           variant="outlined"
-          onClick={() => handleConfirmReservation(reservation)}
+          icon={<CheckCircleOutlined />}
+          onClick={run(() => handleConfirmReservation(reservation))}
           disabled={isLoading}
           loading={isLoading && currentAction === 'confirm'}
         >
@@ -763,10 +803,11 @@ export default function ReservationsList() {
       buttons.push(
         <Button
           key="cancel"
-          size="small"
+          block
           danger
           variant="outlined"
-          onClick={() => handleAction(reservation, 'cancel', false)}
+          icon={<CloseCircleOutlined />}
+          onClick={run(() => handleAction(reservation, 'cancel', false))}
           disabled={isLoading}
           loading={isLoading && currentAction === 'cancel'}
         >
@@ -781,10 +822,11 @@ export default function ReservationsList() {
       buttons.push(
         <Tooltip key="checkin" title={isCheckInDay ? '' : 'تسجيل الوصول متاح فقط في تاريخ الوصول'}>
           <Button
-            size="small"
+            block
             color="green"
             variant="outlined"
-            onClick={() => handleAction(reservation, 'checkin', true)}
+            icon={<LoginOutlined />}
+            onClick={run(() => handleAction(reservation, 'checkin', true))}
             disabled={isLoading || !isCheckInDay}
             loading={isLoading && currentAction === 'checkin'}
           >
@@ -798,9 +840,10 @@ export default function ReservationsList() {
       buttons.push(
         <Button
           key="checkout"
-          size="small"
+          block
           variant="outlined"
-          onClick={() => handleAction(reservation, 'checkout', false)}
+          icon={<LogoutOutlined />}
+          onClick={run(() => handleAction(reservation, 'checkout', false))}
           disabled={isLoading}
           loading={isLoading && currentAction === 'checkout'}
         >
@@ -813,17 +856,17 @@ export default function ReservationsList() {
       buttons.push(
         <Button
           key="extend"
-          size="small"
+          block
           color="purple"
           variant="outlined"
           icon={<CalendarOutlined />}
-          onClick={() => {
+          onClick={run(() => {
             setSelectedReservation(reservation)
             setNewCheckOutDate(
               dayjs(reservation.check_out_date).add(1, 'day').format('YYYY-MM-DD'),
             )
             setOpenExtend(true)
-          }}
+          })}
           disabled={isLoading}
         >
           تمديد
@@ -831,41 +874,15 @@ export default function ReservationsList() {
       )
     }
 
-    if (reservation.status === 'checked_in') {
-      buttons.push(
-        <Button
-          key="service"
-          size="small"
-          color="cyan"
-          variant="outlined"
-          icon={<CustomerServiceOutlined />}
-          onClick={() => {
-            setSelectedReservation(reservation)
-            setServiceForm({
-              room_id: reservation.rooms?.[0]?.id?.toString() || '',
-              service_id: '',
-              amount: '',
-              payment_method: 'cash',
-              notes: '',
-            })
-            setOpenService(true)
-          }}
-          disabled={isLoading}
-        >
-          إضافة خدمة
-        </Button>,
-      )
-    }
-
-    if (!['checked_out', 'cancelled'].includes(reservation.status) && hasPermission('/reservations-list/edit-dates')) {
+    if (reservation.status === 'checked_in' && hasPermission('/reservations-list/edit-dates')) {
       buttons.push(
         <Button
           key="editreservation"
-          size="small"
+          block
           color="orange"
           variant="outlined"
           icon={<SwapOutlined />}
-          onClick={() => {
+          onClick={run(() => {
             setSelectedReservation(reservation)
             const firstRoomId = reservation.rooms?.[0]?.id?.toString() || ''
             setTransferOldRoomId(firstRoomId)
@@ -873,7 +890,7 @@ export default function ReservationsList() {
             setAvailableRooms([])
             setOpenEditReservation(true)
             fetchAvailableRoomsForTransfer(reservation, firstRoomId)
-          }}
+          })}
           disabled={isLoading}
         >
           تحويل
@@ -882,16 +899,15 @@ export default function ReservationsList() {
     }
 
     buttons.push(
-      <Tooltip key="history" title="سجل تغييرات الحالة">
-        <Button
-          size="small"
-          variant="outlined"
-          icon={<HistoryOutlined />}
-          onClick={() => handleShowHistory(reservation)}
-        >
-           سجل الحالة
-        </Button>
-      </Tooltip>,
+      <Button
+        key="history"
+        block
+        variant="outlined"
+        icon={<HistoryOutlined />}
+        onClick={run(() => handleShowHistory(reservation))}
+      >
+        سجل الحالة
+      </Button>,
     )
 
     return buttons
@@ -940,34 +956,151 @@ export default function ReservationsList() {
     return total
   }
 
+  const openAddService = (reservation: Reservation) => {
+    setSelectedReservation(reservation)
+    setServiceForm({
+      room_id: reservation.rooms?.[0]?.id?.toString() || '',
+      service_id: '',
+      quantity: 1,
+      price: null,
+      price_currency: reservation.currency === 'USD' ? 'USD' : 'SDG',
+      notes: '',
+    })
+    setServiceSearch('')
+    setOpenService(true)
+  }
+
+  const setServicesCount = (reservationId: number, delta: number) => {
+    setReservations((prev) => prev.map((r) =>
+      r.id === reservationId ? { ...r, services_count: Math.max(0, (r.services_count ?? 0) + delta) } : r
+    ))
+  }
+
+  const fetchReservationServices = async (reservationId: number) => {
+    setReservationServicesLoading(true)
+    try {
+      const { data } = await apiClient.get('/reservation-services', { params: { reservation_id: reservationId } })
+      setReservationServices(data)
+    } catch {
+      // apiClient's interceptor already toasts the error
+    } finally {
+      setReservationServicesLoading(false)
+    }
+  }
+
+  const openServicesList = (reservation: Reservation) => {
+    setServicesListReservation(reservation)
+    setReservationServices([])
+    fetchReservationServices(reservation.id)
+  }
+
+  const handleDeleteReservationService = async (id: number) => {
+    if (!servicesListReservation) return
+    try {
+      setDeletingServiceId(id)
+      await apiClient.delete(`/reservation-services/${id}`)
+      setReservationServices((prev) => prev.filter((s) => s.id !== id))
+      setServicesCount(servicesListReservation.id, -1)
+      toast.success('تم حذف طلب الخدمة')
+    } catch {
+      // apiClient's interceptor already toasts the error
+    } finally {
+      setDeletingServiceId(null)
+    }
+  }
+
+  const openPayService = (service: any) => {
+    setPayingService(service)
+    // Prefill from the price quoted when the request was entered (unit price × quantity).
+    const quoted = service.price != null ? Number(service.price) * (service.quantity ?? 1) : null
+    setPayForm({
+      amount: quoted,
+      currency: service.price_currency ?? servicesListReservation?.currency ?? 'SDG',
+      payment_method: 'cash',
+    })
+  }
+
+  const handlePayService = async () => {
+    if (!payingService || !payForm.amount) return
+    try {
+      setPayLoading(true)
+      const { data } = await apiClient.post(`/reservation-services/${payingService.id}/pay`, payForm)
+      setReservationServices((prev) => prev.map((s) => (s.id === data.id ? data : s)))
+      setPayingService(null)
+      toast.success('تم سداد الخدمة')
+    } catch {
+      // apiClient's interceptor already toasts the error
+    } finally {
+      setPayLoading(false)
+    }
+  }
+
+  const NEW_SERVICE_VALUE = '__new__'
+  const serviceQuery = serviceSearch.trim()
+  const serviceOptions = [
+    ...availableServices
+      .filter((svc) => svc.name.toLowerCase().includes(serviceQuery.toLowerCase()))
+      .map((svc) => ({ value: svc.id.toString(), label: svc.name })),
+    ...(serviceQuery && !availableServices.some((svc) => svc.name.trim() === serviceQuery)
+      ? [{ value: NEW_SERVICE_VALUE, label: <span><PlusOutlined /> إضافة «{serviceQuery}»</span> }]
+      : []),
+  ]
+
+  const handleServiceSelect = async (value: string) => {
+    if (value !== NEW_SERVICE_VALUE) {
+      setServiceForm({ ...serviceForm, service_id: value })
+      setServiceSearch('')
+      return
+    }
+
+    try {
+      setCreatingService(true)
+      const { data } = await apiClient.post('/services', { name: serviceQuery })
+      setAvailableServices((prev) => [...prev, data])
+      setServiceForm({ ...serviceForm, service_id: data.id.toString() })
+      setServiceSearch('')
+      toast.success(`تمت إضافة نوع الخدمة «${data.name}»`)
+    } catch {
+      // apiClient's interceptor already toasts the error
+    } finally {
+      setCreatingService(false)
+    }
+  }
+
   const handleServiceSubmit = async () => {
     if (!selectedReservation || !serviceForm.room_id || !serviceForm.service_id) {
-      toast.error('يرجى تعبئة جميع الحقول المطلوبة')
+      toast.error('يرجى اختيار نوع الخدمة')
       return
     }
 
     try {
       setServiceLoading(true)
+      // Room defaults to the reservation's first room; the paid amount is entered when the request is settled.
       await apiClient.post('/reservation-services', {
         reservation_id: selectedReservation.id,
         room_id: serviceForm.room_id,
         service_id: serviceForm.service_id,
-        amount: serviceForm.amount ? parseFloat(serviceForm.amount) : null,
-        payment_method: serviceForm.payment_method,
+        quantity: serviceForm.quantity,
+        price: serviceForm.price,
+        price_currency: serviceForm.price != null ? serviceForm.price_currency : null,
         notes: serviceForm.notes
       })
 
       toast.success('تمت إضافة الخدمة بنجاح')
       setOpenService(false)
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'فشل في إضافة الخدمة')
+      setServicesCount(selectedReservation.id, 1)
+      if (servicesListReservation?.id === selectedReservation.id) {
+        fetchReservationServices(selectedReservation.id)
+      }
+    } catch {
+      // apiClient's interceptor already toasts the error
     } finally {
       setServiceLoading(false)
     }
   }
 
   // Mirrors backend transferRoom(): an in-house guest moves from today on,
-  // otherwise the room's whole stay moves.
+  // otherwise the new room takes the whole stay.
   const getTransferPeriod = (reservation: Reservation, roomId: string) => {
     const room = reservation.rooms.find(r => r.id.toString() === roomId)
     const checkIn = (room?.pivot?.check_in_date ?? reservation.check_in_date).slice(0, 10)
@@ -992,7 +1125,7 @@ export default function ReservationsList() {
           exclude_reservation_id: reservation.id,
         },
       })
-      const currentRoomIds = reservation.rooms.map(r => r.id)
+      const currentRoomIds = [...reservation.rooms, ...(reservation.transferred_rooms ?? [])].map(r => r.id)
       const rooms: any[] = Array.isArray(data) ? data : []
       setAvailableRooms(rooms.filter(r => !currentRoomIds.includes(r.id)))
     } catch {
@@ -1026,7 +1159,7 @@ export default function ReservationsList() {
     const oldRoom = selectedReservation.rooms.find(r => r.id.toString() === transferOldRoomId)
     const newRoom = availableRooms.find(r => r.id.toString() === transferNewRoomId)
     if (!oldRoom || !newRoom) return null
-    const { checkIn, checkOut, from, nights } = getTransferPeriod(selectedReservation, transferOldRoomId)
+    const { checkOut, from, nights } = getTransferPeriod(selectedReservation, transferOldRoomId)
     const oldRate = oldRoom.pivot?.rate !== undefined && oldRoom.pivot?.rate !== null ? Number(oldRoom.pivot.rate) : roomRateFor(oldRoom, selectedReservation.currency)
     const newRate = roomRateFor(newRoom, selectedReservation.currency)
 
@@ -1034,16 +1167,18 @@ export default function ReservationsList() {
     const segments = (selectedReservation.transactions ?? []).filter(
       t => t.type === 'debit' && t.room_id === oldRoom.id && t.rate != null && t.check_in_date && t.check_out_date,
     )
-    const oldTotal = segments.length > 0
-      ? segments.reduce((sum, t) => {
-          const start = t.check_in_date!.slice(0, 10)
-          const end = t.check_out_date!.slice(0, 10)
-          return sum + Math.max(0, dayjs(end).diff(dayjs(start > from ? start : from), 'day')) * Number(t.rate)
-        }, 0)
-      : nights * oldRate
+    let coveredNights = 0
+    let oldTotal = 0
+    segments.forEach((t) => {
+      const start = dayjs(t.check_in_date).format('YYYY-MM-DD')
+      const segmentNights = Math.max(0, dayjs(t.check_out_date).startOf('day').diff(dayjs(start > from ? start : from), 'day'))
+      coveredNights += segmentNights
+      oldTotal += segmentNights * Number(t.rate)
+    })
+    oldTotal += Math.max(0, nights - coveredNights) * oldRate
     const newTotal = nights * newRate
 
-    return { oldRate, newRate, from, checkOut, nights, oldTotal, newTotal, diff: newTotal - oldTotal, keepsPastNights: from > checkIn }
+    return { oldRate, newRate, from, checkOut, nights, oldTotal, newTotal, diff: newTotal - oldTotal }
   }
 
   const customerOptions = customers.map((c) => ({
@@ -1051,6 +1186,11 @@ export default function ReservationsList() {
     label: `${c.name}${c.phone ? ` - ${c.phone}` : ''}`,
     customer: c,
   }))
+
+  // Re-read from the list so the open actions dialog reflects status changes made by its own buttons.
+  const liveActionsReservation = actionsReservation
+    ? reservations.find((r) => r.id === actionsReservation.id) ?? actionsReservation
+    : null
 
   const columns: ColumnsType<Reservation> = [
     {
@@ -1095,6 +1235,11 @@ export default function ReservationsList() {
           {r.rooms?.length
             ? r.rooms.map((room) => <Tag key={room.id}>غرفة {room.number}</Tag>)
             : <Text type="secondary">-</Text>}
+          {r.transferred_rooms?.map((room) => (
+            <Tooltip key={room.id} title={`تم التحويل منها يوم ${formatDate(room.pivot.check_out_date)}`}>
+              <Tag className="line-through text-muted-foreground">غرفة {room.number}</Tag>
+            </Tooltip>
+          ))}
           {r.has_room_transfer && (
             <Tooltip title="تم تحويل الغرفة لهذا الحجز">
               <SwapOutlined style={{ color: '#722ed1' }} />
@@ -1102,6 +1247,21 @@ export default function ReservationsList() {
           )}
         </Space>
       ),
+    },
+    {
+      title: 'الخدمات',
+      key: 'services',
+      align: 'center',
+      render: (_, r) => {
+        const count = r.services_count ?? 0
+        return (
+          <Tooltip title="عرض طلبات الخدمات">
+            <Button type="text" onClick={() => openServicesList(r)} aria-label="طلبات الخدمات">
+              <Badge count={count} showZero color={count > 0 ? 'cyan' : 'var(--muted-foreground)'} />
+            </Button>
+          </Tooltip>
+        )
+      },
     },
     {
       title: 'تاريخ الوصول',
@@ -1149,9 +1309,13 @@ export default function ReservationsList() {
       key: 'actions',
       align: 'center',
       render: (_, r) => (
-        <Space wrap size={4} style={{ justifyContent: 'center' }}>
-          {getActionButtons(r)}
-        </Space>
+        <Button
+          type="text"
+          icon={<MoreOutlined style={{ fontSize: 18 }} />}
+          loading={actionLoading[r.id] !== undefined}
+          onClick={() => setActionsReservation(r)}
+          aria-label="الإجراءات"
+        />
       ),
     },
   ]
@@ -1311,6 +1475,24 @@ export default function ReservationsList() {
         />
       </Card>
 
+      {/* Row Actions Dialog */}
+      <Modal
+        open={!!actionsReservation}
+        onCancel={() => setActionsReservation(null)}
+        title={actionsReservation ? `إجراءات الحجز #${actionsReservation.id}` : ''}
+        width={360}
+        footer={null}
+      >
+        {liveActionsReservation && (
+          <Space orientation="vertical" size={8} style={{ width: '100%', marginTop: 8 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {liveActionsReservation.customer?.name} — {getStatusTag(liveActionsReservation.status)}
+            </Text>
+            {getActionButtons(liveActionsReservation)}
+          </Space>
+        )}
+      </Modal>
+
       {/* Confirmation Dialog */}
       <Modal
         open={openConfirm}
@@ -1407,27 +1589,16 @@ export default function ReservationsList() {
                           تاريخ المغادرة المجدولة: <strong>{formatDate(selectedReservation.check_out_date)}</strong>
                         </Text>
                         <Text strong style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
-                          المبلغ المراد استرجاعه: <Text type="danger" strong>{refundTotal.toLocaleString()} SDG</Text>
+                          قيمة الليالي غير المستخدمة (تقريبية): <Text type="danger" strong>{refundTotal.toLocaleString()} {selectedReservation.currency}</Text>
                         </Text>
                         <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
-                          (تم الحساب بناءً على إجمالي قيمة الحجز: {totalCharged.toLocaleString()} SDG لـ {totalDays} يوم)
+                          (تم الحساب بناءً على إجمالي قيمة الحجز: {totalCharged.toLocaleString()} {selectedReservation.currency} لـ {totalDays} يوم)
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
+                          لن يُسجَّل أي استرجاع — سيظهر تنبيه بالمبلغ تحت إجمالي كشف حساب العميل فقط.
                         </Text>
                         <Text style={{ fontSize: 13, display: 'block', marginTop: 8 }}>
-                          هل أنت متأكد من تسجيل المغادرة؟ يرجى تحديد طريقة استرجاع المبلغ:
-                        </Text>
-                        <Select
-                          style={{ width: '100%', marginTop: 8 }}
-                          value={refundMethod}
-                          onChange={(value) => setRefundMethod(value)}
-                          options={[
-                            { value: 'cash', label: 'نقدي' },
-                            { value: 'bankak', label: 'بنكك' },
-                            { value: 'Ocash', label: 'أوكاش' },
-                            { value: 'fawri', label: 'فوري' },
-                          ]}
-                        />
-                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
-                          سيتم تسجيل هذه العملية كـ "مسترجع" في التقارير المالية.
+                          هل أنت متأكد من تسجيل المغادرة؟
                         </Text>
                       </div>
                     }
@@ -1645,6 +1816,11 @@ export default function ReservationsList() {
             <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
               الغرف الحالية: <strong>{selectedReservation?.rooms.map((r) => `غرفة ${r.number}`).join('، ')}</strong>
             </Text>
+            {!!selectedReservation?.transferred_rooms?.length && (
+              <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
+                غرف سابقة: <strong>{selectedReservation.transferred_rooms.map((r) => `غرفة ${r.number}`).join('، ')}</strong>
+              </Text>
+            )}
             <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 4 }}>
               الفترة: <strong>{selectedReservation && formatDate(selectedReservation.check_in_date)}</strong> → <strong>{selectedReservation && formatDate(selectedReservation.check_out_date)}</strong>
             </Text>
@@ -1725,15 +1901,190 @@ export default function ReservationsList() {
                       {transferDiff.diff > 0 ? `فرق إضافي: +${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}` : `خصم: ${transferDiff.diff.toLocaleString()} ${selectedReservation?.currency}`} — سيتم تعديل كشف الحساب تلقائياً.
                     </Text>
                   )}
-                  {transferDiff.keepsPastNights && (
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-                      الليالي السابقة تبقى بسعر الغرفة القديمة.
-                    </Text>
-                  )}
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                    تبقى الغرفة القديمة وقيدها الأصلي في الحجز، ويظهر التحويل في كشف الحساب كقيد جديد بالفرق.
+                  </Text>
                 </div>
               }
             />
           )}
+        </Space>
+      </Modal>
+
+      {/* Reservation Services List Dialog */}
+      <Modal
+        open={!!servicesListReservation}
+        onCancel={() => setServicesListReservation(null)}
+        title={`طلبات خدمات الحجز #${servicesListReservation?.id ?? ''}`}
+        width="95vw"
+        style={{ maxWidth: 1400, top: 24 }}
+        footer={[
+          servicesListReservation?.status === 'checked_in' && (
+            <Button key="add" icon={<PlusOutlined />} onClick={() => openAddService(servicesListReservation)}>
+              إضافة خدمة
+            </Button>
+          ),
+          <Button key="close" onClick={() => setServicesListReservation(null)}>إغلاق</Button>,
+        ]}
+      >
+        <Table
+          rowKey="id"
+          size="small"
+          loading={reservationServicesLoading}
+          dataSource={reservationServices}
+          pagination={false}
+          locale={{ emptyText: 'لا توجد طلبات خدمات لهذا الحجز' }}
+          columns={[
+            {
+              title: 'التاريخ',
+              key: 'date',
+              align: 'center',
+              render: (_, s) => <span className="whitespace-nowrap">{formatDateTime12h(s.created_at)}</span>,
+            },
+            {
+              title: 'الخدمة',
+              key: 'service',
+              align: 'center',
+              render: (_, s) => <Text strong>{s.service?.name ?? '-'}</Text>,
+            },
+            {
+              title: 'العدد',
+              key: 'quantity',
+              align: 'center',
+              render: (_, s) => s.quantity ?? 1,
+            },
+            {
+              title: 'السعر',
+              key: 'price',
+              align: 'center',
+              render: (_, s) => s.price != null
+                ? <span dir="ltr" className="whitespace-nowrap">{Number(s.price).toLocaleString()} {s.price_currency}</span>
+                : <Text type="secondary">-</Text>,
+            },
+            {
+              title: 'المبلغ المدفوع',
+              key: 'amount',
+              align: 'center',
+              render: (_, s) => s.paid_at
+                ? <span dir="ltr" className="whitespace-nowrap">{Number(s.billed_amount ?? 0).toLocaleString()} {s.currency}</span>
+                : <Text type="secondary">-</Text>,
+            },
+            {
+              title: 'طريقة الدفع',
+              key: 'payment_method',
+              align: 'center',
+              render: (_, s) => s.paid_at
+                ? paymentMethodLabels[s.payment_method] ?? s.payment_method ?? '-'
+                : <Text type="secondary">-</Text>,
+            },
+            {
+              title: 'الحالة',
+              key: 'paid',
+              align: 'center',
+              render: (_, s) => s.paid_at
+                ? <Tag color="green">مسددة</Tag>
+                : <Tag color="orange">غير مسددة</Tag>,
+            },
+            {
+              title: 'أضافها',
+              key: 'creator',
+              align: 'center',
+              render: (_, s) => s.creator?.name ?? <Text type="secondary">-</Text>,
+            },
+            {
+              title: 'سددها',
+              key: 'payer',
+              align: 'center',
+              render: (_, s) => (s.paid_at && s.user?.name) ? s.user.name : <Text type="secondary">-</Text>,
+            },
+            {
+              title: 'ملاحظات',
+              key: 'notes',
+              align: 'center',
+              render: (_, s) => <Text type="secondary">{s.notes || '-'}</Text>,
+            },
+            {
+              title: '',
+              key: 'actions',
+              align: 'center',
+              render: (_, s) => (
+                <Space size={4}>
+                {!s.paid_at && (
+                  <Button size="small" type="primary" onClick={() => openPayService(s)}>
+                    سداد
+                  </Button>
+                )}
+                <Popconfirm
+                  title="حذف طلب الخدمة؟"
+                  okText="حذف"
+                  cancelText="إلغاء"
+                  okButtonProps={{ danger: true }}
+                  onConfirm={() => handleDeleteReservationService(s.id)}
+                >
+                  <Button type="text" danger icon={<DeleteOutlined />} loading={deletingServiceId === s.id} aria-label="حذف" />
+                </Popconfirm>
+                </Space>
+              ),
+            },
+          ]}
+        />
+      </Modal>
+
+      {/* Pay Service Dialog */}
+      <Modal
+        open={!!payingService}
+        onCancel={() => !payLoading && setPayingService(null)}
+        title={`سداد خدمة ${payingService?.service?.name ?? ''}`}
+        width={400}
+        footer={[
+          <Button key="cancel" onClick={() => setPayingService(null)} disabled={payLoading}>إلغاء</Button>,
+          <Button key="submit" type="primary" loading={payLoading} disabled={!payForm.amount} onClick={handlePayService}>
+            تأكيد السداد
+          </Button>,
+        ]}
+      >
+        <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>المبلغ *</Text>
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              step={payForm.currency === 'USD' ? 0.01 : 1}
+              value={payForm.amount}
+              onChange={(value) => setPayForm({ ...payForm, amount: value })}
+              autoFocus
+            />
+          </div>
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>العملة</Text>
+            <Select
+              style={{ width: '100%' }}
+              value={payForm.currency}
+              onChange={(value) => setPayForm({ ...payForm, currency: value, payment_method: 'cash' })}
+              options={[
+                { value: 'SDG', label: 'جنيه سوداني (SDG)' },
+                { value: 'USD', label: 'دولار (USD)' },
+              ]}
+            />
+          </div>
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>طريقة الدفع</Text>
+            {payForm.currency === 'SDG' ? (
+              <Select
+                style={{ width: '100%' }}
+                value={payForm.payment_method}
+                onChange={(value) => setPayForm({ ...payForm, payment_method: value })}
+                options={[
+                  { value: 'cash', label: 'نقدي' },
+                  { value: 'bankak', label: 'بنكك' },
+                  { value: 'Ocash', label: 'أوكاش' },
+                  { value: 'fawri', label: 'فوري' },
+                ]}
+              />
+            ) : (
+              <Tag>نقدي فقط</Tag>
+            )}
+          </div>
         </Space>
       </Modal>
 
@@ -1749,7 +2100,7 @@ export default function ReservationsList() {
             key="submit"
             type="primary"
             loading={serviceLoading}
-            disabled={!serviceForm.room_id || !serviceForm.service_id}
+            disabled={!serviceForm.service_id}
             onClick={handleServiceSubmit}
           >
             إضافة الخدمة
@@ -1758,58 +2109,55 @@ export default function ReservationsList() {
       >
         <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
           <div>
-            <Text style={{ display: 'block', marginBottom: 6 }}>الغرفة</Text>
-            <Select
-              style={{ width: '100%' }}
-              value={serviceForm.room_id || undefined}
-              onChange={(value) => setServiceForm({ ...serviceForm, room_id: value })}
-              options={selectedReservation?.rooms?.map((room) => ({
-                value: room.id.toString(),
-                label: `غرفة ${room.number}`,
-              }))}
-            />
-          </div>
-
-          <div>
             <Text style={{ display: 'block', marginBottom: 6 }}>نوع الخدمة</Text>
             <Select
               style={{ width: '100%' }}
-              placeholder="اختر خدمة"
+              placeholder="اكتب أو اختر خدمة"
+              showSearch={{ filterOption: false, searchValue: serviceSearch, onSearch: setServiceSearch }}
               value={serviceForm.service_id || undefined}
-              onChange={(value) => setServiceForm({ ...serviceForm, service_id: value })}
-              options={availableServices.map((svc) => ({
-                value: svc.id.toString(),
-                label: svc.name,
-              }))}
+              onChange={handleServiceSelect}
+              options={serviceOptions}
+              loading={creatingService}
+              disabled={creatingService}
+              notFoundContent="اكتب اسم الخدمة"
             />
           </div>
 
           <div>
-            <Text style={{ display: 'block', marginBottom: 6 }}>المبلغ (SDG) - اختياري</Text>
+            <Text style={{ display: 'block', marginBottom: 6 }}>العدد</Text>
             <InputNumber
               style={{ width: '100%' }}
-              min={0}
-              value={serviceForm.amount ? Number(serviceForm.amount) : undefined}
-              onChange={(value) => setServiceForm({ ...serviceForm, amount: value === null ? '' : String(value) })}
+              min={1}
+              precision={0}
+              value={serviceForm.quantity}
+              onChange={(value) => setServiceForm({ ...serviceForm, quantity: value ?? 1 })}
             />
-            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-              يمكن تركه فارغاً وإضافة المبلغ لاحقاً عبر كشف الحساب
-            </Text>
           </div>
 
-          <div>
-            <Text style={{ display: 'block', marginBottom: 6 }}>طريقة الدفع</Text>
-            <Select
-              style={{ width: '100%' }}
-              value={serviceForm.payment_method}
-              onChange={(value) => setServiceForm({ ...serviceForm, payment_method: value })}
-              options={[
-                { value: 'cash', label: 'نقدي' },
-                { value: 'bankak', label: 'بنكك' },
-                { value: 'Ocash', label: 'أوكاش' },
-                { value: 'fawri', label: 'فوري' },
-              ]}
-            />
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Text style={{ display: 'block', marginBottom: 6 }}>السعر (للوحدة)</Text>
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                step={serviceForm.price_currency === 'USD' ? 0.01 : 1}
+                value={serviceForm.price}
+                onChange={(value) => setServiceForm({ ...serviceForm, price: value })}
+                placeholder="اختياري"
+              />
+            </div>
+            <div className="w-40">
+              <Text style={{ display: 'block', marginBottom: 6 }}>العملة</Text>
+              <Select
+                style={{ width: '100%' }}
+                value={serviceForm.price_currency}
+                onChange={(value) => setServiceForm({ ...serviceForm, price_currency: value })}
+                options={[
+                  { value: 'SDG', label: 'جنيه (SDG)' },
+                  { value: 'USD', label: 'دولار (USD)' },
+                ]}
+              />
+            </div>
           </div>
 
           <div>

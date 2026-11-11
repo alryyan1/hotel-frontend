@@ -6,14 +6,25 @@ export interface ShiftUserRef {
   name: string;
 }
 
+export interface ShiftServiceBreakdown {
+  service_id: number;
+  name: string;
+  count: number;
+  quantity: number;
+  total_sdg: number;
+  total_usd: number;
+}
+
 export interface ShiftSummary {
   total_revenue: number;
   total_service_revenue?: number;
+  total_revenue_usd_cash?: number;
+  total_service_revenue_usd?: number;
+  /** Missing on snapshots of shifts closed before the breakdown was added. */
+  services_breakdown?: ShiftServiceBreakdown[];
   revenue_by_method?: Record<string, number>;
   services_by_method?: Record<string, number>;
   total_debits: number;
-  total_refunds: number;
-  refunds_by_method?: Record<string, number>;
   net_profit: number;
   date_from?: string;
   date_to?: string;
@@ -50,8 +61,9 @@ export interface ShiftDetails {
   users: ShiftUserBreakdown[] | null;
   transactions: Array<{
     id: number;
-    type: "credit" | "refund";
+    type: "credit";
     amount: string;
+    currency?: "SDG" | "USD";
     method: string | null;
     transaction_date: string;
     notes: string | null;
@@ -61,6 +73,8 @@ export interface ShiftDetails {
   services: Array<{
     id: number;
     amount: string | null;
+    billed_amount?: number;
+    currency?: "SDG" | "USD";
     payment_method: string | null;
     created_at: string;
     service?: { name: string } | null;
@@ -79,6 +93,17 @@ export const methodLabels: Record<string, string> = {
   fawri: "فوري",
   unknown: "غير معروف",
 };
+
+/**
+ * Reservation payments + services. Computed rather than read from net_profit, since
+ * snapshots of shifts closed before refunds were dropped still have them deducted there.
+ */
+export const netOf = (summary: ShiftSummary | null | undefined) =>
+  Number(summary?.total_revenue ?? 0) + Number(summary?.total_service_revenue ?? 0);
+
+/** USD cash received for reservations + USD-billed services. */
+export const usdOf = (summary: ShiftSummary | null | undefined) =>
+  Number(summary?.total_revenue_usd_cash ?? 0) + Number(summary?.total_service_revenue_usd ?? 0);
 
 export const formatMoney = (value: number | string | null | undefined) =>
   new Intl.NumberFormat("en-US").format(Number(value) || 0);

@@ -147,7 +147,9 @@ export default function Rooms() {
       render: (_, room) => (
         <Space orientation="vertical" size={0}>
           <Text strong style={{ color: '#389e0d' }}>{formatNumber(room.price_sdg)} ج.س</Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>${formatNumber(room.price_usd)}</Text>
+          {room.price_usd != null && (
+            <Text type="secondary" style={{ fontSize: 12 }}>${formatNumber(room.price_usd)}</Text>
+          )}
         </Space>
       ),
     },

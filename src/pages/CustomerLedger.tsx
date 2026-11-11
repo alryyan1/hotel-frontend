@@ -1,32 +1,36 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import apiClient from '../api/axios'
+import {
+  ArrowLeftOutlined,
+  CreditCardOutlined,
+  CustomerServiceOutlined,
+  DownloadOutlined,
+  FileTextOutlined,
+  PlusOutlined,
+  PrinterOutlined,
+  UndoOutlined,
+  WarningOutlined,
+} from '@ant-design/icons'
 import {
   Button,
   Card,
   Descriptions,
-  Typography,
+  Empty,
   Flex,
-  Table,
-  Tag,
-  Modal,
   Input,
+  Modal,
   Select,
   Space,
-  Empty,
+  Table,
+  Tag,
+  Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import {
-  ArrowLeftOutlined,
-  FileTextOutlined,
-  CreditCardOutlined,
-  PlusOutlined,
-  DownloadOutlined,
-  UndoOutlined,
-  PrinterOutlined,
-  CustomerServiceOutlined,
-} from '@ant-design/icons'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import dayjs from 'dayjs'
+import apiClient from '../api/axios'
+import { useAuth } from '../contexts/AuthContext'
+import { useShift } from '../contexts/ShiftContext'
 
 const { Text, Title, Link: TypographyLink } = Typography
 const { TextArea } = Input
@@ -50,14 +54,14 @@ interface CustomerReservation {
   status: string
   currency: 'USD' | 'SDG'
   rooms?: Array<{ id: number; number: string }>
-  transactions?: Array<{ type: 'debit' | 'credit' | 'refund'; amount: number | string }>
+  transactions?: Array<{ type: 'debit' | 'credit'; amount: number | string }>
 }
 
 interface LedgerEntry {
   id: number
   reservation_id?: number
   reservation_service_id?: number
-  type: 'reservation' | 'payment' | 'refund' | 'service'
+  type: 'reservation' | 'payment' | 'service'
   date: string
   description: string
   currency?: 'USD' | 'SDG'
@@ -66,11 +70,46 @@ interface LedgerEntry {
   period?: string
   rate?: number | null
   is_extension?: boolean
+  operation_type?: 'extension' | 'transfer' | null
+  notes?: string | null
   paymentMethod?: string
+  // Payment rows only: who recorded the payment and the shift it belongs to
+  paid_by?: string | null
+  user_id?: number | null
+  shift_id?: number | null
   debit: number
   credit: number
-  refund_amount?: number
   balance: number
+}
+
+// Early checkout: only a hint to refund the unused nights — no ledger entry, no refund.
+interface EarlyCheckout {
+  reservation_id: number
+  currency: 'USD' | 'SDG'
+  nights: number | null
+  amount: number
+}
+
+interface CustomerService {
+  id: number
+  reservation_id: number
+  created_at: string
+  quantity?: number
+  price?: number | null
+  price_currency?: 'USD' | 'SDG' | null
+  billed_amount?: number
+  currency?: 'USD' | 'SDG'
+  payment_method?: string | null
+  paid_at?: string | null
+  notes?: string | null
+  service?: { name: string }
+  room?: { number: string }
+}
+
+// e.g. "10/11/2026 03:45 م" — 12-hour clock with an Arabic صباحاً/مساءً marker.
+const formatDateTime12h = (value: string) => {
+  const d = dayjs(value)
+  return `${d.format('DD/MM/YYYY hh:mm')} ${d.hour() < 12 ? 'ص' : 'م'}`
 }
 
 const methodLabels: Record<string, string> = {
@@ -97,13 +136,21 @@ const defaultMethodFor = (currency?: string) => (currency === 'USD' ? 'cash' : '
 export default function CustomerLedger() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const { current } = useShift()
+  const [cancellingPaymentId, setCancellingPaymentId] = useState<number | null>(null)
+  // Hook form so the confirm dialog inherits the app's RTL ConfigProvider
+  const [modal, modalContextHolder] = Modal.useModal()
   const [customer, setCustomer] = useState<Customer | null>(null)
   const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
   const [totalsByCurrency, setTotalsByCurrency] = useState<
-    Record<string, { total_debit: number; total_credit: number; total_refund: number; final_balance: number }>
+    Record<string, { total_debit: number; total_credit: number; final_balance: number }>
   >({})
+  const [earlyCheckouts, setEarlyCheckouts] = useState<EarlyCheckout[]>([])
   const [loading, setLoading] = useState(false)
   const [reservations, setReservations] = useState<CustomerReservation[]>([])
+  const [services, setServices] = useState<CustomerService[]>([])
+  const [servicesLoading, setServicesLoading] = useState(false)
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false)
   const [paymentsModalReservationId, setPaymentsModalReservationId] = useState<number | null>(null)
   const [paymentForm, setPaymentForm] = useState({
@@ -127,8 +174,21 @@ export default function CustomerLedger() {
       fetchCustomer()
       fetchLedger()
       fetchReservations()
+      fetchServices()
     }
   }, [id])
+
+  const fetchServices = async () => {
+    try {
+      setServicesLoading(true)
+      const { data } = await apiClient.get('/reservation-services', { params: { customer_id: id } })
+      setServices(Array.isArray(data) ? data : [])
+    } catch {
+      // apiClient's interceptor already toasts the error
+    } finally {
+      setServicesLoading(false)
+    }
+  }
 
   const fetchCustomer = async () => {
     try {
@@ -149,6 +209,7 @@ export default function CustomerLedger() {
       const ledgerData = data?.data || data
       setLedgerEntries(ledgerData.ledger_entries || [])
       setTotalsByCurrency(ledgerData.totals_by_currency || {})
+      setEarlyCheckouts(ledgerData.early_checkouts || [])
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل في جلب كشف الحساب')
     } finally {
@@ -269,6 +330,34 @@ export default function CustomerLedger() {
       failMessage: 'فشل في فتح إيصال الدفع',
     })
 
+  // Mirrors TransactionController::destroy — admins cancel any payment, everyone else
+  // only payments they recorded in the currently open shift.
+  const canCancelPayment = (entry: LedgerEntry) =>
+    !!user?.is_admin ||
+    (entry.user_id === user?.id && !!entry.shift_id && entry.shift_id === current?.shift?.id)
+
+  const handleCancelPayment = (entry: LedgerEntry) => {
+    modal.confirm({
+      title: 'إلغاء السداد',
+      content: `سيتم حذف الدفعة بمبلغ ${formatCurrency(entry.credit)} ${entry.currency === 'USD' ? '$' : 'ج.س'} وإعادتها إلى رصيد الحجز. هل أنت متأكد؟`,
+      okText: 'إلغاء السداد',
+      okButtonProps: { danger: true },
+      cancelText: 'تراجع',
+      onOk: async () => {
+        setCancellingPaymentId(entry.id)
+        try {
+          await apiClient.delete(`/transactions/${entry.id}`)
+          toast.success('تم إلغاء السداد')
+          await Promise.all([fetchLedger(), fetchReservations()])
+        } catch {
+          // apiClient already shows an error toast
+        } finally {
+          setCancellingPaymentId(null)
+        }
+      },
+    })
+  }
+
   const formatCurrency = (amount: number) => {
     if (isNaN(amount) || amount === null || amount === undefined) return '0'
     return new Intl.NumberFormat('en-US').format(amount)
@@ -289,9 +378,41 @@ export default function CustomerLedger() {
   const paidForReservation = (reservationId: number): number =>
     (paymentsByReservation[reservationId] ?? []).reduce((sum, p) => sum + (Number(p.credit) || 0), 0)
 
+  // Extensions and transfers aren't rows of the main table: they're listed in a
+  // separate details table under the final totals, with only their difference.
+  const isAdjustment = (entry: LedgerEntry) => entry.type === 'reservation' && !!entry.operation_type
+  const adjustments = ledgerEntries.filter(isAdjustment)
+
+  // The first booking row of each reservation carries its adjustments in "remaining"
+  const parentRowByReservation = ledgerEntries.reduce<Record<number, number>>((acc, entry) => {
+    if (entry.type === 'reservation' && entry.reservation_id && !entry.operation_type && !(entry.reservation_id in acc)) {
+      acc[entry.reservation_id] = entry.id
+    }
+    return acc
+  }, {})
+
+  const rowDebit = (entry: LedgerEntry): number => {
+    if (!entry.reservation_id || parentRowByReservation[entry.reservation_id] !== entry.id) return Number(entry.debit)
+    return Number(entry.debit) + adjustments
+      .filter((a) => a.reservation_id === entry.reservation_id)
+      .reduce((sum, a) => sum + Number(a.debit), 0)
+  }
+
   // Payments without a reservation_id are legacy rows recorded before payments
   // were tied to a reservation — keep those visible at the top level.
-  const mainRows = ledgerEntries.filter((entry) => !(entry.type === 'payment' && entry.reservation_id))
+  const mainRows = ledgerEntries.filter(
+    (entry) => !(entry.type === 'payment' && entry.reservation_id) && !isAdjustment(entry)
+  )
+
+  // Services are tracked apart from the ledger, so they get their own totals per currency:
+  // what was paid, and what is still owed on unpaid requests at their quoted price.
+  const serviceTotals = services.reduce<Record<string, { paid: number; unpaid: number }>>((acc, s) => {
+    const currency = (s.paid_at ? s.currency : s.price_currency) ?? 'SDG'
+    const bucket = (acc[currency] ??= { paid: 0, unpaid: 0 })
+    if (s.paid_at) bucket.paid += Number(s.billed_amount ?? 0)
+    else if (s.price != null) bucket.unpaid += Number(s.price) * (s.quantity ?? 1)
+    return acc
+  }, {})
 
   const reservationPayments = paymentsModalReservationId ? paymentsByReservation[paymentsModalReservationId] ?? [] : []
 
@@ -315,7 +436,7 @@ export default function CustomerLedger() {
               </TypographyLink>
               {entry.period && (
                 <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Text  style={{ fontSize: 12 }}>
                     {entry.period}
                   </Text>
                 </div>
@@ -333,13 +454,6 @@ export default function CustomerLedger() {
         if (entry.type === 'payment') {
           return <TypographyLink onClick={() => handlePaymentInvoiceClick(entry.id)}>{entry.description}</TypographyLink>
         }
-        if (entry.type === 'refund') {
-          return (
-            <Text type="warning" strong>
-              <UndoOutlined /> {entry.description}
-            </Text>
-          )
-        }
         return entry.description
       },
     },
@@ -350,7 +464,6 @@ export default function CustomerLedger() {
       render: (_, entry) => {
         if (entry.type === 'reservation') return <Tag>{entry.rooms}</Tag>
         if (entry.type === 'service') return <Tag color="blue" icon={<CustomerServiceOutlined />}>خدمة</Tag>
-        if (entry.type === 'refund') return <Tag color="gold" icon={<UndoOutlined />}>مسترجع</Tag>
         return (
           <Tag color="purple" icon={<CreditCardOutlined />}>
             {methodLabels[entry.paymentMethod ?? ''] ?? entry.paymentMethod}
@@ -382,7 +495,7 @@ export default function CustomerLedger() {
       title: 'الإجمالي',
       key: 'debit',
       align: 'center',
-      render: (_, entry) => (entry.debit > 0 ? formatCurrency(entry.debit) : '-'),
+      render: (_, entry) => (Number(entry.debit) !== 0 ? formatCurrency(entry.debit) : '-'),
     },
     {
       title: 'المدفوع',
@@ -396,13 +509,7 @@ export default function CustomerLedger() {
           const paid = paidForReservation(entry.reservation_id)
           return paid > 0 ? formatCurrency(paid) : '-'
         }
-        return entry.credit > 0 ? (
-          <Text type={entry.type === 'refund' ? 'warning' : undefined} strong={entry.type === 'refund'}>
-            {formatCurrency(entry.credit)}
-          </Text>
-        ) : (
-          '-'
-        )
+        return entry.credit > 0 ? formatCurrency(entry.credit) : '-'
       },
     },
     {
@@ -414,7 +521,7 @@ export default function CustomerLedger() {
         // paid toward its reservation — not the raw chronological ledger balance,
         // which goes stale here once payments are nested out of the main rows.
         if ((entry.type === 'reservation' || entry.type === 'service') && entry.reservation_id) {
-          return formatCurrency(entry.debit - paidForReservation(entry.reservation_id))
+          return formatCurrency(rowDebit(entry) - paidForReservation(entry.reservation_id))
         }
         return formatCurrency(entry.balance)
       },
@@ -503,6 +610,18 @@ export default function CustomerLedger() {
                 </Space>
               )}
             </Descriptions.Item>
+            {services.length > 0 && (
+              <Descriptions.Item label="رصيد الخدمات">
+                {/* What is still owed on unpaid service requests, at their quoted price */}
+                <Space orientation="vertical" size={2}>
+                  {Object.entries(serviceTotals).map(([currency, totals]) => (
+                    <Text key={currency} strong style={{ fontSize: 16 }}>
+                      {formatCurrency(totals.unpaid)} {currency}
+                    </Text>
+                  ))}
+                </Space>
+              </Descriptions.Item>
+            )}
           </Descriptions>
         </Card>
       )}
@@ -524,9 +643,7 @@ export default function CustomerLedger() {
           loading={loading}
           pagination={false}
           scroll={{ x: true }}
-          rowClassName={(entry) =>
-            entry.type === 'refund' ? 'ledger-row-refund' : entry.type === 'service' ? 'ledger-row-service' : ''
-          }
+          rowClassName={(entry) => (entry.type === 'service' ? 'ledger-row-service' : '')}
           locale={{
             emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="لا توجد حركات حسابية" />,
           }}
@@ -544,16 +661,9 @@ export default function CustomerLedger() {
                       </Text>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={2} align="center">
-                      <Flex vertical align="center" gap={4}>
-                        <Text strong type="success">
-                          {formatCurrency(totals.total_credit)}
-                        </Text>
-                        {totals.total_refund > 0 && (
-                          <Tag color="gold" icon={<UndoOutlined />}>
-                            مسترجع: {formatCurrency(totals.total_refund)}
-                          </Tag>
-                        )}
-                      </Flex>
+                      <Text strong type="success">
+                        {formatCurrency(totals.total_credit)}
+                      </Text>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={3} align="center">
                       <Text strong>{formatCurrency(totals.final_balance)}</Text>
@@ -565,7 +675,187 @@ export default function CustomerLedger() {
             )
           }
         />
+
+        {/* Hint only — not an entry, and not part of the totals above */}
+        {earlyCheckouts.length > 0 && (
+          <Flex vertical gap={4} style={{ marginTop: 12 }}>
+            {earlyCheckouts.map((ec) => (
+              <Text key={ec.reservation_id} type="warning">
+                <WarningOutlined /> يوجد مغادرة مبكرة للحجز #{ec.reservation_id}
+                {ec.nights ? ` (${ec.nights} ليلة)` : ''} — يرجى استرجاع مبلغ قدره{' '}
+                <Text strong type="warning">
+                  {formatCurrency(ec.amount)} {ec.currency}
+                </Text>
+              </Text>
+            ))}
+          </Flex>
+        )}
+
+        {adjustments.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <Title level={5} style={{ marginBottom: 12 }}>
+              تفاصيل التمديد والتحويل
+            </Title>
+            <Table
+              size="small"
+              dataSource={adjustments}
+              rowKey={(entry) => entry.id}
+              pagination={false}
+              scroll={{ x: true }}
+              columns={[
+                { title: 'التاريخ', dataIndex: 'date', key: 'date', align: 'center' },
+                {
+                  title: 'رقم الحجز',
+                  key: 'reservation',
+                  align: 'center',
+                  render: (_, a) => (a.reservation_id ? `#${a.reservation_id}` : '-'),
+                },
+                {
+                  title: 'العملية',
+                  key: 'operation',
+                  align: 'center',
+                  render: (_, a) =>
+                    a.operation_type === 'extension' ? (
+                      <Tag color="purple">
+                        <TypographyLink onClick={() => handleInvoiceClick(a.reservation_id!, a.id)}>تمديد</TypographyLink>
+                      </Tag>
+                    ) : (
+                      <Tag color="orange">تحويل</Tag>
+                    ),
+                },
+                {
+                  title: 'التفاصيل',
+                  key: 'details',
+                  align: 'center',
+                  render: (_, a) =>
+                    a.operation_type === 'extension'
+                      ? `${a.rooms ?? ''} — ${a.days ?? '-'} ليلة × ${a.rate ? formatCurrency(a.rate) : '-'}`
+                      : `${(a.notes?.replace(/:?\s*\d+\s*ليلة\s*\(فرق [^)]*\)\s*$/, '') ?? a.description)} — سعر الغرفة الجديدة: ${a.rate ? formatCurrency(a.rate) : '-'} × ${a.days ?? '-'} ليلة`,
+                },
+                { title: 'الفترة', dataIndex: 'period', key: 'period', align: 'center', render: (p) => p ?? '-' },
+                {
+                  title: 'العملة',
+                  dataIndex: 'currency',
+                  key: 'currency',
+                  align: 'center',
+                  render: (currency) => (currency ? <Tag color={currency === 'USD' ? 'green' : 'default'}>{currency}</Tag> : '-'),
+                },
+                {
+                  title: 'الفرق في المبلغ',
+                  key: 'diff',
+                  align: 'center',
+                  render: (_, a) => {
+                    const diff = Number(a.debit)
+                    return (
+                      <Text strong type={diff < 0 ? 'success' : diff > 0 ? 'danger' : undefined} dir="ltr">
+                        {diff > 0 ? '+' : ''}
+                        {formatCurrency(diff)}
+                      </Text>
+                    )
+                  },
+                },
+              ]}
+            />
+          </div>
+        )}
       </Card>
+
+      {services.length > 0 && (
+      <Card
+        title={
+          <Space>
+            <CustomerServiceOutlined />
+            <Title level={5} style={{ margin: 0 }}>
+              الخدمات
+            </Title>
+          </Space>
+        }
+      >
+        <Table
+          size="small"
+          dataSource={services}
+          rowKey="id"
+          loading={servicesLoading}
+          pagination={false}
+          locale={{
+            emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="لا توجد خدمات لهذا العميل" />,
+          }}
+          columns={[
+            {
+              title: 'التاريخ',
+              key: 'date',
+              align: 'center',
+              render: (_, s) => <span className="whitespace-nowrap">{formatDateTime12h(s.created_at)}</span>,
+            },
+            { title: 'رقم الحجز', key: 'reservation', align: 'center', render: (_, s) => `#${s.reservation_id}` },
+            {
+              title: 'الخدمة',
+              key: 'service',
+              align: 'center',
+              render: (_, s) =>
+                s.paid_at ? (
+                  <TypographyLink onClick={() => handleServiceInvoiceClick(s.id)}>{s.service?.name ?? '-'}</TypographyLink>
+                ) : (
+                  <Text strong>{s.service?.name ?? '-'}</Text>
+                ),
+            },
+            { title: 'العدد', key: 'quantity', align: 'center', render: (_, s) => s.quantity ?? 1 },
+            {
+              title: 'السعر',
+              key: 'price',
+              align: 'center',
+              render: (_, s) => (s.price != null ? `${formatCurrency(Number(s.price))} ${s.price_currency ?? ''}` : '-'),
+            },
+            {
+              title: 'المبلغ المدفوع',
+              key: 'paid_amount',
+              align: 'center',
+              render: (_, s) => (s.paid_at ? `${formatCurrency(Number(s.billed_amount ?? 0))} ${s.currency ?? ''}` : '-'),
+            },
+            {
+              title: 'طريقة الدفع',
+              key: 'method',
+              align: 'center',
+              render: (_, s) => (s.paid_at ? methodLabels[s.payment_method ?? ''] ?? s.payment_method ?? '-' : '-'),
+            },
+            {
+              title: 'الحالة',
+              key: 'status',
+              align: 'center',
+              render: (_, s) => (s.paid_at ? <Tag color="green">مسددة</Tag> : <Tag color="orange">غير مسددة</Tag>),
+            },
+            { title: 'ملاحظات', key: 'notes', align: 'center', render: (_, s) => s.notes || '-' },
+          ]}
+          summary={() =>
+            services.length === 0 ? null : (
+              <>
+                {Object.entries(serviceTotals).map(([currency, totals]) => (
+                  <Table.Summary.Row key={currency}>
+                    <Table.Summary.Cell index={0} colSpan={5} align="center">
+                      <Text strong>إجمالي الخدمات ({currency})</Text>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={1} align="center">
+                      <Text strong type="success">
+                        {formatCurrency(totals.paid)}
+                      </Text>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={2} colSpan={3} align="center">
+                      {totals.unpaid > 0 ? (
+                        <Text strong type="danger">
+                          غير مسدد: {formatCurrency(totals.unpaid)}
+                        </Text>
+                      ) : (
+                        '-'
+                      )}
+                    </Table.Summary.Cell>
+                  </Table.Summary.Row>
+                ))}
+              </>
+            )
+          }
+        />
+      </Card>
+      )}
 
       <Modal
         open={openPaymentDialog}
@@ -677,6 +967,7 @@ export default function CustomerLedger() {
         open={paymentsModalReservationId !== null}
         onCancel={() => setPaymentsModalReservationId(null)}
         title={`المدفوعات — حجز #${paymentsModalReservationId ?? ''}`}
+        width={820}
         footer={<Button onClick={() => setPaymentsModalReservationId(null)}>إغلاق</Button>}
       >
         <Table
@@ -704,6 +995,12 @@ export default function CustomerLedger() {
               render: (_, entry) => formatCurrency(entry.credit),
             },
             {
+              title: 'سدد بواسطة',
+              key: 'paid_by',
+              align: 'center',
+              render: (_, entry) => entry.paid_by ?? <Text type="secondary">-</Text>,
+            },
+            {
               title: 'الإيصال',
               key: 'receipt',
               align: 'center',
@@ -711,12 +1008,29 @@ export default function CustomerLedger() {
                 <TypographyLink onClick={() => handlePaymentInvoiceClick(entry.id)}>{entry.description}</TypographyLink>
               ),
             },
+            {
+              title: '',
+              key: 'cancel',
+              align: 'center',
+              render: (_, entry) =>
+                canCancelPayment(entry) ? (
+                  <Button
+                    size="small"
+                    danger
+                    icon={<UndoOutlined />}
+                    loading={cancellingPaymentId === entry.id}
+                    onClick={() => handleCancelPayment(entry)}
+                  >
+                    إلغاء السداد
+                  </Button>
+                ) : null,
+            },
           ]}
         />
       </Modal>
+      {modalContextHolder}
 
       <style>{`
-        .ledger-row-refund > td { background-color: #fffbe6 !important; }
         .ledger-row-service > td { background-color: #e6f4ff !important; }
       `}</style>
     </Flex>

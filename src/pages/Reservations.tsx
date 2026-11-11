@@ -160,6 +160,13 @@ export default function Reservations() {
     });
   }, [allRooms]);
 
+  // Memoized so the RangePicker doesn't see a "new" value on every render,
+  // which would reset whatever the user is typing back to the stored dates.
+  const rangeValue = useMemo<[dayjs.Dayjs, dayjs.Dayjs] | null>(
+    () => (checkIn && checkOut ? [dayjs(checkIn), dayjs(checkOut)] : null),
+    [checkIn, checkOut]
+  );
+
   const occupiedCount = useMemo(
     () => sortedRooms.filter((r) => r.is_occupied).length,
     [sortedRooms]
@@ -215,7 +222,8 @@ export default function Reservations() {
         customer_id: form.customer_id,
         check_in_date: checkIn,
         check_out_date: checkOut,
-        currency: form.currency,
+        // Rooms without a USD price can only be billed in SDG.
+        currency: selectedRooms.some((r) => r.price_usd == null) ? "SDG" : form.currency,
         rooms: selectedRooms.map((r) => ({ id: r.id })),
       };
       const { data } = await apiClient.post("/reservations", payload);
@@ -233,7 +241,8 @@ export default function Reservations() {
         }
       }
 
-      toast.success("تم إنشاء الحجز بنجاح");
+      const count = data.reservations?.length ?? 1;
+      toast.success(count > 1 ? `تم إنشاء ${count} حجوزات منفصلة بنجاح` : "تم إنشاء الحجز بنجاح");
       setOpenCreate(false);
       setSelectedRooms([]);
       setForm({ customer_id: "", currency: "SDG" });
@@ -274,6 +283,9 @@ export default function Reservations() {
     selectedRooms.some((r) => r.id === roomId);
 
   const hasSearched = checkIn && checkOut;
+  // Multi-room bookings go through the single button next to the filters;
+  // the per-card button only appears for a lone selected room.
+  const isMultiSelect = selectedRooms.length > 1;
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -292,8 +304,24 @@ export default function Reservations() {
               </Text>
               <RangePicker
                 style={{ width: "100%" }}
-                value={checkIn && checkOut ? [dayjs(checkIn), dayjs(checkOut)] : null}
+                value={rangeValue}
+                format={["YYYY-MM-DD", "YYYY/MM/DD", "DD/MM/YYYY", "DD-MM-YYYY"]}
                 disabledDate={(current) => !!current && current < dayjs().startOf("day")}
+                // A typed date only reaches onChange once both fields are
+                // committed, so typing one field then clicking away (e.g. on
+                // "بحث") snapped back to the old range. Sync each field as soon
+                // as it holds a valid date instead.
+                onCalendarChange={(dates) => {
+                  const [start, end] = dates ?? [];
+                  if (start) {
+                    const startStr = start.format("YYYY-MM-DD");
+                    setCheckIn(startStr);
+                    if (!end && checkOut && !dayjs(checkOut).isAfter(start, "day")) {
+                      setCheckOut(start.add(1, "day").format("YYYY-MM-DD"));
+                    }
+                  }
+                  if (end) setCheckOut(end.format("YYYY-MM-DD"));
+                }}
                 onChange={(_, dateStrings) => {
                   const [newCheckIn, newCheckOut] = dateStrings;
                   setCheckIn(newCheckIn ?? "");
@@ -355,15 +383,25 @@ export default function Reservations() {
                 <Title level={5} style={{ margin: 0 }}>
                   الغرف ({filteredRooms.length})
                 </Title>
-                <Segmented
-                  value={occupancyFilter}
-                  onChange={(value) => setOccupancyFilter(value as typeof occupancyFilter)}
-                  options={[
-                    { label: `الكل (${sortedRooms.length})`, value: "all" },
-                    { label: `متاحة (${availableCount})`, value: "available" },
-                    { label: `محجوزة (${occupiedCount})`, value: "occupied" },
-                  ]}
-                />
+                <Flex align="center" wrap="wrap" gap={12}>
+                  <Segmented
+                    value={occupancyFilter}
+                    onChange={(value) => setOccupancyFilter(value as typeof occupancyFilter)}
+                    options={[
+                      { label: `الكل (${sortedRooms.length})`, value: "all" },
+                      { label: `متاحة (${availableCount})`, value: "available" },
+                      { label: `محجوزة (${occupiedCount})`, value: "occupied" },
+                    ]}
+                  />
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    disabled={!isMultiSelect}
+                    onClick={openCreateDialog}
+                  >
+                    إتمام الحجز{isMultiSelect ? ` (${selectedRooms.length} غرف)` : ""}
+                  </Button>
+                </Flex>
               </Flex>
               {filteredRooms.length === 0 ? (
                 <Empty description="لا توجد غرف مطابقة لهذا الفلتر" />
@@ -371,6 +409,7 @@ export default function Reservations() {
               <Row gutter={[16, 16]}>
                 {filteredRooms.map((room: any) => {
                   const isSelected = isRoomSelected(room.id);
+                  const showCardBookButton = isSelected && !isMultiSelect;
                   const isOccupied = !!room.is_occupied;
                   const currentReservation = room.current_reservation;
                   const overdue =
@@ -396,6 +435,7 @@ export default function Reservations() {
                         }}
                         style={{
                           cursor: "pointer",
+                          height: "100%",
                           borderColor: isSelected ? "#1677ff" : "#f0f0f0",
                           borderWidth: isSelected ? 2 : 1,
                           boxShadow: isSelected
@@ -446,7 +486,7 @@ export default function Reservations() {
                             border: "1px solid #f0f0f0",
                             borderRadius: 8,
                             padding: "8px 12px",
-                            marginBottom: isOccupied || isSelected ? 12 : 0,
+                            marginBottom: isOccupied || showCardBookButton ? 12 : 0,
                           }}
                         >
                           <Flex justify="space-between" align="baseline">
@@ -462,19 +502,28 @@ export default function Reservations() {
                               </Text>
                             ) : null}
                           </Flex>
-                          <Flex justify="space-between" align="baseline" style={{ marginTop: 2 }}>
-                            <div>
-                              <Text style={{ fontSize: 15, fontWeight: 700, color: "#1677ff" }}>
-                                ${formatCurrency(room.price_usd)}
+                          {room.price_usd == null ? (
+                            // Placeholder keeps the price box the same height with or without a USD price
+                            <Flex align="baseline" style={{ marginTop: 2, minHeight: 23 }}>
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                لا يوجد سعر بالدولار
                               </Text>
-                              <Text  style={{ fontSize: 12 }}> / ليلة</Text>
-                            </div>
-                            {room.total_price_usd ? (
-                              <Text  style={{ fontSize: 12 }}>
-                                الإجمالي: ${formatCurrency(room.total_price_usd)}
-                              </Text>
-                            ) : null}
-                          </Flex>
+                            </Flex>
+                          ) : (
+                            <Flex justify="space-between" align="baseline" style={{ marginTop: 2 }}>
+                              <div>
+                                <Text style={{ fontSize: 15, fontWeight: 700, color: "#1677ff" }}>
+                                  ${formatCurrency(room.price_usd)}
+                                </Text>
+                                <Text  style={{ fontSize: 12 }}> / ليلة</Text>
+                              </div>
+                              {room.total_price_usd ? (
+                                <Text  style={{ fontSize: 12 }}>
+                                  الإجمالي: ${formatCurrency(room.total_price_usd)}
+                                </Text>
+                              ) : null}
+                            </Flex>
+                          )}
                         </div>
 
                         {isOccupied && currentReservation && (
@@ -484,7 +533,7 @@ export default function Reservations() {
                               border: "1px solid #ffe58f",
                               borderRadius: 8,
                               padding: 10,
-                              marginBottom: isSelected ? 12 : 0,
+                              marginBottom: showCardBookButton ? 12 : 0,
                             }}
                           >
                             <Flex align="center" gap={6} style={{ marginBottom: 2 }}>
@@ -499,7 +548,7 @@ export default function Reservations() {
                           </div>
                         )}
 
-                        {isSelected && (
+                        {showCardBookButton && (
                           <Button
                             type="primary"
                             block

@@ -136,7 +136,8 @@ export default function PublicReservations() {
         }
       }
       
-      toast.success('تم إنشاء الحجز بنجاح')
+      const count = data.reservations?.length ?? 1
+      toast.success(count > 1 ? `تم إنشاء ${count} حجوزات منفصلة بنجاح` : 'تم إنشاء الحجز بنجاح')
       setOpenCreate(false)
       setSelectedRooms([])
       setForm({ customer_id: '', currency: 'SDG' })

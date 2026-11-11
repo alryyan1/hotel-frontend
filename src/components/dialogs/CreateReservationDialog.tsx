@@ -1,6 +1,7 @@
 import { Modal, Button, Radio, Tag, Alert, Space, Typography, Divider, Flex } from 'antd'
 import { WarningOutlined } from '@ant-design/icons'
 import { Autocomplete, TextField } from '@mui/material'
+import { useEffect } from 'react'
 import dayjs from 'dayjs'
 
 const { Text } = Typography
@@ -44,8 +45,16 @@ export default function CreateReservationDialog({
 
   const nights = Math.max(1, dayjs(checkOut).diff(dayjs(checkIn), 'day'))
 
+  // Rooms without a USD price can only be billed in SDG.
+  const usdAvailable = selectedRooms.every((r: any) => r.price_usd != null)
+  const currency = usdAvailable ? form.currency : 'SDG'
+
+  useEffect(() => {
+    if (!usdAvailable && form.currency !== 'SDG') onFormChange({ ...form, currency: 'SDG' })
+  }, [usdAvailable, form, onFormChange])
+
   const roomBreakdown = selectedRooms.map((r: any) => {
-    const rate = form.currency === 'USD' ? Number(r.price_usd ?? 0) : Number(r.price_sdg ?? 0)
+    const rate = currency === 'USD' ? Number(r.price_usd ?? 0) : Number(r.price_sdg ?? 0)
     // Always derive the total from the nights shown right above it, rather than
     // trusting the room's total_price_sdg/usd from the last availability search —
     // that snapshot goes stale (still reflecting the old date range) the moment
@@ -140,6 +149,14 @@ export default function CreateReservationDialog({
 
         <Button block onClick={onOpenCustomerDialog}>عميل جديد</Button>
 
+        {!usdAvailable ? (
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 6 }}>عملة الفاتورة</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              سيتم إنشاء الحجز بـ <strong>الجنيه السوداني (SDG)</strong> — لا يوجد سعر بالدولار لبعض الغرف المختارة
+            </Text>
+          </div>
+        ) : (
         <div>
           <Text strong style={{ display: 'block', marginBottom: 6 }}>عملة الفاتورة</Text>
           <Radio.Group
@@ -160,6 +177,7 @@ export default function CreateReservationDialog({
             العملة المختارة حالياً: <strong>{form.currency === 'USD' ? 'دولار (USD)' : 'جنيه سوداني (SDG)'}</strong> — سيتم احتساب الفاتورة بالكامل بهذه العملة
           </Text>
         </div>
+        )}
 
         <div>
           <Text strong style={{ display: 'block', marginBottom: 6 }}>
