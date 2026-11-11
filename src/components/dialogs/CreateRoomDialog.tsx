@@ -161,16 +161,7 @@ export default function CreateRoomDialog({
               <Select options={roomTypes.map((t: any) => ({ value: String(t.id), label: t.name }))} />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={8}>
-            <Form.Item label="حالة الغرفة" name="room_status_id" rules={[{ required: true, message: 'الرجاء اختيار حالة الغرفة' }]}>
-              <Select
-                options={roomStatuses.map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.code})` }))}
-              />
-            </Form.Item>
-            <Button type="link" size="small" style={{ padding: 0 }} onClick={() => navigate('/room-statuses')}>
-              + إضافة حالة جديدة
-            </Button>
-          </Col>
+   
         </Row>
       </Form>
     </Modal>

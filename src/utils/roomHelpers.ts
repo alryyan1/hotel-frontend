@@ -11,11 +11,22 @@ export const getStatusColor = (status: any): string => status?.color || '#2196f3
 
 export const getStatusName = (status: any): string => status?.name || 'غير محدد'
 
+// A reservation only occupies the room "today" if today falls within its stay (check-in <= today < check-out).
+// A future reservation (e.g. checking in in 7 days) must not make the room look occupied right now.
+const isReservationActiveToday = (reservation: any): boolean => {
+  const today = dayjs().startOf('day')
+  const checkIn = dayjs(reservation.check_in_date).startOf('day')
+  const checkOut = dayjs(reservation.check_out_date).startOf('day')
+  return !today.isBefore(checkIn) && today.isBefore(checkOut)
+}
+
 export const hasActiveReservations = (roomId: number, reservations: any[]): boolean => {
   const activeStatuses = ['pending', 'confirmed', 'checked_in']
   return reservations.some(
     (reservation: any) =>
-      activeStatuses.includes(reservation.status) && reservation.rooms?.some((room: any) => room.id === roomId)
+      activeStatuses.includes(reservation.status) &&
+      reservation.rooms?.some((room: any) => room.id === roomId) &&
+      isReservationActiveToday(reservation)
   )
 }
 
@@ -23,7 +34,9 @@ export const getDaysRemaining = (roomId: number, reservations: any[]): number | 
   const activeStatuses = ['pending', 'confirmed', 'checked_in']
   const roomReservations = reservations.filter(
     (reservation: any) =>
-      activeStatuses.includes(reservation.status) && reservation.rooms?.some((room: any) => room.id === roomId)
+      activeStatuses.includes(reservation.status) &&
+      reservation.rooms?.some((room: any) => room.id === roomId) &&
+      isReservationActiveToday(reservation)
   )
 
   if (roomReservations.length === 0) return null
