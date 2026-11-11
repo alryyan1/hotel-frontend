@@ -20,6 +20,8 @@ import {
   Badge,
   Popconfirm,
   InputNumber,
+  Flex,
+  Divider,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -35,10 +37,10 @@ import {
   WhatsAppOutlined,
   FilePdfOutlined,
   MessageOutlined,
-  HistoryOutlined,
   MoreOutlined,
   PlusOutlined,
   DeleteOutlined,
+  CloseOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { toast } from 'sonner'
@@ -646,6 +648,25 @@ export default function ReservationsList() {
     }
   }
 
+  const handleSendSingleCheckoutReminder = async (reservation: Reservation) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [reservation.id]: 'reminder' }))
+      const { data } = await apiClient.post(`/reservations/${reservation.id}/send-checkout-reminder`)
+      setReservations(prev => prev.map(r => (
+        r.id === reservation.id ? { ...r, checkout_reminder_sent_at: data.checkout_reminder_sent_at } : r
+      )))
+      toast.success('تم إرسال تذكير المغادرة بنجاح')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل في إرسال تذكير المغادرة')
+    } finally {
+      setActionLoading(prev => {
+        const next = { ...prev }
+        delete next[reservation.id]
+        return next
+      })
+    }
+  }
+
   const handleOpenTodayPdf = async (type: 'arrivals' | 'departures') => {
     const setPdfLoading = type === 'arrivals' ? setArrivalsPdfLoading : setDeparturesPdfLoading
     try {
@@ -852,6 +873,23 @@ export default function ReservationsList() {
       )
     }
 
+    if (reservation.status === 'checked_in' && dayjs().isSame(dayjs(reservation.check_out_date), 'day')) {
+      buttons.push(
+        <Button
+          key="reminder"
+          block
+          color="green"
+          variant="outlined"
+          icon={<WhatsAppOutlined />}
+          onClick={run(() => handleSendSingleCheckoutReminder(reservation))}
+          disabled={isLoading}
+          loading={isLoading && currentAction === 'reminder'}
+        >
+          {reservation.checkout_reminder_sent_at ? 'إعادة إرسال تذكير المغادرة' : 'إرسال تذكير مغادرة'}
+        </Button>,
+      )
+    }
+
     if (reservation.status === 'checked_in') {
       buttons.push(
         <Button
@@ -897,18 +935,6 @@ export default function ReservationsList() {
         </Button>,
       )
     }
-
-    buttons.push(
-      <Button
-        key="history"
-        block
-        variant="outlined"
-        icon={<HistoryOutlined />}
-        onClick={run(() => handleShowHistory(reservation))}
-      >
-        سجل الحالة
-      </Button>,
-    )
 
     return buttons
   }
@@ -1256,7 +1282,7 @@ export default function ReservationsList() {
         const count = r.services_count ?? 0
         return (
           <Tooltip title="عرض طلبات الخدمات">
-            <Button type="text" onClick={() => openServicesList(r)} aria-label="طلبات الخدمات">
+            <Button disabled={count === 0} type="text" onClick={() => openServicesList(r)} aria-label="طلبات الخدمات">
               <Badge count={count} showZero color={count > 0 ? 'cyan' : 'var(--muted-foreground)'} />
             </Button>
           </Tooltip>
@@ -1313,7 +1339,10 @@ export default function ReservationsList() {
           type="text"
           icon={<MoreOutlined style={{ fontSize: 18 }} />}
           loading={actionLoading[r.id] !== undefined}
-          onClick={() => setActionsReservation(r)}
+          onClick={() => {
+            setActionsReservation(r)
+            handleShowHistory(r)
+          }}
           aria-label="الإجراءات"
         />
       ),
@@ -1478,18 +1507,77 @@ export default function ReservationsList() {
       {/* Row Actions Dialog */}
       <Modal
         open={!!actionsReservation}
-        onCancel={() => setActionsReservation(null)}
+        onCancel={() => {
+          setActionsReservation(null)
+          setHistoryDialogOpen(false)
+          setHistoryReservationId(null)
+          setHistoryLogs([])
+        }}
         title={actionsReservation ? `إجراءات الحجز #${actionsReservation.id}` : ''}
-        width={360}
+        width={historyDialogOpen ? 720 : 360}
         footer={null}
       >
         {liveActionsReservation && (
-          <Space orientation="vertical" size={8} style={{ width: '100%', marginTop: 8 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {liveActionsReservation.customer?.name} — {getStatusTag(liveActionsReservation.status)}
-            </Text>
-            {getActionButtons(liveActionsReservation)}
-          </Space>
+          <Flex gap={20} align="flex-start" style={{ marginTop: 8 }}>
+            <Space
+              orientation="vertical"
+              size={8}
+              style={{ width: historyDialogOpen ? 220 : '100%', flexShrink: 0 }}
+            >
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {liveActionsReservation.customer?.name} — {getStatusTag(liveActionsReservation.status)}
+              </Text>
+              {getActionButtons(liveActionsReservation)}
+            </Space>
+
+            {historyDialogOpen && historyReservationId === liveActionsReservation.id && (
+              <>
+                <Divider type="vertical" style={{ height: 'auto', alignSelf: 'stretch' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Flex justify="space-between" align="center" style={{ marginBottom: 8 }}>
+                    <Text strong style={{ fontSize: 13 }}>سجل تغييرات الحالة</Text>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CloseOutlined />}
+                      onClick={() => setHistoryDialogOpen(false)}
+                      aria-label="إغلاق السجل"
+                    />
+                  </Flex>
+                  {historyLoading ? (
+                    <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                      <Spin />
+                    </div>
+                  ) : historyLogs.length === 0 ? (
+                    <Text type="secondary">لا يوجد سجل لهذا الحجز</Text>
+                  ) : (
+                    <Timeline
+                      items={historyLogs.map((log) => ({
+                        color: log.notes ? 'purple' : timelineColorFor(log.to_status as Reservation['status']),
+                        dot: log.notes ? <SwapOutlined style={{ fontSize: 16 }} /> : undefined,
+                        children: (
+                          <div>
+                            <Text strong>
+                              {log.notes
+                                ? log.notes
+                                : log.from_status
+                                ? `تغيير الحالة: من ${statusConfig[log.from_status]?.label ?? log.from_status} إلى ${statusConfig[log.to_status!]?.label ?? log.to_status}`
+                                : `تم إنشاء الحجز بالحالة: ${statusConfig[log.to_status!]?.label ?? log.to_status}`}
+                            </Text>
+                            <div>
+                              <Text style={{ fontSize: 12 }}>
+                                {log.user?.name ?? 'النظام'} — {dayjs(log.created_at).format('DD/MM/YYYY HH:mm')}
+                              </Text>
+                            </div>
+                          </div>
+                        ),
+                      }))}
+                    />
+                  )}
+                </div>
+              </>
+            )}
+          </Flex>
         )}
       </Modal>
 
@@ -1630,50 +1718,6 @@ export default function ReservationsList() {
           {renderNotificationChannelStatus('رسائل SMS', <MessageOutlined />, notifyResults?.sms, notifySending)}
           {renderNotificationChannelStatus('رسائل واتساب', <WhatsAppOutlined />, notifyResults?.whatsapp, notifySending)}
         </Space>
-      </Modal>
-
-      {/* Reservation Status History Dialog */}
-      <Modal
-        open={historyDialogOpen}
-        onCancel={() => setHistoryDialogOpen(false)}
-        title={`سجل تغييرات الحالة ${historyReservationId ? `— حجز #${historyReservationId}` : ''}`}
-        footer={[
-          <Button key="close" onClick={() => setHistoryDialogOpen(false)}>
-            إغلاق
-          </Button>,
-        ]}
-      >
-        {historyLoading ? (
-          <div style={{ textAlign: 'center', padding: '24px 0' }}>
-            <Spin />
-          </div>
-        ) : historyLogs.length === 0 ? (
-          <Text type="secondary">لا يوجد سجل لهذا الحجز</Text>
-        ) : (
-          <Timeline
-            style={{ marginTop: 16 }}
-            items={historyLogs.map((log) => ({
-              color: log.notes ? 'purple' : timelineColorFor(log.to_status as Reservation['status']),
-              dot: log.notes ? <SwapOutlined style={{ fontSize: 16 }} /> : undefined,
-              children: (
-                <div>
-                  <Text strong>
-                    {log.notes
-                      ? log.notes
-                      : log.from_status
-                      ? `تغيير الحالة: من ${statusConfig[log.from_status]?.label ?? log.from_status} إلى ${statusConfig[log.to_status!]?.label ?? log.to_status}`
-                      : `تم إنشاء الحجز بالحالة: ${statusConfig[log.to_status!]?.label ?? log.to_status}`}
-                  </Text>
-                  <div>
-                    <Text  style={{ fontSize: 12 }}>
-                      {log.user?.name ?? 'النظام'} — {dayjs(log.created_at).format('DD/MM/YYYY HH:mm')}
-                    </Text>
-                  </div>
-                </div>
-              ),
-            }))}
-          />
-        )}
       </Modal>
 
       {/* Occupied Rooms Error Dialog */}
@@ -1917,7 +1961,7 @@ export default function ReservationsList() {
         onCancel={() => setServicesListReservation(null)}
         title={`طلبات خدمات الحجز #${servicesListReservation?.id ?? ''}`}
         width="95vw"
-        style={{ maxWidth: 1400, top: 24 }}
+        style={{ maxWidth: 1400, top: 200 }}
         footer={[
           servicesListReservation?.status === 'checked_in' && (
             <Button key="add" icon={<PlusOutlined />} onClick={() => openAddService(servicesListReservation)}>
