@@ -10,6 +10,7 @@ import {
   BankOutlined,
   PictureOutlined,
   BellOutlined,
+  LoginOutlined,
 } from '@ant-design/icons'
 import { toast } from 'sonner'
 import WhatsAppNumberList from '@/components/settings/WhatsAppNumberList'
@@ -44,6 +45,7 @@ export default function Settings() {
   const [e_stampPreview, setEStampPreview] = useState('')
   const [smsEnabled, setSmsEnabled] = useState(true)
   const [whatsappEnabled, setWhatsappEnabled] = useState(true)
+  const [allowCheckinOtherDay, setAllowCheckinOtherDay] = useState(false)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -68,6 +70,7 @@ export default function Settings() {
           })
           setSmsEnabled(data.sms_notifications_enabled ?? true)
           setWhatsappEnabled(data.whatsapp_notifications_enabled ?? true)
+          setAllowCheckinOtherDay(data.allow_checkin_outside_arrival_date ?? false)
           if (data.logo_url) {
             setLogoPreview(data.logo_url)
           } else if (data.logo_path) {
@@ -116,6 +119,7 @@ export default function Settings() {
       Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ''))
       fd.append('sms_notifications_enabled', smsEnabled ? '1' : '0')
       fd.append('whatsapp_notifications_enabled', whatsappEnabled ? '1' : '0')
+      fd.append('allow_checkin_outside_arrival_date', allowCheckinOtherDay ? '1' : '0')
       if (logoFile) fd.append('logo', logoFile)
       if (stampFile) fd.append('stamp', stampFile)
       if (headerFile) fd.append('header', headerFile)
@@ -127,6 +131,7 @@ export default function Settings() {
       toast.success('تم حفظ الإعدادات بنجاح')
       setSmsEnabled(data.sms_notifications_enabled ?? smsEnabled)
       setWhatsappEnabled(data.whatsapp_notifications_enabled ?? whatsappEnabled)
+      setAllowCheckinOtherDay(data.allow_checkin_outside_arrival_date ?? allowCheckinOtherDay)
       const baseUrl = import.meta.env.VITE_API_BASE?.replace('/api', '') || 'http://127.0.0.1/hotel-backend/public'
       if (data.logo_url) setLogoPreview(data.logo_url)
       else if (data.logo_path) setLogoPreview(`${baseUrl}/storage/${data.logo_path}`)
@@ -387,6 +392,20 @@ export default function Settings() {
     </Space>
   )
 
+  const checkinTab = (
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      <div className="flex items-center justify-between gap-4 max-w-md">
+        <div>
+          <Text>السماح بتسجيل الوصول في يوم غير يوم الوصول</Text>
+          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            عند الإيقاف لا يمكن تسجيل وصول الحجز إلا في تاريخ الوصول المحدد له
+          </Text>
+        </div>
+        <Switch checked={allowCheckinOtherDay} onChange={setAllowCheckinOtherDay} />
+      </div>
+    </Space>
+  )
+
   return (
     <div className="flex flex-col gap-4 p-4">
       <Space align="center" size={10}>
@@ -401,6 +420,7 @@ export default function Settings() {
             { key: 'basic', label: 'المعلومات الأساسية', icon: <InfoCircleOutlined />, children: basicTab },
             { key: 'bank', label: 'الحسابات البنكية', icon: <BankOutlined />, children: bankTab },
             { key: 'images', label: 'الشعار والصور', icon: <PictureOutlined />, children: imagesTab },
+            { key: 'checkin', label: 'تسجيل الوصول', icon: <LoginOutlined />, children: checkinTab },
             { key: 'notifications', label: 'الإشعارات', icon: <BellOutlined />, children: notificationsTab },
           ]}
         />
