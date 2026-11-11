@@ -97,7 +97,10 @@ export default function Dashboard() {
       const totalRooms = allRooms.length
       const occupiedRooms = allRooms.filter((r: any) => {
         const isOccupiedByReservation = occupiedRoomIds.has(r.id)
-        const isOccupiedByStatus = r.status?.name?.toLowerCase().includes('مشغول') ||
+        // Status names are free text set from the room-statuses admin page, so this
+        // app actually uses "محجوزة" (booked) rather than "مشغول" (busy) for occupied.
+        const isOccupiedByStatus = r.status?.name?.toLowerCase().includes('محجوز') ||
+          r.status?.name?.toLowerCase().includes('مشغول') ||
           r.status?.name?.toLowerCase().includes('occupied')
         return isOccupiedByReservation || isOccupiedByStatus
       }).length
@@ -148,7 +151,9 @@ export default function Dashboard() {
         available: availableRooms,
         occupied: occupiedRooms,
         maintenance: maintenanceRooms,
+        // "نظافة" (cleanliness) is the status name actually used here, not "تنظيف" (cleaning process).
         cleaning: allRooms.filter((r: any) =>
+          r.status?.name?.toLowerCase().includes('نظاف') ||
           r.status?.name?.toLowerCase().includes('تنظيف') ||
           r.status?.name?.toLowerCase().includes('cleaning')
         ).length,
