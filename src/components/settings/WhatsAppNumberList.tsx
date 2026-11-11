@@ -14,7 +14,7 @@ interface NotificationNumber {
 }
 
 interface WhatsAppNumberListProps {
-  event: 'confirmation' | 'cancellation' | 'cleaning'
+  event: 'confirmation' | 'cancellation' | 'cleaning' | 'arrivals_report' | 'departures_report'
   title: string
   description?: string
 }
