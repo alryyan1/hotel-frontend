@@ -1,21 +1,20 @@
 import { useState, useEffect } from 'react'
 import apiClient from '../../api/axios'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import {
-  Dialog as MuiDialog,
-  DialogTitle as MuiDialogTitle,
-  DialogContent as MuiDialogContent,
-  DialogActions as MuiDialogActions,
-  Button as MuiButton,
-  TextField,
-  Box,
-  Autocomplete
-} from '@mui/material'
-import { Trash2 } from 'lucide-react'
+import { Loader2, Package, Trash2 } from 'lucide-react'
 import dayjs from 'dayjs'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import InventoryItemPicker from '@/components/inventory/InventoryItemPicker'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface CreateInventoryOrderDialogProps {
   open: boolean
@@ -110,136 +109,93 @@ export default function CreateInventoryOrderDialog({
   }
 
   return (
-    <MuiDialog 
-      open={open} 
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '12px',
-          maxHeight: '90vh'
-        }
-      }}
-    >
-      <MuiDialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
-        إنشاء طلب من المخزون
-      </MuiDialogTitle>
-      <MuiDialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-          <TextField
-            label="تاريخ الطلب *"
-            type="date"
-            value={orderForm.order_date}
-            onChange={(e) => setOrderForm({ ...orderForm, order_date: e.target.value })}
-            required
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-          />
-          
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <Autocomplete
-                fullWidth
-                options={inventory}
-                getOptionLabel={(option) => option.name || ''}
-                onChange={(event, newValue) => {
-                  if (newValue) {
-                    handleAddItem(newValue)
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="إضافة عنصر"
-                    placeholder="اختر عنصر لإضافته للطلب"
-                  />
-                )}
-                noOptionsText="لا توجد عناصر"
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>إنشاء طلب من المخزون</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="order-date">تاريخ الطلب *</Label>
+              <Input
+                id="order-date"
+                type="date"
+                value={orderForm.order_date}
+                onChange={(e) => setOrderForm({ ...orderForm, order_date: e.target.value })}
+                required
               />
-            </Box>
+            </div>
+            <div className="space-y-1.5">
+              <Label>إضافة عنصر</Label>
+              <InventoryItemPicker inventory={inventory} onPick={handleAddItem} placeholder="اختر عنصر لإضافته للطلب" />
+            </div>
+          </div>
 
-            {orderItems.length > 0 && (
-              <Card className="border-border/40">
-                <CardContent className="p-0">
-                  <div className="rounded-lg border border-border/40">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/30 hover:bg-muted/30">
-                          <TableHead className="font-bold text-center">العنصر</TableHead>
-                          <TableHead className="font-bold text-center">الكمية</TableHead>
-                          <TableHead className="font-bold text-center">ملاحظات</TableHead>
-                          <TableHead className="font-bold text-center">إجراءات</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {orderItems.map((item: any, index: number) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium text-center">
-                              {item.inventory?.name || '-'}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <TextField
-                                type="number"
-                                inputProps={{ step: "0.01", min: "0.01" }}
-                                value={item.quantity}
-                                onChange={(e) => handleUpdateItemQuantity(index, e.target.value)}
-                                size="small"
-                                sx={{ width: '100px' }}
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <TextField
-                                value={item.notes}
-                                onChange={(e) => handleUpdateItemNotes(index, e.target.value)}
-                                size="small"
-                                placeholder="ملاحظات"
-                                fullWidth
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleRemoveItem(index)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">عناصر الطلب ({orderItems.length})</div>
+            {orderItems.length === 0 ? (
+              <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed py-6 text-sm text-muted-foreground">
+                <Package className="size-6 opacity-50" />
+                لم تتم إضافة عناصر بعد
+              </div>
+            ) : (
+              <div className="divide-y rounded-lg border">
+                {orderItems.map((item: any, index: number) => (
+                  <div key={item.inventory_id} className="grid gap-2 p-3 sm:grid-cols-[1fr_110px_1fr_auto] sm:items-center">
+                    <div className="font-medium">{item.inventory?.name || '-'}</div>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={item.quantity}
+                      onChange={(e) => handleUpdateItemQuantity(index, e.target.value)}
+                      aria-label="الكمية"
+                      placeholder="الكمية"
+                    />
+                    <Input
+                      value={item.notes}
+                      onChange={(e) => handleUpdateItemNotes(index, e.target.value)}
+                      placeholder="ملاحظات"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="justify-self-end text-destructive hover:text-destructive"
+                      onClick={() => handleRemoveItem(index)}
+                      aria-label="حذف"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+                ))}
+              </div>
             )}
-          </Box>
+          </div>
 
-          <TextField
-            label="ملاحظات"
-            value={orderForm.notes}
-            onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
-            fullWidth
-            multiline
-            rows={3}
-            placeholder="ملاحظات على الطلب (اختياري)"
-          />
-        </Box>
-      </MuiDialogContent>
-      <MuiDialogActions>
-        <MuiButton variant="outlined" onClick={onClose}>
-          إلغاء
-        </MuiButton>
-        <MuiButton
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={loading || orderItems.length === 0}
-        >
-          {loading ? 'جارٍ الإنشاء...' : 'إنشاء الطلب'}
-        </MuiButton>
-      </MuiDialogActions>
-    </MuiDialog>
+          <div className="space-y-1.5">
+            <Label htmlFor="order-notes">ملاحظات</Label>
+            <Textarea
+              id="order-notes"
+              value={orderForm.notes}
+              onChange={(e) => setOrderForm({ ...orderForm, notes: e.target.value })}
+              rows={3}
+              placeholder="ملاحظات على الطلب (اختياري)"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>
+            إلغاء
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading || orderItems.length === 0}>
+            {loading && <Loader2 className="size-4 animate-spin" />}
+            {loading ? 'جارٍ الإنشاء...' : 'إنشاء الطلب'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
-

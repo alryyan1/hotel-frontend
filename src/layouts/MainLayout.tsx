@@ -20,7 +20,6 @@ import {
   Package,
   ShoppingCart,
   ArrowDownCircle,
-  Sparkles,
   ChevronRight,
   Clock,
 } from "lucide-react";
@@ -119,22 +118,16 @@ const navigationGroups = [
       },
     ],
   },
-  {
-    title: "الخدمات",
-    icon: <Sparkles className="size-5" />,
-    items: [
-      {
-        to: "/cleaning-notifications",
-        label: "تنبيهات النظافة",
-        icon: <Sparkles className="size-5" />,
-      },
-      {
-        to: "/services",
-        label: "خدمات اضافية",
-        icon: <Sparkles className="size-5" />,
-      },
-    ],
-  },
+  // "الخدمات" group (تنبيهات النظافة، خدمات اضافية) hidden from the sidebar for now;
+  // the routes still exist. Restore this entry (and the Sparkles import) to show it again:
+  // {
+  //   title: "الخدمات",
+  //   icon: <Sparkles className="size-5" />,
+  //   items: [
+  //     { to: "/cleaning-notifications", label: "تنبيهات النظافة", icon: <Sparkles className="size-5" /> },
+  //     { to: "/services", label: "خدمات اضافية", icon: <Sparkles className="size-5" /> },
+  //   ],
+  // },
 ];
 
 export default function MainLayout() {

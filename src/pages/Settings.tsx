@@ -32,6 +32,7 @@ export default function Settings() {
     bank_name_2: '',
     bank_account_number_2: '',
     bank_account_name_2: '',
+    whatsapp_confirmation_template: '',
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState('')
@@ -67,6 +68,7 @@ export default function Settings() {
             bank_name_2: data.bank_name_2 || '',
             bank_account_number_2: data.bank_account_number_2 || '',
             bank_account_name_2: data.bank_account_name_2 || '',
+            whatsapp_confirmation_template: data.whatsapp_confirmation_template || '',
           })
           setSmsEnabled(data.sms_notifications_enabled ?? true)
           setWhatsappEnabled(data.whatsapp_notifications_enabled ?? true)
@@ -352,6 +354,18 @@ export default function Settings() {
       <div className="flex items-center justify-between max-w-md">
         <Text>رسائل واتساب عند تأكيد الحجز</Text>
         <Switch checked={whatsappEnabled} onChange={setWhatsappEnabled} />
+      </div>
+      <div className="max-w-md">
+        <Text type="secondary" style={{ display: 'block', marginBottom: 4, fontSize: 13 }}>
+          اسم قالب واتساب لتأكيد الحجز
+        </Text>
+        <Input
+          dir="ltr"
+          value={form.whatsapp_confirmation_template}
+          onChange={(e) => updateField('whatsapp_confirmation_template', e.target.value.trim().toLowerCase())}
+          placeholder="booking_confirmation_branch1"
+          disabled={!whatsappEnabled}
+        />
       </div>
 
       <Divider style={{ margin: '8px 0' }} />

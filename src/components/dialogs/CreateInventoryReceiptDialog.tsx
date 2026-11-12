@@ -1,21 +1,20 @@
 import { useState, useEffect } from 'react'
 import apiClient from '../../api/axios'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import {
-  Dialog as MuiDialog,
-  DialogTitle as MuiDialogTitle,
-  DialogContent as MuiDialogContent,
-  DialogActions as MuiDialogActions,
-  Button as MuiButton,
-  TextField,
-  Box,
-  Autocomplete
-} from '@mui/material'
-import { Trash2 } from 'lucide-react'
+import { Loader2, Package, Trash2 } from 'lucide-react'
 import dayjs from 'dayjs'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import InventoryItemPicker from '@/components/inventory/InventoryItemPicker'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface CreateInventoryReceiptDialogProps {
   open: boolean
@@ -121,158 +120,121 @@ export default function CreateInventoryReceiptDialog({
   }
 
   return (
-    <MuiDialog 
-      open={open} 
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '12px',
-          maxHeight: '90vh'
-        }
-      }}
-    >
-      <MuiDialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
-        إنشاء وارد للمخزون
-      </MuiDialogTitle>
-      <MuiDialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-            <TextField
-              label="تاريخ الوارد *"
-              type="date"
-              value={receiptForm.receipt_date}
-              onChange={(e) => setReceiptForm({ ...receiptForm, receipt_date: e.target.value })}
-              required
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label="المورد"
-              value={receiptForm.supplier}
-              onChange={(e) => setReceiptForm({ ...receiptForm, supplier: e.target.value })}
-              fullWidth
-              placeholder="اسم المورد (اختياري)"
-              autoComplete="off"
-            />
-          </Box>
-          
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <Autocomplete
-                fullWidth
-                options={inventory}
-                getOptionLabel={(option) => option.name || ''}
-                onChange={(event, newValue) => {
-                  if (newValue) {
-                    handleAddItem(newValue)
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="إضافة عنصر مستلم"
-                    placeholder="اختر عنصر لإضافته للوارد"
-                  />
-                )}
-                noOptionsText="لا توجد عناصر"
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>إنشاء وارد للمخزون</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="receipt-date">تاريخ الوارد *</Label>
+              <Input
+                id="receipt-date"
+                type="date"
+                value={receiptForm.receipt_date}
+                onChange={(e) => setReceiptForm({ ...receiptForm, receipt_date: e.target.value })}
+                required
               />
-            </Box>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="receipt-supplier">المورد</Label>
+              <Input
+                id="receipt-supplier"
+                value={receiptForm.supplier}
+                onChange={(e) => setReceiptForm({ ...receiptForm, supplier: e.target.value })}
+                placeholder="اسم المورد (اختياري)"
+                autoComplete="off"
+              />
+            </div>
+          </div>
 
-            {receiptItems.length > 0 && (
-              <Card className="border-border/40">
-                <CardContent className="p-0">
-                  <div className="rounded-lg border border-border/40">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/30 hover:bg-muted/30">
-                          <TableHead className="font-bold text-center">العنصر</TableHead>
-                          <TableHead className="font-bold text-center">الكمية المستلمة</TableHead>
-                          <TableHead className="font-bold text-center">سعر الشراء</TableHead>
-                          <TableHead className="font-bold text-center">ملاحظات</TableHead>
-                          <TableHead className="font-bold text-center">إجراءات</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {receiptItems.map((item: any, index: number) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-medium text-center">
-                              {item.inventory?.name || '-'}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <TextField
-                                type="number"
-                                inputProps={{ step: "0.01", min: "0.01" }}
-                                value={item.quantity_received}
-                                onChange={(e) => handleUpdateItemQuantity(index, e.target.value)}
-                                size="small"
-                                sx={{ width: '100px' }}
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <TextField
-                                type="number"
-                                inputProps={{ step: "0.01", min: "0" }}
-                                value={item.purchase_price}
-                                onChange={(e) => handleUpdateItemPrice(index, e.target.value)}
-                                size="small"
-                                placeholder="0.00"
-                                sx={{ width: '120px' }}
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <TextField
-                                value={item.notes}
-                                onChange={(e) => handleUpdateItemNotes(index, e.target.value)}
-                                size="small"
-                                placeholder="ملاحظات"
-                                fullWidth
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => handleRemoveItem(index)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+          <div className="space-y-1.5">
+            <Label>إضافة عنصر مستلم</Label>
+            <InventoryItemPicker inventory={inventory} onPick={handleAddItem} placeholder="اختر عنصر لإضافته للوارد" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">العناصر المستلمة ({receiptItems.length})</div>
+            {receiptItems.length === 0 ? (
+              <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed py-6 text-sm text-muted-foreground">
+                <Package className="size-6 opacity-50" />
+                لم تتم إضافة عناصر بعد
+              </div>
+            ) : (
+              <div className="divide-y rounded-lg border">
+                <div className="hidden gap-2 bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_110px_120px_1fr_40px]">
+                  <span>العنصر</span>
+                  <span>الكمية المستلمة</span>
+                  <span>سعر الشراء</span>
+                  <span>ملاحظات</span>
+                  <span />
+                </div>
+                {receiptItems.map((item: any, index: number) => (
+                  <div key={item.inventory_id} className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-[1fr_110px_120px_1fr_40px] sm:items-center">
+                    <div className="col-span-2 font-medium sm:col-span-1">{item.inventory?.name || '-'}</div>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={item.quantity_received}
+                      onChange={(e) => handleUpdateItemQuantity(index, e.target.value)}
+                      aria-label="الكمية المستلمة"
+                      placeholder="الكمية"
+                    />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={item.purchase_price}
+                      onChange={(e) => handleUpdateItemPrice(index, e.target.value)}
+                      aria-label="سعر الشراء"
+                      placeholder="سعر الشراء"
+                    />
+                    <Input
+                      className="col-span-2 sm:col-span-1"
+                      value={item.notes}
+                      onChange={(e) => handleUpdateItemNotes(index, e.target.value)}
+                      placeholder="ملاحظات"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="col-span-2 justify-self-end text-destructive hover:text-destructive sm:col-span-1"
+                      onClick={() => handleRemoveItem(index)}
+                      aria-label="حذف"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+                ))}
+              </div>
             )}
-          </Box>
+          </div>
 
-          <TextField
-            label="ملاحظات"
-            value={receiptForm.notes}
-            onChange={(e) => setReceiptForm({ ...receiptForm, notes: e.target.value })}
-            fullWidth
-            multiline
-            rows={3}
-            placeholder="ملاحظات على الوارد (اختياري)"
-          />
-        </Box>
-      </MuiDialogContent>
-      <MuiDialogActions>
-        <MuiButton variant="outlined" onClick={onClose}>
-          إلغاء
-        </MuiButton>
-        <MuiButton
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={loading || receiptItems.length === 0}
-        >
-          {loading ? 'جارٍ الإنشاء...' : 'إنشاء الوارد'}
-        </MuiButton>
-      </MuiDialogActions>
-    </MuiDialog>
+          <div className="space-y-1.5">
+            <Label htmlFor="receipt-notes">ملاحظات</Label>
+            <Textarea
+              id="receipt-notes"
+              value={receiptForm.notes}
+              onChange={(e) => setReceiptForm({ ...receiptForm, notes: e.target.value })}
+              rows={3}
+              placeholder="ملاحظات على الوارد (اختياري)"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose}>
+            إلغاء
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading || receiptItems.length === 0}>
+            {loading && <Loader2 className="size-4 animate-spin" />}
+            {loading ? 'جارٍ الإنشاء...' : 'إنشاء الوارد'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
-

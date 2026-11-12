@@ -5,7 +5,6 @@ import {
   HomeOutlined,
   TeamOutlined,
   CalendarOutlined,
-  DollarOutlined,
   RiseOutlined,
   ToolOutlined,
   CheckCircleOutlined,
@@ -31,8 +30,6 @@ interface DashboardStats {
   activeReservations: number
   pendingReservations: number
   totalCustomers: number
-  todayRevenue: number
-  monthRevenue: number
   occupancyRate: number
   recentReservations: any[]
   roomStatusBreakdown: {
@@ -69,11 +66,11 @@ export default function Dashboard() {
     try {
       setLoading(true)
 
-      const [roomsRes, reservationsRes, customersRes, paymentsRes] = await Promise.all([
+      const [roomsRes, reservationsRes, customersRes] = await Promise.all([
         apiClient.get('/rooms').catch(() => ({ data: [] })),
-        apiClient.get('/reservations').catch(() => ({ data: [] })),
+        // The endpoint paginates (20) by default; occupancy and totals need every reservation
+        apiClient.get('/reservations', { params: { per_page: 'all' } }).catch(() => ({ data: [] })),
         apiClient.get('/customers').catch(() => ({ data: [] })),
-        apiClient.get('/payments').catch(() => ({ data: [] })),
       ])
 
       const roomsData = roomsRes.data || []
@@ -94,21 +91,23 @@ export default function Dashboard() {
         }
       })
 
+      // Each room lands in exactly one bucket so the four counts add up to the total:
+      // a checked-in guest wins, then the manual maintenance/cleaning status (matched
+      // by its fixed `code`, since the display name is editable), otherwise available.
+      const roomState = (r: any): 'occupied' | 'maintenance' | 'cleaning' | 'available' => {
+        if (occupiedRoomIds.has(r.id)) return 'occupied'
+        if (r.status?.code === 'maintenance') return 'maintenance'
+        if (r.status?.code === 'cleaning') return 'cleaning'
+        return 'available'
+      }
+      const countState = (state: ReturnType<typeof roomState>) =>
+        allRooms.filter((r: any) => roomState(r) === state).length
+
       const totalRooms = allRooms.length
-      const occupiedRooms = allRooms.filter((r: any) => {
-        const isOccupiedByReservation = occupiedRoomIds.has(r.id)
-        // Status names are free text set from the room-statuses admin page, so this
-        // app actually uses "محجوزة" (booked) rather than "مشغول" (busy) for occupied.
-        const isOccupiedByStatus = r.status?.name?.toLowerCase().includes('محجوز') ||
-          r.status?.name?.toLowerCase().includes('مشغول') ||
-          r.status?.name?.toLowerCase().includes('occupied')
-        return isOccupiedByReservation || isOccupiedByStatus
-      }).length
-      const maintenanceRooms = allRooms.filter((r: any) =>
-        r.status?.name?.toLowerCase().includes('صيانة') ||
-        r.status?.name?.toLowerCase().includes('maintenance')
-      ).length
-      const availableRooms = totalRooms - occupiedRooms - maintenanceRooms
+      const occupiedRooms = countState('occupied')
+      const maintenanceRooms = countState('maintenance')
+      const cleaningRooms = countState('cleaning')
+      const availableRooms = countState('available')
 
       const totalReservations = allReservations.length
       const activeReservations = allReservations.filter((r: any) =>
@@ -123,27 +122,9 @@ export default function Dashboard() {
         )
         .slice(0, 5)
 
+      // Paginated response: use the server's total rather than the size of the first page
       const customersData = customersRes.data?.data || customersRes.data || []
-      const totalCustomers = Array.isArray(customersData) ? customersData.length : 0
-
-      const paymentsData = paymentsRes.data?.data || paymentsRes.data || []
-      const allPayments = Array.isArray(paymentsData) ? paymentsData : []
-
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      const todayRevenue = allPayments
-        .filter((p: any) => {
-          const paymentDate = new Date(p.created_at || p.payment_date)
-          paymentDate.setHours(0, 0, 0, 0)
-          return paymentDate.getTime() === today.getTime()
-        })
-        .reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0)
-
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-      const monthRevenue = allPayments
-        .filter((p: any) => new Date(p.created_at || p.payment_date) >= monthStart)
-        .reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0)
+      const totalCustomers = customersRes.data?.total ?? (Array.isArray(customersData) ? customersData.length : 0)
 
       const occupancyRate = totalRooms > 0 ? (occupiedRooms / totalRooms) * 100 : 0
 
@@ -151,12 +132,7 @@ export default function Dashboard() {
         available: availableRooms,
         occupied: occupiedRooms,
         maintenance: maintenanceRooms,
-        // "نظافة" (cleanliness) is the status name actually used here, not "تنظيف" (cleaning process).
-        cleaning: allRooms.filter((r: any) =>
-          r.status?.name?.toLowerCase().includes('نظاف') ||
-          r.status?.name?.toLowerCase().includes('تنظيف') ||
-          r.status?.name?.toLowerCase().includes('cleaning')
-        ).length,
+        cleaning: cleaningRooms,
       }
 
       const currentMonth = new Date().getMonth()
@@ -190,8 +166,6 @@ export default function Dashboard() {
         activeReservations,
         pendingReservations,
         totalCustomers,
-        todayRevenue,
-        monthRevenue,
         occupancyRate,
         recentReservations,
         roomStatusBreakdown,
@@ -204,9 +178,6 @@ export default function Dashboard() {
       setLoading(false)
     }
   }
-
-  const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(amount) + ' ج.س'
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -293,7 +264,7 @@ export default function Dashboard() {
       </Space>
 
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={24} sm={8}>
           <Card size="small" loading={loading}>
             <Statistic
               title="الحجوزات النشطة"
@@ -306,7 +277,7 @@ export default function Dashboard() {
             </Text>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={24} sm={8}>
           <Card size="small" loading={loading}>
             <Statistic
               title="معدل الإشغال"
@@ -321,21 +292,7 @@ export default function Dashboard() {
             </Text>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" loading={loading}>
-            <Statistic
-              title="إيرادات الشهر"
-              value={stats?.monthRevenue || 0}
-              formatter={(v) => formatCurrency(Number(v))}
-              prefix={<DollarOutlined />}
-              valueStyle={{ color: '#722ed1' }}
-            />
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              اليوم: {formatCurrency(stats?.todayRevenue || 0)}
-            </Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={24} sm={8}>
           <Card size="small" loading={loading}>
             <Statistic
               title="إجمالي العملاء"

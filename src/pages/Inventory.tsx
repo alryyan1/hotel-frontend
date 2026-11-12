@@ -1,40 +1,49 @@
 import { useEffect, useState } from 'react'
 import apiClient from '../api/axios'
 import { toast } from 'sonner'
-import { Plus, Edit, Trash2, Package, Search, Filter, AlertTriangle, ShoppingCart, ArrowDownCircle, History, Tags } from 'lucide-react'
 import {
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Typography,
-  Stack,
-  Grid,
-  CircularProgress,
-  Autocomplete,
-  IconButton,
-  Tooltip
-} from '@mui/material'
+  Plus,
+  Edit,
+  Trash2,
+  Package,
+  Search,
+  AlertTriangle,
+  ShoppingCart,
+  ArrowDownCircle,
+  History,
+  Tags,
+  X,
+  Loader2,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import CreateInventoryItemDialog from '@/components/dialogs/CreateInventoryItemDialog'
 import UpdateStockDialog from '@/components/dialogs/UpdateStockDialog'
 import CreateInventoryOrderDialog from '@/components/dialogs/CreateInventoryOrderDialog'
 import CreateInventoryReceiptDialog from '@/components/dialogs/CreateInventoryReceiptDialog'
 import InventoryHistoryDialog from '@/components/dialogs/InventoryHistoryDialog'
+
+const ALL = 'all'
+
+const formatQuantity = (value: any) =>
+  parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function Inventory() {
   // State
@@ -50,14 +59,15 @@ export default function Inventory() {
   const [editingItem, setEditingItem] = useState<any>(null)
   const [selectedItemForStock, setSelectedItemForStock] = useState<any>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterCategory, setFilterCategory] = useState<any>(null)
-  const [filterStockStatus, setFilterStockStatus] = useState('')
-  const [openFiltersDialog, setOpenFiltersDialog] = useState(false)
+  const [filterCategory, setFilterCategory] = useState(ALL)
+  const [filterStockStatus, setFilterStockStatus] = useState(ALL)
   const [categories, setCategories] = useState<any[]>([])
   const [openCategoriesDialog, setOpenCategoriesDialog] = useState(false)
   const [deletingCategoryId, setDeletingCategoryId] = useState<number | null>(null)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [addingCategory, setAddingCategory] = useState(false)
+  // Item or category waiting for delete confirmation
+  const [pendingDelete, setPendingDelete] = useState<{ type: 'item' | 'category'; id: number; name: string } | null>(null)
 
   // Effects
   useEffect(() => {
@@ -110,17 +120,14 @@ export default function Inventory() {
       )
     }
 
-    if (filterCategory) {
-      filtered = filtered.filter((item: any) => 
-        item.category_id?.toString() === filterCategory.id?.toString() || item.category?.id?.toString() === filterCategory.id?.toString()
+    if (filterCategory !== ALL) {
+      filtered = filtered.filter((item: any) =>
+        item.category_id?.toString() === filterCategory || item.category?.id?.toString() === filterCategory
       )
     }
 
-    if (filterStockStatus) {
-      filtered = filtered.filter((item: any) => {
-        const status = getStockStatus(item)
-        return status === filterStockStatus
-      })
+    if (filterStockStatus !== ALL) {
+      filtered = filtered.filter((item: any) => getStockStatus(item) === filterStockStatus)
     }
 
     filtered.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''))
@@ -138,27 +145,14 @@ export default function Inventory() {
     return 'in_stock'
   }
 
-  const getStockStatusLabel = (item: any): string => {
-    const status = getStockStatus(item)
-    switch (status) {
+  const StockBadge = ({ item }: { item: any }) => {
+    switch (getStockStatus(item)) {
       case 'out_of_stock':
-        return 'نفد المخزون'
+        return <Badge variant="destructive">نفد المخزون</Badge>
       case 'low_stock':
-        return 'مخزون منخفض'
+        return <Badge className="border-transparent bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">مخزون منخفض</Badge>
       default:
-        return 'متوفر'
-    }
-  }
-
-  const getStockStatusColor = (item: any): 'error' | 'warning' | 'success' => {
-    const status = getStockStatus(item)
-    switch (status) {
-      case 'out_of_stock':
-        return 'error'
-      case 'low_stock':
-        return 'warning'
-      default:
-        return 'success'
+        return <Badge variant="success">متوفر</Badge>
     }
   }
 
@@ -169,8 +163,6 @@ export default function Inventory() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا العنصر؟')) return
-
     try {
       setLoading(true)
       await apiClient.delete(`/inventory/${id}`)
@@ -198,10 +190,15 @@ export default function Inventory() {
     setEditingItem(null)
   }
 
+  const openCreateDialog = () => {
+    setEditingItem(null)
+    setOpenDialog(true)
+  }
+
   const clearFilters = () => {
     setSearchTerm('')
-    setFilterCategory(null)
-    setFilterStockStatus('')
+    setFilterCategory(ALL)
+    setFilterStockStatus(ALL)
   }
 
   const handleAddCategory = async () => {
@@ -220,12 +217,12 @@ export default function Inventory() {
   }
 
   const handleDeleteCategory = async (id: number) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذه الفئة؟')) return
     try {
       setDeletingCategoryId(id)
       await apiClient.delete(`/inventory-categories/${id}`)
       toast.success('تم حذف الفئة بنجاح')
       setCategories(prev => prev.filter(c => c.id !== id))
+      if (filterCategory === String(id)) setFilterCategory(ALL)
       fetchInventory()
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'فشل حذف الفئة')
@@ -234,378 +231,295 @@ export default function Inventory() {
     }
   }
 
-  const lowStockCount = inventory.filter((item: any) => 
+  const confirmDelete = () => {
+    if (!pendingDelete) return
+    if (pendingDelete.type === 'item') handleDelete(pendingDelete.id)
+    else handleDeleteCategory(pendingDelete.id)
+    setPendingDelete(null)
+  }
+
+  const lowStockCount = inventory.filter((item: any) =>
     getStockStatus(item) === 'low_stock' || getStockStatus(item) === 'out_of_stock'
   ).length
 
+  const hasFilters = !!searchTerm || filterCategory !== ALL || filterStockStatus !== ALL
+
+  const itemActions = (item: any) => [
+    { label: 'التاريخ', icon: History, onClick: () => handleOpenHistoryDialog(item) },
+    { label: 'المخزون', icon: Package, onClick: () => openStockUpdateDialog(item) },
+    { label: 'تعديل', icon: Edit, onClick: () => handleEdit(item) },
+  ]
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3 }, p: 3 }}>
+    <div className="space-y-4 p-4">
       {/* Header */}
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
-        <Box>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-bold">المخزون</h1>
           {lowStockCount > 0 && (
-            <Typography variant="body2" sx={{ color: 'warning.main', display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
-              <AlertTriangle size={16} />
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="size-4" />
               {lowStockCount} عنصر يحتاج إلى إعادة تموين
-            </Typography>
+            </p>
           )}
-        </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-          <Button 
-            onClick={() => {
-              setEditingItem(null)
-              setOpenDialog(true)
-            }} 
-            variant="contained"
-            startIcon={<Plus size={16} />}
-            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
-          >
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <Button className="col-span-2 gap-1.5 sm:col-span-1" onClick={openCreateDialog}>
+            <Plus className="size-4" />
             إضافة عنصر جديد
           </Button>
-          <Button 
-            onClick={() => setOpenOrderDialog(true)} 
-            variant="outlined"
-            startIcon={<ShoppingCart size={16} />}
-            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
-          >
+          <Button variant="outline" className="gap-1.5" onClick={() => setOpenOrderDialog(true)}>
+            <ShoppingCart className="size-4" />
             إنشاء طلب
           </Button>
-          <Button
-            onClick={() => setOpenReceiptDialog(true)}
-            variant="outlined"
-            startIcon={<ArrowDownCircle size={16} />}
-            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
-          >
+          <Button variant="outline" className="gap-1.5" onClick={() => setOpenReceiptDialog(true)}>
+            <ArrowDownCircle className="size-4" />
             إنشاء وارد
           </Button>
-          <Button
-            onClick={() => setOpenCategoriesDialog(true)}
-            variant="outlined"
-            startIcon={<Tags size={16} />}
-            sx={{ width: { xs: '100%', sm: 'auto' }, height: 44, boxShadow: 2 }}
-          >
+          <Button variant="outline" className="col-span-2 gap-1.5 sm:col-span-1" onClick={() => setOpenCategoriesDialog(true)}>
+            <Tags className="size-4" />
             الفئات
           </Button>
-        </Stack>
-      </Stack>
+        </div>
+      </div>
 
-      {/* Action Bar */}
-      <Stack spacing={2}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
-          <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-            <Typography component="span" sx={{ color: 'text.primary', fontWeight: 'bold' }}>{filteredInventory.length}</Typography> من أصل <Typography component="span" sx={{ color: 'text.primary', fontWeight: 'bold' }}>{inventory.length}</Typography> عنصر
-          </Typography>
-          <Button variant="outlined" onClick={() => setOpenFiltersDialog(true)} sx={{ height: 36, width: { xs: '100%', sm: 'auto' } }} startIcon={<Filter size={16} />}>
-            الفلاتر
-          </Button>
-        </Stack>
-        {/* Search Bar */}
-        <TextField
-          fullWidth
-          placeholder="ابحث في اسم العنصر، الفئة..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: <Box sx={{ display: 'flex', alignItems: 'center', mr: 1, color: 'text.secondary' }}><Search size={16} /></Box>,
-          }}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              borderRadius: '8px',
-              backgroundColor: 'background.paper',
-            }
-          }}
-        />
-      </Stack>
-
-      {/* Filters Dialog */}
-      <Dialog open={openFiltersDialog} onClose={() => setOpenFiltersDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>الفلاتر والبحث</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            <TextField
-              label="البحث"
+      {/* Filters */}
+      <Card className="py-3">
+        <CardContent className="flex flex-wrap items-center gap-2 px-3">
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="ps-9"
+              placeholder="ابحث في اسم العنصر، الفئة..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              fullWidth
-              placeholder="ابحث في الاسم، الكود، الوصف..."
-              InputProps={{
-                startAdornment: <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}><Search size={16} /></Box>
-              }}
             />
-            <Autocomplete
-              options={categories}
-              getOptionLabel={(option: any) => option.name || ''}
-              value={filterCategory}
-              onChange={(_, newValue) => setFilterCategory(newValue)}
-              renderInput={(params) => (
-                <TextField {...params} label="الفئة" placeholder="اختر الفئة" />
-              )}
-              fullWidth
-              isOptionEqualToValue={(option: any, value: any) => option.id === value?.id}
-              noOptionsText="لا توجد فئات"
-            />
-            <FormControl fullWidth>
-              <InputLabel>حالة المخزون</InputLabel>
-              <Select
-                value={filterStockStatus}
-                onChange={(e) => setFilterStockStatus(e.target.value)}
-                label="حالة المخزون"
-              >
-                <MenuItem value="">جميع الحالات</MenuItem>
-                <MenuItem value="in_stock">متوفر</MenuItem>
-                <MenuItem value="low_stock">مخزون منخفض</MenuItem>
-                <MenuItem value="out_of_stock">نفد المخزون</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outlined" onClick={clearFilters}>مسح الفلاتر</Button>
-          <Button variant="contained" onClick={() => setOpenFiltersDialog(false)}>تطبيق</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Inventory Table/Cards */}
-      <Card sx={{ boxShadow: 3 }}>
-        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-          {loading ? (
-            <Box sx={{ textAlign: 'center', py: 6 }}>
-              <Typography variant="h2" sx={{ mb: 2, opacity: 0.5 }}>📦</Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>جارٍ التحميل...</Typography>
-            </Box>
-          ) : filteredInventory.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 6 }}>
-              <Typography variant="h2" sx={{ mb: 2, opacity: 0.5 }}>📦</Typography>
-              <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>لا توجد عناصر</Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-                {searchTerm || filterCategory || filterStockStatus
-                  ? 'لم يتم العثور على عناصر تطابق معايير البحث'
-                  : 'ابدأ بإضافة عنصر جديد'}
-              </Typography>
-              {!(searchTerm || filterCategory || filterStockStatus) && (
-                <Button 
-                  onClick={() => {
-                    setEditingItem(null)
-                    setOpenDialog(true)
-                  }} 
-                  variant="contained"
-                  size="large"
-                  sx={{ mt: 2, boxShadow: 2 }}
-                >
-                  إضافة عنصر جديد
-                </Button>
-              )}
-            </Box>
-          ) : (
-            <>
-              {/* Mobile Card Layout */}
-              <Box sx={{ display: { xs: 'block', lg: 'none' }, '& > *': { mb: 2 } }}>
-                {filteredInventory.map((item: any) => (
-                  <Card key={item.id} sx={{ border: '1px solid', borderColor: 'divider', '&:hover': { boxShadow: 2 }, transition: 'box-shadow 0.2s' }}>
-                    <CardContent sx={{ p: 2 }}>
-                      <Stack spacing={2}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                          <Box sx={{ flex: 1 }}>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{item.name}</Typography>
-                              <Chip 
-                                label={getStockStatusLabel(item)} 
-                                color={getStockStatusColor(item)} 
-                                size="small"
-                              />
-                            </Stack>
-                            <Stack spacing={0.5}>
-                              <Stack direction="row" spacing={1} alignItems="center">
-                                <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>الكمية:</Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                                  {parseFloat(item.quantity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </Typography>
-                              </Stack>
-                              {item.category && (
-                                <Stack direction="row" spacing={1} alignItems="center">
-                                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>الفئة:</Typography>
-                                  <Typography variant="body2">{item.category.name || item.category}</Typography>
-                                </Stack>
-                              )}
-                            </Stack>
-                          </Box>
-                        </Stack>
-                        
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                          <Button 
-                            variant="outlined" 
-                            size="small" 
-                            onClick={() => handleOpenHistoryDialog(item)} 
-                            startIcon={<History size={16} />}
-                            sx={{ flex: 1, minWidth: '120px' }}
-                          >
-                            التاريخ
-                          </Button>
-                          <Button 
-                            variant="outlined" 
-                            size="small" 
-                            onClick={() => openStockUpdateDialog(item)} 
-                            startIcon={<Package size={16} />}
-                            sx={{ flex: 1, minWidth: '120px' }}
-                          >
-                            المخزون
-                          </Button>
-                          <Button 
-                            variant="outlined" 
-                            size="small" 
-                            onClick={() => handleEdit(item)} 
-                            startIcon={<Edit size={16} />}
-                            sx={{ flex: 1, minWidth: '120px' }}
-                          >
-                            تعديل
-                          </Button>
-                          <Button 
-                            variant="contained" 
-                            color="error"
-                            size="small" 
-                            onClick={() => handleDelete(item.id)} 
-                            startIcon={<Trash2 size={16} />}
-                            sx={{ flex: 1, minWidth: '120px' }}
-                          >
-                            حذف
-                          </Button>
-                        </Stack>
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Box>
-
-              {/* Desktop Table Layout */}
-              <Box sx={{ display: { xs: 'none', lg: 'block' }, overflowX: 'auto', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.hover' } }}>
-                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الاسم</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الفئة</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الكمية</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الحد الأدنى</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>الحالة</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold', textAlign: 'center' }}>إجراءات</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredInventory.map((item: any) => (
-                      <TableRow key={item.id} sx={{ '&:hover': { bgcolor: 'action.hover' }, transition: 'background-color 0.2s' }}>
-                        <TableCell sx={{ fontWeight: 500, textAlign: 'center' }}>{item.name || '-'}</TableCell>
-                        <TableCell sx={{ textAlign: 'center' }}>{item.category?.name || '-'}</TableCell>
-                        <TableCell sx={{ textAlign: 'center', fontWeight: 'bold' }}>
-                          {parseFloat(item.quantity || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell sx={{ textAlign: 'center' }}>
-                          {parseFloat(item.minimum_stock || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell sx={{ textAlign: 'center' }}>
-                          <Chip 
-                            label={getStockStatusLabel(item)} 
-                            color={getStockStatusColor(item)} 
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell sx={{ textAlign: 'center' }}>
-                          <Stack direction="row" spacing={1} justifyContent="center">
-                            <Tooltip title="التاريخ">
-                              <IconButton size="small" onClick={() => handleOpenHistoryDialog(item)} color="primary">
-                                <History size={16} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="المخزون">
-                              <IconButton size="small" onClick={() => openStockUpdateDialog(item)} color="primary">
-                                <Package size={16} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="تعديل">
-                              <IconButton size="small" onClick={() => handleEdit(item)} color="primary">
-                                <Edit size={16} />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="حذف">
-                              <IconButton size="small" onClick={() => handleDelete(item.id)} color="error">
-                                <Trash2 size={16} />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            </>
+          </div>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none">
+              <SelectValue placeholder="الفئة" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>كل الفئات</SelectItem>
+              {categories.map((cat: any) => (
+                <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterStockStatus} onValueChange={setFilterStockStatus}>
+            <SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none">
+              <SelectValue placeholder="حالة المخزون" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>جميع الحالات</SelectItem>
+              <SelectItem value="in_stock">متوفر</SelectItem>
+              <SelectItem value="low_stock">مخزون منخفض</SelectItem>
+              <SelectItem value="out_of_stock">نفد المخزون</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="gap-1" onClick={clearFilters}>
+              <X className="size-4" />
+              مسح الفلاتر
+            </Button>
           )}
+          <span className="text-sm text-muted-foreground sm:ms-auto">
+            <span className="font-bold text-foreground">{filteredInventory.length}</span> من أصل{' '}
+            <span className="font-bold text-foreground">{inventory.length}</span> عنصر
+          </span>
         </CardContent>
       </Card>
 
+      {/* Inventory list */}
+      {loading && inventory.length === 0 ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : filteredInventory.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
+            <Package className="size-12 text-muted-foreground/50" />
+            <div className="font-medium">لا توجد عناصر</div>
+            <div className="text-sm text-muted-foreground">
+              {hasFilters ? 'لم يتم العثور على عناصر تطابق معايير البحث' : 'ابدأ بإضافة عنصر جديد'}
+            </div>
+            {!hasFilters && (
+              <Button className="mt-2 gap-1.5" onClick={openCreateDialog}>
+                <Plus className="size-4" />
+                إضافة عنصر جديد
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Mobile: one card per item */}
+          <div className="space-y-2 lg:hidden">
+            {filteredInventory.map((item: any) => (
+              <Card key={item.id} className="gap-3 py-3">
+                <CardContent className="space-y-3 px-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate font-bold">{item.name}</div>
+                      <div className="text-xs text-muted-foreground">{item.category?.name || 'بدون فئة'}</div>
+                    </div>
+                    <StockBadge item={item} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-muted/50 p-2">
+                      <div className="text-xs text-muted-foreground">الكمية</div>
+                      <div className="font-bold tabular-nums">{formatQuantity(item.quantity)}</div>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-2">
+                      <div className="text-xs text-muted-foreground">الحد الأدنى</div>
+                      <div className="font-bold tabular-nums">{formatQuantity(item.minimum_stock)}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {itemActions(item).map(({ label, icon: Icon, onClick }) => (
+                      <Button key={label} variant="outline" size="sm" className="gap-1 px-1" onClick={onClick}>
+                        <Icon className="size-4" />
+                        {label}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 px-1 text-destructive hover:text-destructive"
+                      onClick={() => setPendingDelete({ type: 'item', id: item.id, name: item.name })}
+                    >
+                      <Trash2 className="size-4" />
+                      حذف
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-x-auto rounded-xl border bg-card lg:block">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="text-right">الاسم</TableHead>
+                  <TableHead className="text-right">الفئة</TableHead>
+                  <TableHead className="text-center">الكمية</TableHead>
+                  <TableHead className="text-center">الحد الأدنى</TableHead>
+                  <TableHead className="text-center">الحالة</TableHead>
+                  <TableHead className="w-44 text-center">إجراءات</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInventory.map((item: any) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-semibold">{item.name || '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">{item.category?.name || '-'}</TableCell>
+                    <TableCell className="text-center font-bold tabular-nums">{formatQuantity(item.quantity)}</TableCell>
+                    <TableCell className="text-center tabular-nums text-muted-foreground">{formatQuantity(item.minimum_stock)}</TableCell>
+                    <TableCell className="text-center"><StockBadge item={item} /></TableCell>
+                    <TableCell>
+                      <div className="flex justify-center gap-1">
+                        {itemActions(item).map(({ label, icon: Icon, onClick }) => (
+                          <Tooltip key={label}>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" onClick={onClick} aria-label={label}>
+                                <Icon className="size-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{label}</TooltipContent>
+                          </Tooltip>
+                        ))}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setPendingDelete({ type: 'item', id: item.id, name: item.name })}
+                              aria-label="حذف"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>حذف</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
+      )}
+
       {/* Categories Dialog */}
-      <Dialog open={openCategoriesDialog} onClose={() => setOpenCategoriesDialog(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>إدارة الفئات</DialogTitle>
-        <DialogContent>
-          <Stack direction="row" spacing={1} sx={{ mb: 2, mt: 1 }}>
-            <TextField
-              size="small"
-              fullWidth
+      <Dialog open={openCategoriesDialog} onOpenChange={setOpenCategoriesDialog}>
+        <DialogContent dir="rtl" className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>إدارة الفئات</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Input
               placeholder="اسم الفئة الجديدة"
               value={newCategoryName}
               onChange={(e) => setNewCategoryName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory() }}
               disabled={addingCategory}
             />
-            <Button
-              variant="contained"
-              onClick={handleAddCategory}
-              disabled={!newCategoryName.trim() || addingCategory}
-              sx={{ minWidth: 80 }}
-              startIcon={addingCategory ? <CircularProgress size={14} color="inherit" /> : <Plus size={16} />}
-            >
+            <Button className="gap-1.5" onClick={handleAddCategory} disabled={!newCategoryName.trim() || addingCategory}>
+              {addingCategory ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
               إضافة
             </Button>
-          </Stack>
+          </div>
 
           {categories.length === 0 ? (
-            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 3 }}>
-              لا توجد فئات
-            </Typography>
+            <div className="py-6 text-center text-sm text-muted-foreground">لا توجد فئات</div>
           ) : (
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>الفئة</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', textAlign: 'center', width: 60 }}>حذف</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {categories.map((cat: any) => (
-                  <TableRow key={cat.id}>
-                    <TableCell>{cat.name}</TableCell>
-                    <TableCell sx={{ textAlign: 'center' }}>
-                      <Tooltip title="حذف الفئة">
-                        <span>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            disabled={deletingCategoryId === cat.id}
-                            onClick={() => handleDeleteCategory(cat.id)}
-                          >
-                            {deletingCategoryId === cat.id ? <CircularProgress size={16} /> : <Trash2 size={16} />}
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ul className="max-h-72 divide-y overflow-y-auto rounded-lg border">
+              {categories.map((cat: any) => (
+                <li key={cat.id} className="flex items-center justify-between px-3 py-1.5">
+                  <span>{cat.name}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    disabled={deletingCategoryId === cat.id}
+                    onClick={() => setPendingDelete({ type: 'category', id: cat.id, name: cat.name })}
+                    aria-label="حذف الفئة"
+                  >
+                    {deletingCategoryId === cat.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                  </Button>
+                </li>
+              ))}
+            </ul>
           )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenCategoriesDialog(false)}>إغلاق</Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenCategoriesDialog(false)}>إغلاق</Button>
-        </DialogActions>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingDelete?.type === 'category' ? 'حذف الفئة' : 'حذف العنصر'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف {pendingDelete?.type === 'category' ? 'الفئة' : 'العنصر'} "{pendingDelete?.name}"؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>تراجع</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmDelete}>
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Dialogs */}
       <CreateInventoryItemDialog
@@ -659,6 +573,6 @@ export default function Inventory() {
         }}
         inventoryItem={selectedItemForHistory}
       />
-    </Box>
+    </div>
   )
 }

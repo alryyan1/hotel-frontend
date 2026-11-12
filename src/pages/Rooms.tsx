@@ -7,14 +7,21 @@ import { toast } from 'sonner'
 import CreateRoomDialog from '@/components/dialogs/CreateRoomDialog'
 import {
   formatNumber,
-  getStatusColor,
-  getStatusName,
   hasActiveReservations,
   getDaysRemaining,
   filterRooms as filterRoomsUtil,
 } from '@/utils/roomHelpers'
 
 const { Text, Title } = Typography
+
+type RoomState = 'occupied' | 'available' | 'maintenance' | 'cleaning'
+
+const ROOM_STATES: { value: RoomState; label: string }[] = [
+  { value: 'available', label: 'متاحة' },
+  { value: 'occupied', label: 'محجوزة' },
+  { value: 'maintenance', label: 'تحت الصيانة' },
+  { value: 'cleaning', label: 'تحت النظافة' },
+]
 
 export default function Rooms() {
   const [rooms, setRooms] = useState<any[]>([])
@@ -65,17 +72,29 @@ export default function Rooms() {
     }
   }
 
+  // Same rules as the reservation-search cards: a reservation covering today
+  // wins, then the manual maintenance/cleaning status, otherwise available.
+  const getRoomState = (room: any): RoomState => {
+    if (hasActiveReservations(room.id, reservations)) return 'occupied'
+    if (room.status?.code === 'maintenance') return 'maintenance'
+    if (room.status?.code === 'cleaning') return 'cleaning'
+    return 'available'
+  }
+
   const filteredRooms = useMemo(
-    () => filterRoomsUtil(rooms, searchTerm, filterFloor, filterType, filterStatus),
-    [rooms, searchTerm, filterFloor, filterType, filterStatus]
+    () =>
+      filterRoomsUtil(rooms, searchTerm, filterFloor, filterType, '').filter(
+        (room: any) => !filterStatus || getRoomState(room) === filterStatus
+      ),
+    [rooms, reservations, searchTerm, filterFloor, filterType, filterStatus]
   )
 
   const statusCounts = useMemo(
-    () => roomStatuses.map((status: any) => ({
-      status,
-      count: rooms.filter((r: any) => (r.status?.id ?? r.room_status_id) === status.id).length,
+    () => ROOM_STATES.map((state) => ({
+      ...state,
+      count: rooms.filter((r: any) => getRoomState(r) === state.value).length,
     })),
-    [rooms, roomStatuses]
+    [rooms, reservations]
   )
 
   const clearFilters = () => {
@@ -147,7 +166,7 @@ export default function Rooms() {
       responsive: ['lg'],
       render: (_, room) => (
         <Space orientation="vertical" size={0}>
-          <Text strong style={{ color: '#389e0d' }}>{formatNumber(room.price_sdg)} ج.س</Text>
+          <Text strong>{formatNumber(room.price_sdg)} ج.س</Text>
          
         </Space>
       ),
@@ -157,9 +176,7 @@ export default function Rooms() {
       key: 'status',
       align: 'center',
       render: (_, room) => (
-        <Tag color={getStatusColor(room.status)} variant="solid">
-          {getStatusName(room.status)}
-        </Tag>
+        <Text strong>{ROOM_STATES.find((s) => s.value === getRoomState(room))?.label}</Text>
       ),
     },
     {
@@ -167,7 +184,7 @@ export default function Rooms() {
       key: 'price_usd',
       align: 'center',
       render: (_, room) => (
-        <Text style={{ color: '#95de64' }}>
+        <Text strong>
           {room.price_usd != null ? `$${formatNumber(room.price_usd)}` : '-'}
         </Text>
       ),
@@ -200,13 +217,13 @@ export default function Rooms() {
             />
           </Card>
         </Col>
-        {statusCounts.map(({ status, count }) => (
-          <Col key={status.id} xs={12} sm={8} md={4}>
+        {statusCounts.map(({ value, label, count }) => (
+          <Col key={value} xs={12} sm={8} md={4}>
             <Card size="small" styles={{ body: { padding: 8 } }}>
               <Statistic
-                title={<Text style={{ fontSize: 12 }}>{status.name}</Text>}
+                title={<Text style={{ fontSize: 12 }}>{label}</Text>}
                 value={count}
-                valueStyle={{ color: getStatusColor(status), fontSize: 18 }}
+                valueStyle={{ fontSize: 18 }}
               />
             </Card>
           </Col>
@@ -261,7 +278,7 @@ export default function Rooms() {
             onChange={(v) => setFilterStatus(v ?? '')}
             style={{ width: 130 }}
             allowClear
-            options={roomStatuses.map((s: any) => ({ value: String(s.id), label: s.name }))}
+            options={ROOM_STATES}
           />
           {(searchTerm || filterFloor || filterType || filterStatus) && (
             <Button size="small" onClick={clearFilters}>مسح الفلاتر</Button>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
@@ -22,6 +22,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [form, setForm] = useState<LoginFormData>({ username: '', password: '' })
   const [errors, setErrors] = useState<Partial<LoginFormData>>({})
+  const [branchName, setBranchName] = useState('')
+
+  // Public (no auth) endpoint, so staff can see which branch they're signing in to
+  useEffect(() => {
+    apiClient
+      .get('/public/settings/hotel')
+      .then(({ data }) => setBranchName(data?.branch_name || ''))
+      .catch(() => {})
+  }, [])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -68,6 +77,11 @@ export default function LoginPage() {
       <Card className="w-full max-w-[400px]">
         <CardContent className="px-6 flex flex-col items-center gap-2 pb-2">
           <img src="/logo.png" alt="" className="w-28 h-28 object-contain" />
+          {branchName && (
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+              {branchName}
+            </span>
+          )}
           <div className="text-center">
             <h1 className="text-lg font-bold">تسجيل الدخول</h1>
             <p className="text-sm text-muted-foreground">

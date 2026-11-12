@@ -1,19 +1,19 @@
 import { useState, useEffect } from 'react'
 import apiClient from '../../api/axios'
 import { toast } from 'sonner'
+import { Loader2, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  Dialog as MuiDialog,
-  DialogTitle as MuiDialogTitle,
-  DialogContent as MuiDialogContent,
-  DialogActions as MuiDialogActions,
-  Button as MuiButton,
-  TextField,
-  Typography,
-  Box,
-  Autocomplete
-} from '@mui/material'
-import { Plus } from 'lucide-react'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface CreateInventoryItemDialogProps {
   open: boolean
@@ -24,6 +24,8 @@ interface CreateInventoryItemDialogProps {
   loading: boolean
   setLoading: (loading: boolean) => void
 }
+
+const NO_CATEGORY = 'none'
 
 export default function CreateInventoryItemDialog({
   open,
@@ -125,168 +127,132 @@ export default function CreateInventoryItemDialog({
   }
 
   return (
-    <MuiDialog 
-      open={open} 
-      onClose={handleClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: {
-          borderRadius: '12px',
-          maxHeight: '90vh'
-        }
-      }}
-    >
-      <MuiDialogTitle sx={{ fontWeight: 'bold', fontSize: '1.25rem' }}>
-        {editingItem ? 'تعديل عنصر' : 'إضافة عنصر جديد'}
-      </MuiDialogTitle>
-      <MuiDialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {editingItem ? 'تحديث بيانات العنصر' : 'إنشاء عنصر جديد في المخزون'}
-        </Typography>
-        <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-          <TextField
-            label="اسم العنصر *"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-            fullWidth
-            placeholder="اسم العنصر"
-            autoComplete="off"
-          />
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: showQuickAddCategory ? 2 : 0 }}>
-              <Autocomplete
-                fullWidth
-                options={categories}
-                getOptionLabel={(option) => option.name || ''}
-                value={categories.find((cat: any) => cat.id?.toString() === form.category_id) || null}
-                onChange={(event, newValue) => {
-                  setForm({ ...form, category_id: newValue ? newValue.id.toString() : '' })
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="الفئة"
-                    placeholder="اختر الفئة أو أضف فئة جديدة"
-                  />
-                )}
-                noOptionsText="لا توجد فئات"
-              />
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
+      <DialogContent dir="rtl" className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{editingItem ? 'تعديل عنصر' : 'إضافة عنصر جديد'}</DialogTitle>
+          <DialogDescription>
+            {editingItem ? 'تحديث بيانات العنصر' : 'إنشاء عنصر جديد في المخزون'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="item-name">اسم العنصر *</Label>
+            <Input
+              id="item-name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              placeholder="اسم العنصر"
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>الفئة</Label>
+            <div className="flex gap-2">
+              <Select
+                value={form.category_id || NO_CATEGORY}
+                onValueChange={(v) => setForm({ ...form, category_id: v === NO_CATEGORY ? '' : v })}
+              >
+                <SelectTrigger className="min-w-0 flex-1">
+                  <SelectValue placeholder="اختر الفئة" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_CATEGORY}>بدون فئة</SelectItem>
+                  {categories.map((cat: any) => (
+                    <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {!showQuickAddCategory && (
-                <MuiButton
-                  type="button"
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setShowQuickAddCategory(true)}
-                  sx={{ minWidth: 'auto', px: 2, whiteSpace: 'nowrap', height: '56px' }}
-                >
-                  <Plus className="size-4 mr-1" />
+                <Button type="button" variant="outline" className="gap-1" onClick={() => setShowQuickAddCategory(true)}>
+                  <Plus className="size-4" />
                   إضافة فئة
-                </MuiButton>
+                </Button>
               )}
-            </Box>
+            </div>
             {showQuickAddCategory && (
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <TextField
-                  label="اسم الفئة الجديدة"
+              <div className="flex gap-2 pt-1">
+                <Input
                   value={quickCategoryName}
                   onChange={(e) => setQuickCategoryName(e.target.value)}
-                  fullWidth
-                  size="small"
-                  placeholder="أدخل اسم الفئة"
+                  placeholder="اسم الفئة الجديدة"
                   autoComplete="off"
-                  onKeyPress={(e) => {
+                  autoFocus
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      e.preventDefault()
                       handleQuickAddCategory()
                     }
                   }}
                 />
-                <MuiButton
+                <Button
                   type="button"
-                  variant="contained"
-                  size="small"
                   onClick={handleQuickAddCategory}
                   disabled={addingQuickCategory || !quickCategoryName.trim()}
-                  sx={{ minWidth: 'auto', px: 2, whiteSpace: 'nowrap', height: '40px' }}
                 >
-                  {addingQuickCategory ? '...' : 'إضافة'}
-                </MuiButton>
-                <MuiButton
+                  {addingQuickCategory && <Loader2 className="size-4 animate-spin" />}
+                  إضافة
+                </Button>
+                <Button
                   type="button"
-                  variant="outlined"
-                  size="small"
+                  variant="ghost"
+                  size="icon"
+                  aria-label="إلغاء"
                   onClick={() => {
                     setShowQuickAddCategory(false)
                     setQuickCategoryName('')
                   }}
-                  sx={{ minWidth: 'auto', px: 2, whiteSpace: 'nowrap', height: '40px' }}
                 >
-                  إلغاء
-                </MuiButton>
-              </Box>
+                  <X className="size-4" />
+                </Button>
+              </div>
             )}
-          </Box>
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
-            <TextField
-              label="الكمية الحالية *"
-              type="number"
-              inputProps={{ step: "0.01", min: "0" }}
-              value={form.quantity}
-              onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-              required
-              fullWidth
-              placeholder="0"
-              onFocus={(e) => {
-                e.target.select()
-              }}
-            />
-            <TextField
-              label="الحد الأدنى للمخزون"
-              type="number"
-              inputProps={{ step: "0.01", min: "0" }}
-              value={form.minimum_stock}
-              onChange={(e) => setForm({ ...form, minimum_stock: e.target.value })}
-              fullWidth
-              placeholder="0"
-              onFocus={(e) => {
-                e.target.select()
-              }}
-            />
-          </Box>
-          <MuiDialogActions sx={{ padding: '16px 0', gap: '8px', flexDirection: { xs: 'column-reverse', sm: 'row' } }}>
-            <MuiButton
-              type="button"
-              variant="outlined"
-              onClick={handleClose}
-              fullWidth
-              sx={{ 
-                order: { xs: 2, sm: 1 },
-                height: '48px',
-                fontSize: '1rem',
-                fontWeight: 500
-              }}
-            >
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="item-quantity">الكمية الحالية *</Label>
+              <Input
+                id="item-quantity"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.quantity}
+                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+                required
+                placeholder="0"
+                onFocus={(e) => e.target.select()}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="item-minimum">الحد الأدنى للمخزون</Label>
+              <Input
+                id="item-minimum"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.minimum_stock}
+                onChange={(e) => setForm({ ...form, minimum_stock: e.target.value })}
+                placeholder="0"
+                onFocus={(e) => e.target.select()}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={handleClose}>
               إلغاء
-            </MuiButton>
-            <MuiButton
-              type="submit"
-              variant="contained"
-              disabled={loading}
-              fullWidth
-              sx={{ 
-                order: { xs: 1, sm: 2 },
-                height: '48px',
-                fontSize: '1rem',
-                fontWeight: 500
-              }}
-            >
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="size-4 animate-spin" />}
               {loading ? 'جارٍ الحفظ...' : (editingItem ? 'تحديث' : 'إنشاء')}
-            </MuiButton>
-          </MuiDialogActions>
-        </Box>
-      </MuiDialogContent>
-    </MuiDialog>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
-

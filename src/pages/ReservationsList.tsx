@@ -1,49 +1,49 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
-import apiClient from '../api/axios'
 import {
-  Table,
-  Card,
-  Button,
-  Tag,
-  Modal,
-  Select,
-  DatePicker,
-  Input,
-  Space,
-  Typography,
-  Alert,
-  Tooltip,
-  Spin,
-  Timeline,
-  Badge,
-  Popconfirm,
-  InputNumber,
-  Flex,
-  Divider,
-} from 'antd'
-import type { ColumnsType } from 'antd/es/table'
-import {
+  CalendarOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined,
   ClockCircleOutlined,
+  CloseCircleOutlined,
+  CloseOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  FilePdfOutlined,
   LoginOutlined,
   LogoutOutlined,
-  CalendarOutlined,
-  DownloadOutlined,
-  SwapOutlined,
-  WarningOutlined,
-  WhatsAppOutlined,
-  FilePdfOutlined,
   MessageOutlined,
   MoreOutlined,
   PlusOutlined,
-  DeleteOutlined,
-  CloseOutlined,
+  SwapOutlined,
+  WarningOutlined,
+  WhatsAppOutlined,
 } from '@ant-design/icons'
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  DatePicker,
+  Divider,
+  Flex,
+  Input,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Select,
+  Space,
+  Spin,
+  Table,
+  Tag,
+  Timeline,
+  Tooltip,
+  Typography,
+} from 'antd'
+import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import apiClient from '../api/axios'
+import { useAuth } from '../contexts/AuthContext'
 
 const { Text, Title } = Typography
 const { TextArea } = Input
@@ -196,6 +196,10 @@ export default function ReservationsList() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyLogs, setHistoryLogs] = useState<ReservationStatusLog[]>([])
   const [historyReservationId, setHistoryReservationId] = useState<number | null>(null)
+  const [allowCheckinOtherDay, setAllowCheckinOtherDay] = useState(false)
+  // Mirrors historyReservationId so handlers can check it after an await without a stale closure.
+  const historyReservationIdRef = useRef<number | null>(null)
+  historyReservationIdRef.current = historyDialogOpen ? historyReservationId : null
   const [statusFilter, setStatusFilter] = useState<string>('all')
   // Single date filter based on reservation creation date (created_at)
   const [createdAtFilter, setCreatedAtFilter] = useState<string>('')
@@ -266,6 +270,11 @@ export default function ReservationsList() {
     }
     fetchCustomers()
     fetchServicesList()
+    // Hotel setting: whether check-in is allowed on a day other than the arrival date
+    apiClient
+      .get('/settings/hotel')
+      .then(({ data }) => setAllowCheckinOtherDay(!!data?.allow_checkin_outside_arrival_date))
+      .catch(() => {})
   }, [])
 
   // Fetch immediately for status, date, customer filters, and pagination
@@ -435,6 +444,7 @@ export default function ReservationsList() {
           return r
         }))
       }
+      refreshHistory(reservation.id)
 
       setOpenConfirm(false)
       setSelectedReservation(null)
@@ -472,6 +482,7 @@ export default function ReservationsList() {
         r.id === reservation.id ? { ...r, ...data, rooms: data.rooms || r.rooms } : r
       )))
       setNotifyResults(data.notifications ?? null)
+      refreshHistory(reservation.id)
       toast.success('تم تأكيد الحجز بنجاح')
     } catch {
       // apiClient's interceptor already toasts the error
@@ -501,6 +512,17 @@ export default function ReservationsList() {
       toast.error(err?.response?.data?.message || 'فشل في جلب سجل الحالات')
     } finally {
       setHistoryLoading(false)
+    }
+  }
+
+  // Re-fetches the status log in place after an action, if it's open for that reservation.
+  const refreshHistory = async (reservationId: number) => {
+    if (historyReservationIdRef.current !== reservationId) return
+    try {
+      const { data } = await apiClient.get(`/reservations/${reservationId}/status-logs`)
+      if (historyReservationIdRef.current === reservationId) setHistoryLogs(data)
+    } catch {
+      // apiClient's interceptor already toasts the error
     }
   }
 
@@ -839,16 +861,16 @@ export default function ReservationsList() {
 
 
     if (reservation.status === 'confirmed') {
-      const isCheckInDay = dayjs().isSame(dayjs(reservation.check_in_date), 'day')
+      const canCheckIn = allowCheckinOtherDay || dayjs().isSame(dayjs(reservation.check_in_date), 'day')
       buttons.push(
-        <Tooltip key="checkin" title={isCheckInDay ? '' : 'تسجيل الوصول متاح فقط في تاريخ الوصول'}>
+        <Tooltip key="checkin" title={canCheckIn ? '' : 'تسجيل الوصول متاح فقط في تاريخ الوصول'}>
           <Button
             block
             color="green"
             variant="outlined"
             icon={<LoginOutlined />}
             onClick={run(() => handleAction(reservation, 'checkin', true))}
-            disabled={isLoading || !isCheckInDay}
+            disabled={isLoading || !canCheckIn}
             loading={isLoading && currentAction === 'checkin'}
           >
             تسجيل الوصول
@@ -949,6 +971,7 @@ export default function ReservationsList() {
       })
 
       setReservations(prev => prev.map(r => r.id === data.id ? data : r))
+      refreshHistory(data.id)
       setOpenExtend(false)
       setSelectedReservation(null)
       toast.success('تم تمديد الحجز بنجاح')
@@ -1170,6 +1193,7 @@ export default function ReservationsList() {
         new_room_id: parseInt(transferNewRoomId),
       })
       setReservations(prev => prev.map(r => r.id === data.id ? data : r))
+      refreshHistory(data.id)
       setOpenEditReservation(false)
       setSelectedReservation(null)
       toast.success('تم تحويل الغرفة بنجاح')
@@ -1223,7 +1247,7 @@ export default function ReservationsList() {
       title: 'رقم ',
       key: 'id',
       align: 'center',
-      width: 90,
+      width: 70,
       render: (_, r) => <Text strong>#{r.id}</Text>,
     },
     {
@@ -1235,7 +1259,7 @@ export default function ReservationsList() {
           <Text
             strong
             underline
-            style={{ display: 'block', color: '#1677ff', cursor: 'pointer' }}
+            style={{ display: 'block', cursor: 'pointer' }}
             onClick={(e) => {
               e.stopPropagation()
               navigate(`/customers/${r.customer_id}/ledger`)
@@ -1256,6 +1280,7 @@ export default function ReservationsList() {
       title: 'الغرف',
       key: 'rooms',
       align: 'center',
+      width: 120,
       render: (_, r) => (
         <Space wrap size={4} style={{ justifyContent: 'center' }}>
           {r.rooms?.length
@@ -1278,11 +1303,12 @@ export default function ReservationsList() {
       title: 'الخدمات',
       key: 'services',
       align: 'center',
+      width: 80,
       render: (_, r) => {
         const count = r.services_count ?? 0
         return (
           <Tooltip title="عرض طلبات الخدمات">
-            <Button disabled={count === 0} type="text" onClick={() => openServicesList(r)} aria-label="طلبات الخدمات">
+            <Button  type="text" onClick={() => openServicesList(r)} aria-label="طلبات الخدمات">
               <Badge count={count} showZero color={count > 0 ? 'cyan' : 'var(--muted-foreground)'} />
             </Button>
           </Tooltip>
@@ -1293,6 +1319,7 @@ export default function ReservationsList() {
       title: 'تاريخ الوصول',
       key: 'check_in',
       align: 'center',
+      width: 110,
       render: (_, r) => (
         <div>
           <Text strong style={{ display: 'block' }}>{formatDate(r.check_in_date)}</Text>
@@ -1304,6 +1331,7 @@ export default function ReservationsList() {
       title: 'تاريخ المغادرة',
       key: 'check_out',
       align: 'center',
+      width: 120,
       render: (_, r) => (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
@@ -1322,18 +1350,21 @@ export default function ReservationsList() {
       title: 'الحالة',
       key: 'status',
       align: 'center',
+      width: 100,
       render: (_, r) => getStatusTag(r.status),
     },
     {
       title: 'سجل بواسطه',
       key: 'created_by',
       align: 'center',
+      width: 110,
       render: (_, r) => <Text type="secondary">{r.creation_log?.user?.name ?? 'النظام'}</Text>,
     },
     {
       title: 'الإجراءات',
       key: 'actions',
       align: 'center',
+      width: 70,
       render: (_, r) => (
         <Button
           type="text"
@@ -1354,7 +1385,7 @@ export default function ReservationsList() {
     && getTransferPeriod(selectedReservation, transferOldRoomId).nights === 0
 
   return (
-    <div className="flex flex-col gap-1 p-1">
+    <div className="flex flex-col gap-1 p-1 md:px-6">
       {/* Search and Filter Card */}
       <Card>
         <div className="flex flex-col md:flex-row gap-1 flex-wrap">

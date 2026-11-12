@@ -1,5 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { CalendarClock, Eye, FileText, Loader2, RefreshCw, UserRound } from "lucide-react";
+import {
+  CalendarClock,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  DollarSign,
+  Eye,
+  FileText,
+  Loader2,
+  Lock,
+  RefreshCw,
+  Unlock,
+  UserRound,
+  Wallet,
+  X,
+} from "lucide-react";
 import apiClient from "../api/axios";
 import { useAuth } from "../contexts/AuthContext";
 import { useShift } from "../contexts/ShiftContext";
@@ -15,42 +30,89 @@ import {
   type ShiftUserBreakdown,
 } from "../api/shifts";
 import ShiftMethodTable from "@/components/shifts/ShiftMethodTable";
-import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 interface Paginated<T> {
   data: T[];
   current_page: number;
   last_page: number;
+  total?: number;
 }
 
-const ALL = "all";
+type StatusFilter = "all" | "open" | "closed";
+
+const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
+  { value: "all", label: "الكل" },
+  { value: "open", label: "مفتوحة" },
+  { value: "closed", label: "مغلقة" },
+];
+
+// "3س 20د" between two timestamps; an open shift runs until now.
+const formatDuration = (from: string | null | undefined, to?: string | null) => {
+  if (!from) return "-";
+  const minutes = Math.max(0, Math.floor((new Date(to ?? Date.now()).getTime() - new Date(from).getTime()) / 60000));
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  if (days > 0) return `${days}ي ${hours}س`;
+  if (hours > 0) return `${hours}س ${mins}د`;
+  return `${mins}د`;
+};
 
 function StatusBadge({ status }: { status: Shift["status"] }) {
-  return (
-    <Badge variant={status === "open" ? "default" : "secondary"}>
-      {status === "open" ? "مفتوحة" : "مغلقة"}
+  return status === "open" ? (
+    <Badge variant="success" className="gap-1.5">
+      <span className="size-1.5 animate-pulse rounded-full bg-current" />
+      مفتوحة
     </Badge>
+  ) : (
+    <Badge variant="secondary">مغلقة</Badge>
+  );
+}
+
+function StatTile({
+  icon: Icon,
+  label,
+  value,
+  unit,
+}: {
+  icon: typeof Wallet;
+  label: string;
+  value: string;
+  unit?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border bg-card p-3">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-5" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="truncate text-lg font-bold tabular-nums">
+          {value} {unit && <span className="text-sm font-medium text-muted-foreground">{unit}</span>}
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function Shifts() {
   const { user } = useAuth();
-  const { current } = useShift();
+  const { current, requestOpen, requestClose } = useShift();
   const isAdmin = !!user?.is_admin;
 
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
-  const [status, setStatus] = useState(ALL);
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(false);
@@ -61,7 +123,7 @@ export default function Shifts() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page) });
-      if (status !== ALL) params.append("status", status);
+      if (status !== "all") params.append("status", status);
       if (dateFrom) params.append("date_from", dateFrom);
       if (dateTo) params.append("date_to", dateTo);
       const { data } = await apiClient.get<Paginated<Shift>>(`/shifts?${params.toString()}`);
@@ -91,8 +153,16 @@ export default function Shifts() {
     }
   };
 
+  const hasFilters = status !== "all" || !!dateFrom || !!dateTo;
+  const clearFilters = () => {
+    setStatus("all");
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  };
+
   const actions = (shift: Shift) => (
-    <div className="flex gap-1">
+    <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
       <Button
         variant="ghost"
         size="icon"
@@ -108,28 +178,82 @@ export default function Shifts() {
     </div>
   );
 
+  const openShift = current?.shift;
+
   return (
     <div dir="rtl" className="space-y-4 p-4">
-      <PageHeader
-        title="الورديات"
-        description={isAdmin ? "إيرادات كل وردية بالجنيه والدولار وتفصيلها حسب المستخدم" : "إيراداتك بالجنيه والدولار في كل وردية"}
-        icon="🕐"
-      />
+      {/* Current shift */}
+      {current && (
+        openShift ? (
+          <Card className="gap-0 overflow-hidden border-primary/30 py-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-primary/5 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <Clock className="size-5 text-primary" />
+                <span className="text-base font-bold">الوردية الحالية #{openShift.id}</span>
+                <StatusBadge status="open" />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => showDetails(openShift.id)}
+                  disabled={detailsLoadingId === openShift.id}
+                >
+                  {detailsLoadingId === openShift.id ? <Loader2 className="size-4 animate-spin" /> : <Eye className="size-4" />}
+                  التفاصيل
+                </Button>
+                {current.can_close && (
+                  <Button size="sm" className="gap-1.5" onClick={requestClose}>
+                    <Lock className="size-4" />
+                    إغلاق الوردية
+                  </Button>
+                )}
+              </div>
+            </div>
+            <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatTile icon={UserRound} label="فتحها" value={openShift.opener?.name ?? "-"} />
+              <StatTile icon={CalendarClock} label="منذ" value={formatDuration(openShift.opened_at)} unit={formatDateTime(openShift.opened_at)} />
+              <StatTile icon={Wallet} label="إيرادات الجنيه" value={formatMoney(netOf(current.summary))} unit="ج.س" />
+              <StatTile icon={DollarSign} label="إيرادات الدولار" value={formatMoney(usdOf(current.summary))} unit="$" />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="py-0">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div>
+                <div className="font-semibold">لا توجد وردية مفتوحة</div>
+                <div className="text-sm text-muted-foreground">يجب فتح وردية لتسجيل العمليات المالية</div>
+              </div>
+              <Button className="gap-1.5" onClick={requestOpen}>
+                <Unlock className="size-4" />
+                فتح وردية
+              </Button>
+            </CardContent>
+          </Card>
+        )
+      )}
 
+      {/* Filters */}
       <Card className="py-3">
         <CardContent className="flex flex-wrap items-end gap-3 px-3">
-          <div className="w-full space-y-1 sm:w-36">
-            <Label htmlFor="shift-status">الحالة</Label>
-            <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
-              <SelectTrigger id="shift-status" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>الكل</SelectItem>
-                <SelectItem value="open">مفتوحة</SelectItem>
-                <SelectItem value="closed">مغلقة</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="w-full space-y-1 sm:w-auto">
+            <Label>الحالة</Label>
+            <div className="flex rounded-lg border bg-muted/40 p-0.5">
+              {STATUS_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => { setStatus(f.value); setPage(1); }}
+                  className={cn(
+                    "flex-1 rounded-md px-4 py-1.5 text-sm transition-colors sm:flex-none",
+                    status === f.value ? "bg-background font-semibold shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="min-w-0 flex-1 space-y-1 sm:w-40 sm:flex-none">
             <Label htmlFor="shift-from">من</Label>
@@ -139,9 +263,17 @@ export default function Shifts() {
             <Label htmlFor="shift-to">إلى</Label>
             <Input id="shift-to" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
           </div>
-          <Button variant="outline" size="icon" className="sm:ms-auto" onClick={load} disabled={loading} aria-label="تحديث">
-            <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
+          <div className="flex gap-2 sm:ms-auto">
+            {hasFilters && (
+              <Button variant="ghost" size="sm" className="gap-1" onClick={clearFilters}>
+                <X className="size-4" />
+                مسح الفلاتر
+              </Button>
+            )}
+            <Button variant="outline" size="icon" onClick={load} disabled={loading} aria-label="تحديث">
+              <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -155,75 +287,92 @@ export default function Shifts() {
 
       {!loading && shifts.length === 0 && (
         <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">لا توجد ورديات</CardContent>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            {hasFilters ? "لا توجد ورديات مطابقة للفلاتر" : "لا توجد ورديات"}
+          </CardContent>
         </Card>
       )}
 
       {/* Mobile: one card per shift */}
       <div className="space-y-2 md:hidden">
         {shifts.map((shift) => (
-            <Card key={shift.id} className="gap-2 py-3">
-              <CardContent className="space-y-2 px-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-semibold">
-                    #{shift.id} <StatusBadge status={shift.status} />
-                  </div>
-                  {actions(shift)}
+          <Card key={shift.id} className="cursor-pointer gap-2 py-3" onClick={() => showDetails(shift.id)}>
+            <CardContent className="space-y-3 px-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold">
+                  وردية #{shift.id} <StatusBadge status={shift.status} />
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {formatDateTime(shift.opened_at)} — {shift.opener?.name}
+                {actions(shift)}
+              </div>
+              <div className="space-y-0.5 text-xs text-muted-foreground">
+                <div>الفتح: {formatDateTime(shift.opened_at)} — {shift.opener?.name}</div>
+                {shift.closed_at && <div>الإغلاق: {formatDateTime(shift.closed_at)} — {shift.closer?.name}</div>}
+                <div>المدة: {formatDuration(shift.opened_at, shift.closed_at)}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg bg-muted/50 p-2">
+                  <div className="text-xs text-muted-foreground">الجنيه</div>
+                  <div className="font-bold tabular-nums">{formatMoney(netOf(shift.figures))} ج.س</div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <div className="text-xs text-muted-foreground">إيرادات الجنيه</div>
-                    <div className="font-semibold tabular-nums">{formatMoney(netOf(shift.figures))} ج.س</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-muted-foreground">إيرادات الدولار</div>
-                    <div className="font-semibold tabular-nums">{formatMoney(usdOf(shift.figures))} $</div>
-                  </div>
+                <div className="rounded-lg bg-muted/50 p-2">
+                  <div className="text-xs text-muted-foreground">الدولار</div>
+                  <div className="font-bold tabular-nums">{formatMoney(usdOf(shift.figures))} $</div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
       {/* Desktop: table */}
       {shifts.length > 0 && (
-        <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
+        <div className="hidden overflow-x-auto rounded-xl border bg-card md:block">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
-                <TableHead className="text-right">#</TableHead>
-                <TableHead className="text-right">الحالة</TableHead>
+                <TableHead className="text-right">الوردية</TableHead>
                 <TableHead className="text-right">الفتح</TableHead>
                 <TableHead className="text-right">الإغلاق</TableHead>
-                <TableHead className="text-right">الحجوزات</TableHead>
-                <TableHead className="text-right">الخدمات</TableHead>
-                <TableHead className="text-right">إيرادات الجنيه</TableHead>
-                <TableHead className="text-right">إيرادات الدولار</TableHead>
-                <TableHead />
+                <TableHead className="text-right">المدة</TableHead>
+                <TableHead className="text-right">الجنيه (ج.س)</TableHead>
+                <TableHead className="text-right">الدولار ($)</TableHead>
+                <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {shifts.map((shift) => (
-                  <TableRow key={shift.id}>
-                    <TableCell className="font-medium">{shift.id}</TableCell>
-                    <TableCell><StatusBadge status={shift.status} /></TableCell>
-                    <TableCell>
-                      <div>{formatDateTime(shift.opened_at)}</div>
-                      <div className="text-xs text-muted-foreground">{shift.opener?.name}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div>{formatDateTime(shift.closed_at)}</div>
-                      <div className="text-xs text-muted-foreground">{shift.closer?.name}</div>
-                    </TableCell>
-                    <TableCell className="tabular-nums">{formatMoney(shift.figures?.total_revenue)}</TableCell>
-                    <TableCell className="tabular-nums">{formatMoney(shift.figures?.total_service_revenue)}</TableCell>
-                    <TableCell className="font-semibold tabular-nums">{formatMoney(netOf(shift.figures))}</TableCell>
-                    <TableCell className="font-semibold tabular-nums">{formatMoney(usdOf(shift.figures))} $</TableCell>
-                    <TableCell>{actions(shift)}</TableCell>
-                  </TableRow>
+                <TableRow key={shift.id} className="cursor-pointer" onClick={() => showDetails(shift.id)}>
+                  <TableCell>
+                    <div className="flex items-center gap-2 font-semibold">
+                      #{shift.id} <StatusBadge status={shift.status} />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="tabular-nums">{formatDateTime(shift.opened_at)}</div>
+                    <div className="text-xs text-muted-foreground">{shift.opener?.name}</div>
+                  </TableCell>
+                  <TableCell>
+                    {shift.closed_at ? (
+                      <>
+                        <div className="tabular-nums">{formatDateTime(shift.closed_at)}</div>
+                        <div className="text-xs text-muted-foreground">{shift.closer?.name}</div>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">
+                    {formatDuration(shift.opened_at, shift.closed_at)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-bold tabular-nums">{formatMoney(netOf(shift.figures))}</div>
+                    <div className="text-xs tabular-nums text-muted-foreground">
+                      حجوزات {formatMoney(shift.figures?.total_revenue)} · خدمات {formatMoney(shift.figures?.total_service_revenue)}
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-bold tabular-nums">{formatMoney(usdOf(shift.figures))}</TableCell>
+                  <TableCell>{actions(shift)}</TableCell>
+                </TableRow>
               ))}
             </TableBody>
           </Table>
@@ -232,12 +381,14 @@ export default function Shifts() {
 
       {lastPage > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+          <Button variant="outline" size="sm" className="gap-1" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>
+            <ChevronRight className="size-4" />
             السابق
           </Button>
-          <span className="text-sm">{page} / {lastPage}</span>
-          <Button variant="outline" size="sm" disabled={page >= lastPage} onClick={() => setPage(page + 1)}>
+          <span className="min-w-16 text-center text-sm tabular-nums">{page} / {lastPage}</span>
+          <Button variant="outline" size="sm" className="gap-1" disabled={page >= lastPage || loading} onClick={() => setPage(page + 1)}>
             التالي
+            <ChevronLeft className="size-4" />
           </Button>
         </div>
       )}
@@ -334,7 +485,7 @@ function ShiftDetailsDialog({
               </DialogTitle>
             </DialogHeader>
 
-            <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <div className="grid gap-2 text-sm sm:grid-cols-3">
               <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-2">
                 <CalendarClock className="size-4 shrink-0 text-muted-foreground" />
                 <span className="text-muted-foreground">الفتح:</span>
@@ -345,8 +496,13 @@ function ShiftDetailsDialog({
                 <span className="text-muted-foreground">الإغلاق:</span>
                 {formatDateTime(shift.closed_at)} {shift.closer?.name && `— ${shift.closer.name}`}
               </div>
+              <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-2">
+                <Clock className="size-4 shrink-0 text-muted-foreground" />
+                <span className="text-muted-foreground">المدة:</span>
+                {formatDuration(shift.opened_at, shift.closed_at)}
+              </div>
               {shift.notes && (
-                <div className="rounded-lg bg-muted/50 p-2 sm:col-span-2">
+                <div className="rounded-lg bg-muted/50 p-2 sm:col-span-3">
                   <span className="text-muted-foreground">ملاحظات:</span> {shift.notes}
                 </div>
               )}

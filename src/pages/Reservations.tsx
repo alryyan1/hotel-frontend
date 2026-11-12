@@ -15,7 +15,7 @@ import {
   Avatar,
   Flex,
   Segmented,
-  Popconfirm,
+  Dropdown,
   theme,
 } from "antd";
 import {
@@ -25,6 +25,11 @@ import {
   ClockCircleOutlined,
   ExclamationCircleFilled,
   CloseCircleOutlined,
+  CalendarOutlined,
+  MoreOutlined,
+  ToolOutlined,
+  ClearOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { toast } from "sonner";
@@ -52,6 +57,8 @@ const daysLeftLabel = (checkOutDate: string): string => {
   return `متبقي ${days} يوم للمغادرة`;
 };
 
+const formatDate = (date: string): string => dayjs(date).format("YYYY/MM/DD");
+
 // Room prices come back from the API as decimal strings in some cases, so
 // coerce before formatting rather than calling toLocaleString on a string.
 const formatCurrency = (value: number | string | null | undefined): string => {
@@ -65,6 +72,12 @@ const isMaintenance = (room: any): boolean => room.status?.code === "maintenance
 const isCleaning = (room: any): boolean => room.status?.code === "cleaning";
 const isOutOfService = (room: any): boolean => isMaintenance(room) || isCleaning(room);
 
+// A future booking that overlaps the searched dates makes the room unavailable
+// for that period, even if nobody is in it today.
+const hasRangeConflict = (room: any): boolean =>
+  (room.upcoming_reservations ?? []).some((r: any) => r.overlaps);
+const isBooked = (room: any): boolean => !!room.is_occupied || hasRangeConflict(room);
+
 export default function Reservations() {
   const { token } = theme.useToken();
   const navigate = useNavigate();
@@ -75,7 +88,7 @@ export default function Reservations() {
     getDateNDaysFromToday(2)
   );
   const [roomTypeId, setRoomTypeId] = useState<string>("all");
-  const [occupancyFilter, setOccupancyFilter] = useState<"all" | "occupied" | "available" | "maintenance">("all");
+  const [occupancyFilter, setOccupancyFilter] = useState<"all" | "occupied" | "available" | "maintenance" | "cleaning">("all");
   const [allRooms, setAllRooms] = useState<any[]>([]);
   const [roomTypes, setRoomTypes] = useState<any[]>([]);
   const [roomStatuses, setRoomStatuses] = useState<any[]>([]);
@@ -122,23 +135,27 @@ export default function Reservations() {
     }
   };
 
-  // Resets a maintenance/cleaning room back to "available" without reopening
-  // the full room-edit form (Rooms page), so staff can do it inline here.
-  const clearRoomStatus = async (room: any) => {
-    const availableStatus = roomStatuses.find((s: any) => s.code === "empty");
-    if (!availableStatus) {
-      toast.error('تعذر العثور على حالة "متاح"');
+  // Changes a room's manual status (maintenance/cleaning/available) without
+  // reopening the full room-edit form (Rooms page), so staff can do it inline here.
+  const updateRoomStatus = async (room: any, code: string, successMessage: string) => {
+    const targetStatus = roomStatuses.find((s: any) => s.code === code);
+    if (!targetStatus) {
+      toast.error("تعذر العثور على حالة الغرفة المطلوبة");
       return;
     }
     try {
       setClearingStatusRoomId(room.id);
       const { data } = await apiClient.patch(`/rooms/${room.id}/status`, {
-        room_status_id: availableStatus.id,
+        room_status_id: targetStatus.id,
       });
       setAllRooms((prev) =>
         prev.map((r) => (r.id === room.id ? { ...r, status: data.status } : r))
       );
-      toast.success(`تم إلغاء حالة الغرفة ${room.number}`);
+      // A room just put under maintenance/cleaning can no longer be booked.
+      if (code !== "empty") {
+        setSelectedRooms((prev) => prev.filter((r) => r.id !== room.id));
+      }
+      toast.success(successMessage);
     } catch (e) {
       // Error toast already shown by the apiClient response interceptor
     } finally {
@@ -213,23 +230,34 @@ export default function Reservations() {
   );
 
   const occupiedCount = useMemo(
-    () => sortedRooms.filter((r) => r.is_occupied).length,
+    () => sortedRooms.filter(isBooked).length,
     [sortedRooms]
   );
   const maintenanceCount = useMemo(
-    () => sortedRooms.filter(isOutOfService).length,
+    () => sortedRooms.filter(isMaintenance).length,
     [sortedRooms]
   );
-  const availableCount = sortedRooms.filter((r) => !r.is_occupied && !isOutOfService(r)).length;
+  const cleaningCount = useMemo(
+    () => sortedRooms.filter(isCleaning).length,
+    [sortedRooms]
+  );
+  const availableCount = sortedRooms.filter((r) => !isBooked(r) && !isOutOfService(r)).length;
 
   const filteredRooms = useMemo(() => {
-    if (occupancyFilter === "occupied") return sortedRooms.filter((r) => r.is_occupied);
-    if (occupancyFilter === "available") return sortedRooms.filter((r) => !r.is_occupied && !isOutOfService(r));
-    if (occupancyFilter === "maintenance") return sortedRooms.filter(isOutOfService);
+    if (occupancyFilter === "occupied") return sortedRooms.filter(isBooked);
+    if (occupancyFilter === "available") return sortedRooms.filter((r) => !isBooked(r) && !isOutOfService(r));
+    if (occupancyFilter === "maintenance") return sortedRooms.filter(isMaintenance);
+    if (occupancyFilter === "cleaning") return sortedRooms.filter(isCleaning);
     return sortedRooms;
   }, [sortedRooms, occupancyFilter]);
 
   const toggleRoom = (room: any) => {
+    if (isOutOfService(room)) {
+      toast.error(
+        `لا يمكن حجز الغرفة ${room.number} لأنها تحت ${isMaintenance(room) ? "الصيانة" : "النظافة"}`
+      );
+      return;
+    }
     setSelectedRooms((prev) => {
       const exists = prev.find((r) => r.id === room.id);
       if (exists) return prev.filter((r) => r.id !== room.id);
@@ -356,6 +384,7 @@ export default function Reservations() {
                   { label: `متاحة (${availableCount})`, value: "available" },
                   { label: `محجوزة (${occupiedCount})`, value: "occupied" },
                   { label: `تحت الصيانة (${maintenanceCount})`, value: "maintenance" },
+                  { label: `تحت النظافة (${cleaningCount})`, value: "cleaning" },
                 ]}
               />
               <Button
@@ -454,6 +483,8 @@ export default function Reservations() {
                   const isOccupied = !!room.is_occupied;
                   const roomOutOfService = isOutOfService(room);
                   const currentReservation = room.current_reservation;
+                  const upcomingReservations: any[] = room.upcoming_reservations ?? [];
+                  const hasConflict = upcomingReservations.some((r) => r.overlaps);
                   const overdue =
                     isOccupied && currentReservation
                       ? daysUntil(currentReservation.check_out_date) < 0
@@ -466,6 +497,7 @@ export default function Reservations() {
                         size="small"
                         onClick={() => {
                           toggleRoom(room);
+                          if (roomOutOfService) return;
                           if (isOccupied && currentReservation) {
                             toast.warning(
                               `هذه الغرفة محجوزة حتى ${new Date(
@@ -473,6 +505,16 @@ export default function Reservations() {
                               ).toLocaleDateString("en-US")}`,
                               { duration: 4000 }
                             );
+                          }
+                          if (!isSelected) {
+                            upcomingReservations
+                              .filter((r) => r.overlaps)
+                              .forEach((r) => {
+                                toast.warning(
+                                  `الغرفة ${room.number} عليها حجز من ${formatDate(r.check_in_date)} إلى ${formatDate(r.check_out_date)}`,
+                                  { duration: 5000 }
+                                );
+                              });
                           }
                         }}
                         style={{
@@ -512,6 +554,7 @@ export default function Reservations() {
                               </div>
                             </div>
                           </Space>
+                          <Flex align="center" gap={4}>
                           {isSelected ? (
                             <CheckCircleFilled style={{ color: token.colorPrimary, fontSize: 20 }} />
                           ) : isOccupied ? (
@@ -522,28 +565,78 @@ export default function Reservations() {
                             <div onClick={(e) => e.stopPropagation()}>
                               <Space size={4}>
                                 <Tag color={room.status?.color} variant="solid" style={{ margin: 0 }}>
-                                  {room.status?.name}
+                                  {isMaintenance(room) ? "تحت الصيانة" : "تحت النظافة"}
                                 </Tag>
-                                <Popconfirm
-                                  title="إلغاء الحالة"
-                                  description={`إعادة الغرفة ${room.number} إلى متاحة؟`}
-                                  okText="إلغاء الحالة"
-                                  cancelText="تراجع"
-                                  onConfirm={() => clearRoomStatus(room)}
-                                >
-                                  <Button
-                                    size="small"
-                                    type="text"
-                                    danger
-                                    icon={<CloseCircleOutlined />}
-                                    loading={clearingStatusRoomId === room.id}
-                                  />
-                                </Popconfirm>
+                                <Button
+                                  size="small"
+                                  type="text"
+                                  danger
+                                  icon={<CloseCircleOutlined />}
+                                  loading={clearingStatusRoomId === room.id}
+                                  aria-label="إرجاع إلى متاحة"
+                                  onClick={() =>
+                                    updateRoomStatus(room, "empty", `تم إلغاء حالة الغرفة ${room.number}`)
+                                  }
+                                />
                               </Space>
                             </div>
+                          ) : hasConflict ? (
+                            <Tag color="red" icon={<ClockCircleOutlined />} style={{ margin: 0 }}>
+                              محجوزة
+                            </Tag>
                           ) : (
                             <Tag color="green" style={{ margin: 0 }}>متاحة</Tag>
                           )}
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Dropdown
+                              trigger={["click"]}
+                              placement="bottomLeft"
+                              menu={{
+                                items: [
+                                  {
+                                    key: "maintenance",
+                                    icon: <ToolOutlined />,
+                                    label: "تحت الصيانة",
+                                    disabled: isMaintenance(room),
+                                  },
+                                  {
+                                    key: "cleaning",
+                                    icon: <ClearOutlined />,
+                                    label: "تحت النظافة",
+                                    disabled: isCleaning(room),
+                                  },
+                                  ...(roomOutOfService
+                                    ? [
+                                        { type: "divider" as const },
+                                        {
+                                          key: "empty",
+                                          icon: <CheckCircleOutlined />,
+                                          label: "إرجاع إلى متاحة",
+                                        },
+                                      ]
+                                    : []),
+                                ],
+                                onClick: ({ key, domEvent }) => {
+                                  domEvent.stopPropagation();
+                                  const messages: Record<string, string> = {
+                                    maintenance: `تم تحويل الغرفة ${room.number} إلى الصيانة`,
+                                    cleaning: `تم تحويل الغرفة ${room.number} إلى النظافة`,
+                                    empty: `تم إلغاء حالة الغرفة ${room.number}`,
+                                  };
+                                  updateRoomStatus(room, key, messages[key] ?? "تم تحديث حالة الغرفة");
+                                },
+                              }}
+                            >
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<MoreOutlined />}
+                                loading={clearingStatusRoomId === room.id}
+                                aria-label="خيارات الغرفة"
+                              />
+                            </Dropdown>
+                          </div>
+                          </Flex>
                         </Flex>
 
                         <div
@@ -552,7 +645,7 @@ export default function Reservations() {
                             border: "1px solid #f0f0f0",
                             borderRadius: 8,
                             padding: "8px 12px",
-                            marginBottom: isOccupied ? 12 : 0,
+                            marginBottom: isOccupied || upcomingReservations.length > 0 ? 12 : 0,
                           }}
                         >
                           <Flex justify="space-between" align="baseline">
@@ -610,6 +703,37 @@ export default function Reservations() {
                             <Tag color={overdue ? "red" : "gold"} style={{ marginTop: 2 }}>
                               {daysLeftLabel(currentReservation.check_out_date)}
                             </Tag>
+                          </div>
+                        )}
+
+                        {upcomingReservations.length > 0 && (
+                          <div
+                            style={{
+                              background: hasConflict ? "#fff1f0" : "#e6f4ff",
+                              border: `1px solid ${hasConflict ? "#ffa39e" : "#91caff"}`,
+                              borderRadius: 8,
+                              padding: 10,
+                              marginTop: isOccupied && currentReservation ? 8 : 0,
+                            }}
+                          >
+                            <Flex align="center" gap={6} style={{ marginBottom: 4 }}>
+                              <CalendarOutlined style={{ color: hasConflict ? "#cf1322" : "#0958d9", fontSize: 13 }} />
+                              <Text strong style={{ fontSize: 12, color: hasConflict ? "#a8071a" : "#003eb3" }}>
+                                {hasConflict ? "محجوزة في هذه الفترة" : "حجوزات قادمة"}
+                              </Text>
+                            </Flex>
+                            <Flex vertical gap={4}>
+                              {upcomingReservations.map((r) => (
+                                <Text key={r.id} style={{ fontSize: 12 }}>
+                                  من {formatDate(r.check_in_date)} إلى {formatDate(r.check_out_date)} — {r.customer_name}
+                                  {r.overlaps && (
+                                    <Tag color="red" style={{ marginInlineStart: 6, marginInlineEnd: 0 }}>
+                                      محجوزة
+                                    </Tag>
+                                  )}
+                                </Text>
+                              ))}
+                            </Flex>
                           </div>
                         )}
 
